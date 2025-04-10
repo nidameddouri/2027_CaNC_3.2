@@ -1,0 +1,33 @@
+<project name="CNC" default="package" basedir=".">
+  <property name="src" value="src/main/java"/>
+  <property name="build" value="build"/>
+  <property name="dist" value="dist"/>
+  
+  <target name="init">
+    <mkdir dir="${build}"/>
+    <mkdir dir="${dist}"/>
+  </target>
+  
+  <target name="compile" depends="init">
+      <javac srcdir="${src}" destdir="${build}" includeantruntime="false" debug="on" source="17" target="17">
+      <classpath>
+        <pathelement location="/Applications/weka-3.9.6.app/Contents/app/weka.jar"/>
+      </classpath>
+    </javac>
+  </target>
+  
+  <target name="package" depends="compile">
+    <jar destfile="${dist}/CNC.jar" basedir="${build}"/>
+    <copy todir="${dist}">
+      <fileset dir="${basedir}">
+        <include name="Description.props"/>
+      </fileset>
+    </copy>
+    <zip destfile="${dist}/CNC.zip" basedir="${dist}"/>
+  </target>
+
+  <target name="clean">
+    <delete dir="${build}"/>
+    <delete dir="${dist}"/>
+  </target>
+</project>
