@@ -21,12 +21,63 @@ public class Classify_Instance
 	 * @param regle: Une regle de classification dont les attributs sont nominaux
 	 * @return L'indice de la classe attribuee pour l'instance inst
 	 */
-	public double classify_Instance_nom(Instance inst, Classification_Rule regle) throws Exception	{	
-		
-		double ind_class = (double) -1.0;
-		if (TestClassifInstance_nom(inst,regle)) //Si la regle classifie cette instance nominale
-				ind_class = regle.Rule_indClassMaj;		
-		return ind_class ;		
+	public double classify_Instance_nom(Instance inst, Classification_Rule regle) throws Exception {
+	    // Préparation de l'affichage
+	    StringBuilder debugMsg = new StringBuilder();
+	    debugMsg.append("\n=== Classification Debug ===\n");
+	    debugMsg.append("Testing instance: ").append(instanceToString(inst)).append("\n");
+	    debugMsg.append("Against rule: ").append(regle.affich_nom_rule(true)).append("\n");
+	    debugMsg.append("--- Condition Verification ---\n");
+
+	    double ind_class = -1.0;
+	    boolean allConditionsMet = true;
+
+	    // Vérification détaillée de chaque condition
+	    for (int i = 0; i < inst.numAttributes() - 1; i++) {
+	        String ruleValue = regle.Rule_Attr.get(i);
+	        String instanceValue = inst.isMissing(i) ? "?" : inst.stringValue(i);
+	        boolean conditionMet = ruleValue.equals("-null-") || ruleValue.equals(instanceValue);
+
+	        debugMsg.append(String.format("Attr%d: Rule='%s' vs Instance='%s' -> %s%n",
+	            i,
+	            ruleValue,
+	            instanceValue,
+	            conditionMet ? "MATCH" : "MISMATCH"
+	        ));
+
+	        if (!ruleValue.equals("-null-") && !ruleValue.equals(instanceValue)) {
+	            allConditionsMet = false;
+	        }
+	    }
+
+	    // Résultat final
+	    if (allConditionsMet) {
+	        ind_class = regle.Rule_indClassMaj;
+	        debugMsg.append(String.format("\nRESULT: Rule applied → Class '%s' (Index: %d)%n",
+	            inst.classAttribute().value((int)ind_class),
+	            (int)ind_class
+	        ));
+	    } else {
+	        debugMsg.append("\nRESULT: Rule not applied (conditions not met)\n");
+	    }
+
+	  
+	        System.out.println(debugMsg.toString());
+	    
+
+	    return ind_class;
+	}
+
+	// Méthode utilitaire pour formater l'instance
+	private String instanceToString(Instance inst) {
+	    StringBuilder sb = new StringBuilder();
+	    for (int i = 0; i < inst.numAttributes(); i++) {
+	        if (i > 0) sb.append(", ");
+	        sb.append(inst.attribute(i).name())
+	          .append("=")
+	          .append(inst.isMissing(i) ? "?" : inst.stringValue(i));
+	    }
+	    return sb.toString();
 	}
 	
 	/**
@@ -383,18 +434,30 @@ public class Classify_Instance
 	 * @param inst: l'istance a classifier
 	 * @return True ou False
 	 */
-	public boolean TestClassifInstance_nom(Instance inst , Classification_Rule regle) throws Exception 
-	{
-		String nl = "-null-";
-		for (int i=0 ; i<inst.numAttributes()-1 ; i++)
-			{
-			if(regle.Rule_Attr.get(i).compareTo(nl)!=0 
-			&& regle.Rule_Attr.get(i).compareTo(inst.stringValue(i))!=0)
-			{
-				return false;
-			}
-		}
-		return true;
-	}
+	public boolean TestClassifInstance_nom(Instance inst, Classification_Rule regle) throws Exception {
+	    // Vérification de cohérence
+	    if (regle.Rule_Attr.size() != inst.numAttributes() - 1) {
+	        throw new Exception("Rule/Instance attribute count mismatch");
+	    }
 
-}
+	    for (int i = 0; i < inst.numAttributes() - 1; i++) {
+	        String ruleValue = regle.Rule_Attr.get(i);
+	        
+	        if (ruleValue.equals("-null-")) {
+	            continue;
+	        }
+
+	        // Gestion des valeurs manquantes dans l'instance
+	        if (inst.isMissing(i)) {
+	            return false;
+	        }
+
+	        // Comparaison robuste
+	        String instanceValue = inst.stringValue(i);
+	        if (!ruleValue.equals(instanceValue)) {
+	            return false;
+	        }
+	    }
+	    return true;
+	}
+	}

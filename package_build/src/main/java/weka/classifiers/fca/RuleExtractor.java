@@ -1,15 +1,21 @@
 package weka.classifiers.fca;
 
 import java.text.SimpleDateFormat;
+import weka.classifiers.fca.FormalConcept;
+import weka.classifiers.fca.Classification_Rule;
 import java.util.ArrayList;
 import java.util.Date;
 
 import weka.attributeSelection.*;
+import weka.classifiers.rules.CNC;
 import weka.core.Attribute;
-import weka.core.Instances;
+import weka.core.Instances; 
 import weka.core.Utils;
+import weka.core.converters.ConverterUtils.DataSource;
 
 import java.util.Enumeration;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Classe principale qui gère l'extraction des règles avec support pour les connexions de Galois
@@ -28,15 +34,20 @@ public class RuleExtractor {
     public static final int POLICY_FIRST = 1;
     public static final int POLICY_LAST = 2;
     
-    // Concept Learning Strategy
-    public static final int CONCEPT_LEARNING_PERTINENT = 1;
-    public static final int CONCEPT_LEARNING_ALL = 2;
     
-    // Constantes pour les stratégies Galois
-    public static final int GALOIS_PERTINENT_MAJORITY = 1;  // Pertinent attribute & Majority Value
-    public static final int GALOIS_PERTINENT_ALL = 2;       // Pertinent Attribute & All Values
-    public static final int GALOIS_ALL_MAJORITY = 3;        // All Attributes & Majority Value
-    public static final int GALOIS_ALL_ALL = 4;             // All Attributes & All Values
+    
+    public static final int CONCEPT_LEARNING_ALL_ALL = 1;
+    public static final int CONCEPT_LEARNING_ALL_MAJORITY = 2;
+    public static final int CONCEPT_LEARNING_PERTINENT_ALL = 3;
+    public static final int CONCEPT_LEARNING_PERTINENT_MAJORITY = 4;
+    public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL = 5;
+    public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY = 6;
+    public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_ALL = 7;
+    public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY = 8;
+    
+  
+    
+    
     
     public RuleExtractor(boolean debug, int featureMeasureMethod, int policySelection, int conceptLearningStrategy) {
         this.m_Debug = debug;
@@ -61,8 +72,15 @@ public class RuleExtractor {
      */
     private String conceptLearningToString(int cl) {
         switch (cl) {
-            case 1: return "Closure of pertinent attribute";
-            case 2: return "Closure of ALL attributes";
+            case 1: return "Closure of All Attributes & All Values";
+            case 2: return "Closure of ALL attributes & Majority Value";
+            case 3: return "Closure of the Pertinent Attribute & All Values";
+            case 4: return "Closure of the Pertinent attribute & Majority Value";
+            case 5: return "Closure of attributes above THRESHOLD & All Values";
+            case 6: return "Closure of attributes above THRESHOLD & Majority Value";
+            case 7: return "Closure of attributes under THRESHOLD & All Values";
+            case 8: return "Closure of attributes under THRESHOLD & Majority Value";
+           
             default: return "Unknown";
         }
     }
@@ -99,156 +117,55 @@ public class RuleExtractor {
     public void printGaloisClosure(ArrayList<Integer> objects, ArrayList<String> attributes, Instances inst) {
         if (!m_Debug) return;
 
-        System.out.println("\n--- CALCUL DE LA FERMETURE DE GALOIS ---\n");
+        System.out.println("\n--- CALCUL DE LA FERMETURE DE GALOIS ---");
         
-        StringBuilder sb = new StringBuilder();
-        
-        // Afficher l'ensemble des objets (instances)
-        sb.append("Fermeture de Galois : ({");
-        boolean first = true;
+        // 1. Affichage des objets (instances)
+        System.out.println("\nObjets (instances) :");
         for (Integer objIdx : objects) {
-            if (!first) {
-                sb.append(", ");
-            }
-            sb.append("o").append(objIdx + 1);
-            first = false;
-        }
-        sb.append("}, {");
-        
-        // Afficher l'ensemble des attributs non-null
-        first = true;
-        for (int i = 0; i < attributes.size(); i++) {
-            if (!attributes.get(i).equals("-null-")) {
-                if (!first) {
-                    sb.append(", ");
-                }
-                sb.append(inst.attribute(i).name()).append("=").append(attributes.get(i));
-                first = false;
-            }
-        }
-        sb.append("})");
-        
-        System.out.println(sb.toString());
-        
-        // Afficher les instances correspondantes
-        System.out.println("\nInstances correspondantes :");
-        for (Integer objIdx : objects) {
-            StringBuilder instanceStr = new StringBuilder();
+            System.out.print("  o" + (objIdx + 1) + " : ");
             for (int i = 0; i < inst.numAttributes(); i++) {
-                if (i > 0) instanceStr.append(", ");
-                instanceStr.append(inst.attribute(i).name()).append("=")
-                           .append(inst.instance(objIdx).stringValue(i));
+                if (i > 0) System.out.print(", ");
+                System.out.print(inst.attribute(i).name() + "=" + 
+                               inst.instance(objIdx).stringValue(i));
             }
-            System.out.println("  o" + (objIdx + 1) + " : " + instanceStr);
+            System.out.println();
         }
         
-        // Afficher les attributs correspondants
-        System.out.println("\nAttributs correspondants :");
+        // 2. Affichage des attributs de la fermeture
+        System.out.println("\nAttributs de la fermeture :");
+        boolean hasAttributes = false;
         for (int i = 0; i < attributes.size(); i++) {
             if (!attributes.get(i).equals("-null-")) {
-                if (!first) {
-                    sb.append(", ");
-                }
-                sb.append(inst.attribute(i).name()).append("=").append(attributes.get(i));
-                first = false;
+                System.out.println("  - " + inst.attribute(i).name() + " = " + attributes.get(i));
+                hasAttributes = true;
             }
         }
+        
+        if (!hasAttributes) {
+            System.out.println("  (Aucun attribut spécifique)");
+        }
+        
+        // 3. Résumé formel
+        System.out.println("\nConcepts :");
+        System.out.print("Fermeture({o" + (objects.get(0) + 1));
+        for (int i = 1; i < objects.size(); i++) {
+            System.out.print(", o" + (objects.get(i) + 1));
+        }
+        System.out.print("}) = {");
+        
+        boolean firstAttr = true;
+        for (int i = 0; i < attributes.size(); i++) {
+            if (!attributes.get(i).equals("-null-")) {
+                if (!firstAttr) System.out.print(", ");
+                System.out.print(inst.attribute(i).name() + "=" + attributes.get(i));
+                firstAttr = false;
+            }
+        }
+        System.out.println("}");
     }
-    
-    /**
-     * Méthode pour extraire des règles basées sur un critère
-     */
-    public ArrayList<Classification_Rule> ExtraireRegleFermNom(Instances inst, int critere) throws Exception {        
-        if(m_Debug) {
-            printDebugHeader(inst);
-        }
-        
-        // Initialiser les évaluateurs d'attributs selon la méthode choisie
-        initializeFeatureEvaluator(inst);
-        
-        // Calculer les mesures pour chaque attribut
-        double[] featureMeasures = computeFeatureMeasures(inst);
-        
-        if(m_Debug) {
-            printFeatureMeasures(inst, featureMeasures);
-        }
-        
-        // Sélectionner l'attribut avec la meilleure mesure
-        Attribute bestAttribute = selectBestAttribute(inst, featureMeasures);
-        
-        if(m_Debug) {
-            printSelectedAttribute(inst, bestAttribute);
-        }
-        
-        // Appliquer la stratégie d'extraction de règles selon le critère spécifié
-        RuleExtractionStrategy strategy;
-        switch(critere) {
-            case 1:
-                strategy = new BestValueClosureStrategy(m_Debug, Policy_Selection, this);
-                break;
-            case 2:
-                strategy = new ClassBasedClosureStrategy(m_Debug, Policy_Selection, this);
-                break;
-            case 3:
-                strategy = new AllValuesClosureStrategy(m_Debug, Policy_Selection, this);
-                break;
-            default:
-                throw new IllegalArgumentException("Critère d'extraction de règles non reconnu: " + critere);
-        }
-        
-        return strategy.extractRules(inst, bestAttribute, featureMeasures);
-    }
+   
 
 
-
-    /**
-     * Nouvelle méthode pour extraire des règles basées sur une connexion de Galois
-     */
-    public ArrayList<Classification_Rule> ExtraireRegleGalois(Instances inst, int conceptStrategy, int galoisStrategy) throws Exception {
-        
-        if(m_Debug) {
-            printDebugHeader(inst);
-            System.out.println("\nExtracting rules with Concept Strategy: " + conceptStrategy + 
-                               " and Galois Strategy: " + galoisStrategy);
-        }
-        
-        // Initialiser les évaluateurs d'attributs
-        initializeFeatureEvaluator(inst);
-        
-        // Appliquer la stratégie Galois pour extraire les règles
-        switch (galoisStrategy) {
-            case GALOIS_PERTINENT_MAJORITY:
-                if (conceptStrategy == CONCEPT_LEARNING_PERTINENT) {
-                    return ExtraireRegleFermNom(inst, 1);
-                } else {
-                    return extractAllAttributesMajorityValue(inst);
-                }
-                
-            case GALOIS_PERTINENT_ALL:
-                if (conceptStrategy == CONCEPT_LEARNING_PERTINENT) {
-                    return ExtraireRegleFermNom(inst, 3);
-                } else {
-                    return extractAllAttributesAllValues(inst);
-                }
-                
-            case GALOIS_ALL_MAJORITY:
-                if (conceptStrategy == CONCEPT_LEARNING_PERTINENT) {
-                    return ExtraireRegleFermNom(inst, 2);
-                } else {
-                    return extractAllAttributesClassBased(inst);
-                }
-                
-            case GALOIS_ALL_ALL:
-                if (conceptStrategy == CONCEPT_LEARNING_PERTINENT) {
-                    return extractAllAttributesAllValues(inst);
-                } else {
-                    return extractCompleteGalois(inst);
-                }
-                
-            default:
-                throw new IllegalArgumentException("Stratégie Galois non reconnue: " + galoisStrategy);
-        }
-    }
     
     /**
      * Initialise les évaluateurs d'attributs selon la méthode choisie
@@ -266,30 +183,43 @@ public class RuleExtractor {
         }
     }
     
+   
     /**
      * Calcule les mesures pour chaque attribut
      */
     private double[] computeFeatureMeasures(Instances inst) throws Exception {
-        double[] featureMeasures = new double[inst.numAttributes()];
-        Enumeration<Attribute> attEnum = inst.enumerateAttributes();
+    double[] featureMeasures = new double[inst.numAttributes()];
+    
+    // Réinitialiser les évaluateurs à chaque appel
+    m_InfoGainAttributeEval = new InfoGainAttributeEval();
+    m_GainRatioAttributeEval = new GainRatioAttributeEval();
+    
+    // Initialisation obligatoire des évaluateurs
+    m_InfoGainAttributeEval.buildEvaluator(inst);
+    m_GainRatioAttributeEval.buildEvaluator(inst);
+
+    // Calcul des mesures
+    for (int i = 0; i < inst.numAttributes(); i++) {
+        if (i == inst.classIndex()) continue;
         
-        while (attEnum.hasMoreElements()) {
-            Attribute att = attEnum.nextElement();
-            switch (FeatureMeasureMethod) {
-                case FEAT_INFOGAIN:
-                    featureMeasures[att.index()] = m_InfoGainAttributeEval.evaluateAttribute(att.index());
-                    break;
-                case FEAT_GAINRATIO:
-                    featureMeasures[att.index()] = m_GainRatioAttributeEval.evaluateAttribute(att.index());
-                    break;
-                case FEAT_ENTROPY:
-                    featureMeasures[att.index()] = computeEntropy(inst, att);
-                    break;
-            }
+        switch (FeatureMeasureMethod) {
+            case FEAT_INFOGAIN:
+                featureMeasures[i] = m_InfoGainAttributeEval.evaluateAttribute(i);
+                break;
+            case FEAT_GAINRATIO:
+                featureMeasures[i] = m_GainRatioAttributeEval.evaluateAttribute(i);
+                break;
+            case FEAT_ENTROPY:
+                featureMeasures[i] = computeEntropy(inst, inst.attribute(i));
+                break;
+            default:
+                throw new IllegalStateException("Méthode de mesure inconnue");
         }
-        
-        return featureMeasures;
     }
+    
+    return featureMeasures;
+}
+
     
     /**
      * Sélectionne l'attribut avec la meilleure mesure
@@ -355,9 +285,47 @@ public class RuleExtractor {
 
         return entropy;
     }
+    /**
+     * Trouve l'index de la valeur majoritaire d'un attribut
+     * @param inst Dataset complet
+     * @param attrIdx Index de l'attribut à analyser
+     * @return Index de la valeur majoritaire (selon Policy_Selection en cas d'égalité)
+     */
+    private int findMajorityValueIndex(Instances inst, int attrIdx) {
+        Attribute attribute = inst.attribute(attrIdx);
+        int[] valueCounts = new int[attribute.numValues()];
+        
+        // Compter les occurrences de chaque valeur
+        for (int i = 0; i < inst.numInstances(); i++) {
+            int valueIdx = (int) inst.instance(i).value(attrIdx);
+            valueCounts[valueIdx]++;
+        }
+        
+        // Trouver la valeur majoritaire
+        int majorityValueIdx = 0;
+        for (int i = 0; i < valueCounts.length; i++) {
+            if (valueCounts[i] > valueCounts[majorityValueIdx]) {
+                majorityValueIdx = i;
+            } else if (valueCounts[i] == valueCounts[majorityValueIdx] && Policy_Selection == POLICY_LAST) {
+                majorityValueIdx = i;
+            }
+        }
+        
+        return majorityValueIdx;
+    }
+    
+    
+    private int countOccurrences(Instances inst, int attrIdx, int valueIdx) {
+        int count = 0;
+        for (int i = 0; i < inst.numInstances(); i++) {
+            if ((int) inst.instance(i).value(attrIdx) == valueIdx) count++;
+        }
+        return count;
+    }
+
     
     /**
-     * Extrait des règles en utilisant tous les attributs mais seulement la valeur majoritaire
+     * Extrait des règles en utilisant tous les attributs mais seulement la valeur majoritaire all attributes Maj value
      */
     public ArrayList<Classification_Rule> extractAllAttributesMajorityValue(Instances inst) throws Exception {
         ArrayList<Classification_Rule> rules = new ArrayList<>();
@@ -374,25 +342,11 @@ public class RuleExtractor {
                 System.out.println("\nProcessing attribute: " + attribute.name());
             }
             
-            // Trouver la valeur majoritaire
-            int[] valueCounts = new int[attribute.numValues()];
-            for (int i = 0; i < inst.numInstances(); i++) {
-                int valueIdx = (int) inst.instance(i).value(attrIdx);
-                valueCounts[valueIdx]++;
-            }
-            
-            int majorityValueIdx = 0;
-            for (int i = 0; i < valueCounts.length; i++) {
-                if (valueCounts[i] > valueCounts[majorityValueIdx]) {
-                    majorityValueIdx = i;
-                } else if (valueCounts[i] == valueCounts[majorityValueIdx] && Policy_Selection == POLICY_LAST) {
-                    majorityValueIdx = i;
-                }
-            }
+            int majorityValueIdx = findMajorityValueIndex(inst, attrIdx);
             
             if (m_Debug) {
                 System.out.println("Majority value: " + attribute.value(majorityValueIdx) + 
-                                 " with count: " + valueCounts[majorityValueIdx]);
+                                 " with count: " + countOccurrences(inst, attrIdx, majorityValueIdx));
             }
             
             // Calculer la fermeture pour la valeur majoritaire
@@ -429,6 +383,12 @@ public class RuleExtractor {
             double weight = calculateRuleWeight(inst, rule);
             rule.setRule_Ponderation(weight);
             
+            // Afficher la régle crée
+
+            if (m_Debug) {
+                System.out.println("Rule: " + rule.affich_nom_rule(true));
+            }
+            
             rules.add(rule);
         }
         
@@ -436,7 +396,7 @@ public class RuleExtractor {
     }
     
     /**
-     * Extrait des règles en utilisant tous les attributs et toutes leurs valeurs
+     * Extrait des règles en utilisant tous les attributs et toutes leurs valeurs all attributes all values
      */
     public ArrayList<Classification_Rule> extractAllAttributesAllValues(Instances inst) throws Exception {
         ArrayList<Classification_Rule> rules = new ArrayList<>();
@@ -473,7 +433,7 @@ public class RuleExtractor {
                 ArrayList<String> attributes = computeAttributeClosure(inst, instances);
                 
                 // Afficher la fermeture de Galois
-                printGaloisClosure(instances, attributes, inst);
+               // printGaloisClosure(instances, attributes, inst);
                 
                 // Trouver la classe majoritaire
                 int majorityClassIndex = findMajorityClass(inst, instances);
@@ -481,24 +441,345 @@ public class RuleExtractor {
                 if (m_Debug) {
                     System.out.println("Majority class: " + inst.attribute(inst.classIndex()).value(majorityClassIndex));
                 }
-                
+              
+
                 // Créer la règle
                 Classification_Rule rule = new Classification_Rule(
                     attributes,
                     majorityClassIndex,
                     inst.attribute(inst.classIndex()).value(majorityClassIndex)
                 );
-                
+               
                 // Calculer la pondération
                 double weight = calculateRuleWeight(inst, rule);
                 rule.setRule_Ponderation(weight);
-                
+                // Afficher la régle crée
+
+                if (m_Debug) {
+                    System.out.println("Rule: " + rule.affich_nom_rule(true));
+                }
                 rules.add(rule);
             }
         }
         
         return rules;
     }
+    
+    /**
+     * Méthode pour extraire des règles basées sur l attribut pertinant  et tout ses valeurs
+     */
+    public ArrayList<Classification_Rule> extractPertinentAttributeAllValues(Instances inst) throws Exception{
+    	if(m_Debug) {
+            //printDebugHeader(inst);
+        }
+    	// Initialiser les évaluateurs d'attributs selon la méthode choisie
+        initializeFeatureEvaluator(inst);
+        
+        // Calculer les mesures pour chaque attribut
+        double[] featureMeasures = computeFeatureMeasures(inst);
+        Attribute bestAttribute = this.selectBestAttribute(inst, featureMeasures);
+        if(m_Debug) {
+            //printFeatureMeasures(inst, featureMeasures);
+            //
+        	this.printSelectedAttribute(inst, bestAttribute);
+            
+        }
+        
+        AllValuesClosureStrategy strategy = new AllValuesClosureStrategy(m_Debug, Policy_Selection, this);
+        return strategy.extractRules(inst, bestAttribute, featureMeasures);
+
+
+    }
+    /**
+     * Méthode pour extraire des règles basées sur l attribut pertinant  et  sa val maj
+     */
+    public ArrayList<Classification_Rule> extractPertinentAttributeMajorityValue(Instances inst) throws Exception{
+    	//if(m_Debug) {
+            //printDebugHeader(inst);
+    	//}
+    	// Initialiser les évaluateurs d'attributs selon la méthode choisie
+        initializeFeatureEvaluator(inst);
+        
+        // Calculer les mesures pour chaque attribut
+        double[] featureMeasures = computeFeatureMeasures(inst);
+        Attribute bestAttribute = this.selectBestAttribute(inst, featureMeasures);
+
+        
+        //if(m_Debug) {
+           // printFeatureMeasures(inst, featureMeasures);
+        //}
+        BestValueClosureStrategy strategy = new BestValueClosureStrategy(m_Debug, Policy_Selection, this);
+        return strategy.extractRules(inst, bestAttribute, featureMeasures);
+
+
+    }
+    /**
+     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et tous ses valeur
+     */
+	  public ArrayList<Classification_Rule> extractAttributeAboveThresholdAllValues(Instances inst, double threshold) throws Exception {
+	        // utilisation de methode compute multiAtt closure
+	        ArrayList<Classification_Rule> rules = new ArrayList<>();
+	        double[] featureMeasures = computeFeatureMeasures(inst);
+	        ArrayList<Attribute> topAttributes =  selectAttributesAboveThreshold(inst,  threshold);
+	
+	        // Nouvelle logique spécifique pour les attributs depassant le seuil
+	        for (Attribute attr : topAttributes) {
+	            for (int valueIdx = 0; valueIdx < attr.numValues(); valueIdx++) {
+	                ArrayList<Integer> matchingInstances = getInstancesForValue(inst, attr, valueIdx);
+	                
+	                if (!matchingInstances.isEmpty()) {
+	                    ArrayList<String> closure = computeMultiAttributeClosure(inst, matchingInstances, topAttributes);
+	                    if (closure != null) {
+	                        Classification_Rule rule = Classification_Rule.createRule(inst, matchingInstances, closure);
+	                     // Afficher la régle crée
+
+	                        if (m_Debug) {
+	                            System.out.println("Rule: " + rule.affich_nom_rule(true));
+	                        }
+	                        rules.add(rule);
+	                    }
+	                }
+	            }
+	        }
+	        
+	        return rules;
+	    }
+    
+    
+	  /**
+	     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et sa val maj
+	     */
+	  public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValues(Instances inst, double threshold) throws Exception {
+		    ArrayList<Classification_Rule> rules = new ArrayList<>();
+		    double[] featureMeasures = computeFeatureMeasures(inst);
+		    ArrayList<Attribute> topAttributes = selectAttributesAboveThreshold(inst, threshold);
+
+		    if (m_Debug) {
+		        System.out.println("\n=== EXTRACTING RULES (Threshold=" + threshold + ") ===");
+		        System.out.println("Selected attributes: " + topAttributes.stream()
+		                           .map(Attribute::name)
+		                           .collect(Collectors.joining(", ")));
+		    }
+
+		    for (Attribute attr : topAttributes) {
+		        // Trouver la valeur majoritaire pour l'attribut courant
+		        int majorityValueIdx = findMajorityValueIndex(inst, attr.index());
+		        String majorityValue = attr.value(majorityValueIdx);
+
+		        if (m_Debug) {
+		            System.out.println("\nProcessing attribute: " + attr.name() + 
+		                             " (Majority value: " + majorityValue + ")");
+		        }
+
+		        // Récupérer les instances avec la valeur majoritaire
+		        ArrayList<Integer> matchingInstances = new ArrayList<>();
+		        for (int i = 0; i < inst.numInstances(); i++) {
+		            if ((int)inst.instance(i).value(attr) == majorityValueIdx) {
+		                matchingInstances.add(i);
+		            }
+		        }
+
+		        if (!matchingInstances.isEmpty()) {
+		            // Calculer la fermeture de Galois sur ces instances
+		            ArrayList<String> closure = computeAttributeClosure(inst, matchingInstances);
+
+		            if (m_Debug) {
+		                System.out.println("Galois closure for " + attr.name() + "=" + majorityValue + ":");
+		                printGaloisClosure(matchingInstances, closure, inst);
+		            }
+
+		            // Trouver la classe majoritaire parmi ces instances
+		            int majorityClassIndex = findMajorityClass(inst, matchingInstances);
+		            String className = inst.attribute(inst.classIndex()).value(majorityClassIndex);
+
+		            // Créer la règle
+		            Classification_Rule rule = new Classification_Rule(
+		                closure,
+		                majorityClassIndex,
+		                className
+		            );
+		            
+		            // Calculer la pondération
+		            double weight = calculateRuleWeight(inst, rule);
+		            rule.setRule_Ponderation(weight);
+
+		            if (m_Debug) {
+		                System.out.println("Created rule: " + rule.affich_nom_rule(true));
+		            }
+
+		            rules.add(rule);
+		        }
+		    }
+
+		    if (m_Debug) {
+		        System.out.println("\nTotal rules extracted: " + rules.size());
+		    }
+		    
+		    return rules;
+		}
+    
+	  /**
+	     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et tous ses valeur
+	     */
+		public ArrayList<Classification_Rule> extractAttributeUnderThresholdAllValues(Instances inst, double threshold) throws Exception {
+			// utilisation de methode compute multiAtt closure
+	        ArrayList<Classification_Rule> rules = new ArrayList<>();
+	        double[] featureMeasures = computeFeatureMeasures(inst);
+	        ArrayList<Attribute> topAttributes =  selectAttributesUnderThreshold(inst,  threshold);
+	        if (m_Debug) {
+		        System.out.println("\n=== EXTRACTING RULES (Under Threshold=" + threshold + ") ===");
+		        System.out.println("Selected attributes: " + topAttributes.stream()
+		                           .map(Attribute::name)
+		                           .collect(Collectors.joining(", ")));
+		    }
+
+	        // Nouvelle logique spécifique pour les attributs depassant le seuil
+	        for (Attribute attr : topAttributes) {
+	        	if (m_Debug) {
+		            System.out.println("\nProcessing attribute: " + attr.name() );
+		        }
+	            for (int valueIdx = 0; valueIdx < attr.numValues(); valueIdx++) {
+	                ArrayList<Integer> matchingInstances = getInstancesForValue(inst, attr, valueIdx);
+	                
+	                if (!matchingInstances.isEmpty()) {
+	                    ArrayList<String> closure = computeMultiAttributeClosure(inst, matchingInstances, topAttributes);
+	                    if (m_Debug) {
+			                System.out.println("Galois closure for " + attr.name() + ":");
+			                printGaloisClosure(matchingInstances, closure, inst);
+			            }
+	                    if (closure != null) {
+	                        Classification_Rule rule = Classification_Rule.createRule(inst, matchingInstances, closure);
+	                     // Afficher la régle crée
+
+	                        if (m_Debug) {
+	                            System.out.println("Rule: " + rule.affich_nom_rule(true));
+	                        }
+	                        rules.add(rule);
+	                    }
+	                }
+	            }
+	        }
+	        if (m_Debug) {
+		        System.out.println("\nTotal rules extracted: " + rules.size());
+		    }
+	        return rules;
+	    }
+	  /**
+	     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et tous ses valeur
+	     */
+			public ArrayList<Classification_Rule> extractAttributeUnderThresholdMajorityValues(Instances inst, double threshold) throws Exception {
+				ArrayList<Classification_Rule> rules = new ArrayList<>();
+			    ArrayList<Attribute> topAttributes = selectAttributesUnderThreshold(inst, threshold);
+
+			    if (m_Debug) {
+			        System.out.println("\n=== EXTRACTING RULES (Under Threshold=" + threshold + ") ===");
+			        System.out.println("Selected attributes: " + topAttributes.stream()
+			                           .map(Attribute::name)
+			                           .collect(Collectors.joining(", ")));
+			    }
+
+			    for (Attribute attr : topAttributes) {
+			        // Trouver la valeur majoritaire pour l'attribut courant
+			        int majorityValueIdx = findMajorityValueIndex(inst, attr.index());
+			        String majorityValue = attr.value(majorityValueIdx);
+
+			        if (m_Debug) {
+			            System.out.println("\nProcessing attribute: " + attr.name() + 
+			                             " (Majority value: " + majorityValue + ")");
+			        }
+
+			        // Récupérer les instances avec la valeur majoritaire
+			        ArrayList<Integer> matchingInstances = new ArrayList<>();
+			        for (int i = 0; i < inst.numInstances(); i++) {
+			            if ((int)inst.instance(i).value(attr) == majorityValueIdx) {
+			                matchingInstances.add(i);
+			            }
+			        }
+
+			        if (!matchingInstances.isEmpty()) {
+			            // Calculer la fermeture de Galois sur ces instances
+			            ArrayList<String> closure = computeAttributeClosure(inst, matchingInstances);
+
+			            if (m_Debug) {
+			                System.out.println("Galois closure for " + attr.name() + "=" + majorityValue + ":");
+			                printGaloisClosure(matchingInstances, closure, inst);
+			            }
+
+			            // Trouver la classe majoritaire parmi ces instances
+			            int majorityClassIndex = findMajorityClass(inst, matchingInstances);
+			            String className = inst.attribute(inst.classIndex()).value(majorityClassIndex);
+
+			            // Créer la règle
+			            Classification_Rule rule = new Classification_Rule(
+			                closure,
+			                majorityClassIndex,
+			                className
+			            );
+			            
+			            // Calculer la pondération
+			            double weight = calculateRuleWeight(inst, rule);
+			            rule.setRule_Ponderation(weight);
+
+			            if (m_Debug) {
+			                System.out.println("Created rule: " + rule.affich_nom_rule(true));
+			            }
+
+			            rules.add(rule);
+			        }
+			    }
+
+			    if (m_Debug) {
+			        System.out.println("\nTotal rules extracted: " + rules.size());
+			    }
+			    
+			    return rules;
+			}
+  
+ 
+    /* a supprimer*/
+    public ArrayList<Classification_Rule> ExtraireRegleFermNom(Instances inst, int critere) throws Exception {        
+        if(m_Debug) {
+            printDebugHeader(inst);
+        }
+        
+        // Initialiser les évaluateurs d'attributs selon la méthode choisie
+        initializeFeatureEvaluator(inst);
+        
+        // Calculer les mesures pour chaque attribut
+        double[] featureMeasures = computeFeatureMeasures(inst);
+        
+        if(m_Debug) {
+            printFeatureMeasures(inst, featureMeasures);
+        }
+        
+        // Sélectionner l'attribut avec la meilleure mesure
+        Attribute bestAttribute = selectBestAttribute(inst, featureMeasures);
+        
+        if(m_Debug) {
+            printSelectedAttribute(inst, bestAttribute);
+        }
+        
+        // Appliquer la stratégie d'extraction de règles selon le critère spécifié
+        RuleExtractionStrategy strategy;
+        switch(critere) {
+            case 1:
+                strategy = new BestValueClosureStrategy(m_Debug, Policy_Selection, this);
+                break;
+            case 2:
+                strategy = new ClassBasedClosureStrategy(m_Debug, Policy_Selection, this);
+                break;
+            case 3:
+                strategy = new AllValuesClosureStrategy(m_Debug, Policy_Selection, this);
+                break;
+            default:
+                throw new IllegalArgumentException("Critère d'extraction de règles non reconnu: " + critere);
+        }
+        
+        return strategy.extractRules(inst, bestAttribute, featureMeasures);
+    }
+
+    
+    
     
     /**
      * Extrait des règles en considérant tous les attributs par classe
@@ -585,7 +866,7 @@ public class RuleExtractor {
     }
     
     /**
-     * Extrait des règles en utilisant une connexion de Galois complète
+     * Extrait des règles en utilisant une connexion de Galois complète 
      */
     public ArrayList<Classification_Rule> extractCompleteGalois(Instances inst) throws Exception {
         ArrayList<Classification_Rule> rules = new ArrayList<>();
@@ -649,6 +930,136 @@ public class RuleExtractor {
         
         return rules;
     }
+    
+    
+    /**
+     * Génère tous les concepts formels pour les attributs sélectionnés
+     */
+    public ArrayList<FormalConcept> generateFormalConcepts(Instances inst, 
+                                                         ArrayList<Attribute> selectedAttributes) {
+        ArrayList<FormalConcept> concepts = new ArrayList<>();
+        
+        // 1. Générer toutes les combinaisons non vides d'attributs
+        ArrayList<ArrayList<Attribute>> attributeCombinations = generateAttributeCombinations(selectedAttributes);
+        
+        // 2. Pour chaque combinaison d'attributs
+        for (ArrayList<Attribute> attrCombination : attributeCombinations) {
+            // 3. Trouver toutes les instances qui partagent ces attributs
+            ArrayList<Integer> commonInstances = findCommonInstances(inst, attrCombination);
+            
+            if (!commonInstances.isEmpty()) {
+                // 4. Calculer la fermeture complète
+                ArrayList<String> fullClosure = computeFullClosure(inst, commonInstances);
+                
+                // 5. Créer et stocker le concept
+                concepts.add(new FormalConcept(commonInstances, fullClosure));
+            }
+        }
+        
+        return concepts;
+    }
+
+    /**
+     * Génère toutes les combinaisons non vides d'attributs (puissance ensemble - ∅)
+     */
+    private ArrayList<ArrayList<Attribute>> generateAttributeCombinations(ArrayList<Attribute> attributes) {
+        ArrayList<ArrayList<Attribute>> combinations = new ArrayList<>();
+        int n = attributes.size();
+        
+        // Générer toutes les combinaisons possibles (2^n - 1)
+        for (int i = 1; i < (1 << n); i++) {
+            ArrayList<Attribute> current = new ArrayList<>();
+            for (int j = 0; j < n; j++) {
+                if ((i & (1 << j)) > 0) {
+                    current.add(attributes.get(j));
+                }
+            }
+            combinations.add(current);
+        }
+        
+        return combinations;
+    }
+
+    /**
+     * Trouve les instances partageant tous les attributs de la combinaison
+     */
+    private ArrayList<Integer> findCommonInstances(Instances inst, ArrayList<Attribute> attributes) {
+        ArrayList<Integer> commonInstances = new ArrayList<>();
+        
+        // Pour chaque instance
+        instanceLoop:
+        for (int i = 0; i < inst.numInstances(); i++) {
+            // Vérifier si elle possède tous les attributs de la combinaison
+            for (Attribute attr : attributes) {
+                String value = inst.instance(i).stringValue(attr);
+                boolean hasAttribute = false;
+                
+                // Vérifier si la valeur fait partie des valeurs possibles
+                for (int j = 0; j < attr.numValues(); j++) {
+                    if (attr.value(j).equals(value)) {
+                        hasAttribute = true;
+                        break;
+                    }
+                }
+                
+                if (!hasAttribute) continue instanceLoop;
+            }
+            commonInstances.add(i);
+        }
+        
+        return commonInstances;
+    }
+
+    /**
+     * Calcule la fermeture complète pour les instances données
+     */
+    private ArrayList<String> computeFullClosure(Instances inst, ArrayList<Integer> instances) {
+        ArrayList<String> closure = new ArrayList<>();
+        
+        // Initialiser avec -null- pour tous les attributs
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            if (i != inst.classIndex()) {
+                closure.add("-null-");
+            }
+        }
+        
+        // Pour chaque attribut (sauf classe)
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            if (i == inst.classIndex()) continue;
+            
+            Attribute attr = inst.attribute(i);
+            String firstValue = inst.instance(instances.get(0)).stringValue(attr);
+            boolean isConstant = true;
+            
+            for (int instIdx : instances) {
+                if (!inst.instance(instIdx).stringValue(attr).equals(firstValue)) {
+                    isConstant = false;
+                    break;
+                }
+            }
+            
+            if (isConstant) {
+                int closureIdx = (i < inst.classIndex()) ? i : i - 1;
+                closure.set(closureIdx, firstValue);
+            }
+        }
+        
+        return closure;
+    }
+   
+    /**
+     * Affiche tous les concepts formels
+     */
+    public void displayFormalConcepts(Instances inst, ArrayList<FormalConcept> concepts) {
+        System.out.println("\n=== FORMALS CONCEPTS  ===");
+        System.out.println("Number of concepts: " + concepts.size());
+        
+        for (FormalConcept concept : concepts) {
+            System.out.println(concept.toString(inst));
+            System.out.println("----------------------");
+        }
+    }
+    
     
     /**
      * Calcule la fermeture des attributs pour un ensemble d'instances
@@ -715,7 +1126,7 @@ public class RuleExtractor {
         Classify_Instance classifier = new Classify_Instance();
         
         for (int i = 0; i < inst.numInstances(); i++) {
-            if (classifier.classify_Instance_nom(inst.instance(i), rule) != -1.0) {
+            if (classifier.TestClassifInstance_nom(inst.instance(i), rule) != false) {
                 weight++;
             }
         }
@@ -794,10 +1205,10 @@ public class RuleExtractor {
                            "            __//--'/`\n" +
                            "          ,--'/`  '\n" +
                            "             '\n");
-        System.out.println("\n--- CALCUL DE LA FERMETURE DE GALOIS ---\n");
-        System.out.println("Liste des attributs d'entrée:\n");
-        printDatasetTable(inst);
-        System.out.println("\n\n");
+        System.out.println("\n--- Computing Galois Connexion ---\n");
+       // System.out.println("Liste des attributs d'entrée:\n");
+        //printDatasetTable(inst);
+        //System.out.println("\n\n");
     }
     
     private void printFeatureMeasures(Instances inst, double[] featureMeasures) {
@@ -831,7 +1242,419 @@ public class RuleExtractor {
 
         System.out.println("\n");
     }
+
+    
+    
+    /**
+     * Selectionne les attributs qui dépassent le seuil donné en paramètres
+     * 
+     * @param inst Les instances du dataset
+     * @param measure measure calculés pour tous les attributs
+     * @param threshold seuil
+     */
+    
+    private ArrayList<Attribute> selectAttributesAboveThreshold(Instances inst, double threshold) {
+    ArrayList<Attribute> selectedAttributes = new ArrayList<>();
+    double[] measures= null;
+	try {
+		measures = computeFeatureMeasures(inst);
+	} catch (Exception e) {
+		System.out.println("Error in measures calculating in selectAttributesAboveThreshold function: "+e.getMessage());
+	}
+
+    for (int i = 0; i < measures.length; i++) {
+        if (i != inst.classIndex()) {
+            double score = measures[i];
+
+            // Vérifie si le score dépasse le seuil 
+            if ( score >= threshold) {
+                selectedAttributes.add(inst.attribute(i));
+            }
+        }
+    }
+
+    return selectedAttributes;
 }
+
+    private ArrayList<Attribute> selectAttributesUnderThreshold(Instances inst, double threshold) {
+    ArrayList<Attribute> selectedAttributes = new ArrayList<>();
+    double[] measures= null;
+	try {
+		measures = computeFeatureMeasures(inst);
+	} catch (Exception e) {
+		System.out.println("Error in measures calculating in selectAttributesAboveThreshold function: "+e.getMessage());
+	}
+
+    for (int i = 0; i < measures.length; i++) {
+        if (i != inst.classIndex()) {
+            double score = measures[i];
+
+         // Vérifie si le score dépasse le seuil 
+            if ( score <= threshold) {
+                selectedAttributes.add(inst.attribute(i));
+            }
+        }
+    }
+
+    return selectedAttributes;
+}
+
+    
+    
+    public void printAttributesUnderThreshold(Instances inst, double threshold) throws Exception {
+        // Calculer les mesures pour chaque attribut
+        double[] featureMeasures = computeFeatureMeasures(inst);
+
+        // Créer une liste de tous les attributs avec leurs mesures (sauf la classe)
+        ArrayList<Pair<Attribute, Double>> allAttributeMeasures = new ArrayList<>();
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            if (i != inst.classIndex()) {
+                allAttributeMeasures.add(new Pair<>(inst.attribute(i), featureMeasures[i]));
+            }
+        }
+
+        // Trier tous les attributs selon la métrique
+        allAttributeMeasures.sort((a1, a2) -> {
+            if (FeatureMeasureMethod == FEAT_ENTROPY) {
+                return Double.compare(a1.getValue(), a2.getValue());
+            } else {
+                return Double.compare(a2.getValue(), a1.getValue());
+            }
+        });
+
+        // Affichage de TOUS les attributs
+        System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+        System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+        System.out.println("━".repeat(48));
+        
+        int rank = 1;
+        for (Pair<Attribute, Double> p : allAttributeMeasures) {
+            String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
+            System.out.println(String.format("%-6d%-30s%12.4f",
+                rank++,
+                cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
+                p.getValue()));
+        }
+        
+        System.out.println("-------------------------------------------");
+
+        
+        // Statistiques de tous les attributs
+        double max = allAttributeMeasures.get(0).getValue();
+        double min = allAttributeMeasures.get(allAttributeMeasures.size() - 1).getValue();
+        double average = allAttributeMeasures.stream()
+            .mapToDouble(Pair::getValue)
+            .average()
+            .orElse(0);
+
+        System.out.println("\n📊 Statistics:");
+        System.out.println(String.format("\nMax: %8.4f  Min: %8.4f  Moy: %8.4f", max, min, average));
+
+        // Obtenir les attributs sous le seuil
+        ArrayList<Attribute> selectedAttributes = new ArrayList<>();
+        for (Pair<Attribute, Double> p : allAttributeMeasures) {
+            if (p.getValue() < threshold) {
+                selectedAttributes.add(p.getKey());
+            }
+        }
+
+        if (selectedAttributes.isEmpty()) {
+            System.out.println("\n⚠ No attributes below threshold: " + threshold);
+            return;
+        }
+
+        // Affichage des attributs sous le seuil
+        System.out.println("\n▬▬▬▬▬▬▬▬ ATTRIBUTES UNDER THRESHOLD (" + threshold + ") ▬▬▬▬▬▬▬▬");
+        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+        System.out.println("Selected attributes: " + selectedAttributes.size() + "/" + allAttributeMeasures.size() + "\n");
+
+        System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+        System.out.println("━".repeat(48));
+
+        int displayedRank = 1;
+        for (Pair<Attribute, Double> p : allAttributeMeasures) {
+            if (p.getValue() < threshold) {
+                String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
+                System.out.println(String.format("%-6d%-30s%12.4f",
+                    displayedRank++,
+                    cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
+                    p.getValue()));
+            }
+        }
+    }
+    
+    public void printPertinentAttribute(Instances inst) throws Exception {
+       
+    	// Calculer les mesures pour chaque attribut
+        double[] featureMeasures = computeFeatureMeasures(inst);
+
+        // Créer une liste de tous les attributs avec leurs mesures (sauf la classe)
+        ArrayList<Pair<Attribute, Double>> allAttributeMeasures = new ArrayList<>();
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            if (i != inst.classIndex()) {
+                allAttributeMeasures.add(new Pair<>(inst.attribute(i), featureMeasures[i]));
+            }
+        }
+
+        // Trier tous les attributs selon la métrique
+        allAttributeMeasures.sort((a1, a2) -> {
+            if (FeatureMeasureMethod == FEAT_ENTROPY) {
+                return Double.compare(a1.getValue(), a2.getValue());
+            } else {
+                return Double.compare(a2.getValue(), a1.getValue());
+            }
+        });
+
+        // Affichage de TOUS les attributs
+        System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+        System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+        System.out.println("━".repeat(48));
+        
+        int rank = 1;
+        for (Pair<Attribute, Double> p : allAttributeMeasures) {
+            String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
+            System.out.println(String.format("%-6d%-30s%12.4f",
+                rank++,
+                cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
+                p.getValue()));
+        }
+
+            System.out.println("\n=== MOST PERTINENT ATTRIBUTE ===");
+            
+            if (allAttributeMeasures == null || allAttributeMeasures.isEmpty()) {
+                System.out.println("No attributes available!");
+                return;
+            }
+
+            // Sélection basée sur la métrique
+            Pair<Attribute, Double> pertinentPair;
+            String criteria;
+            
+            if (FeatureMeasureMethod == FEAT_ENTROPY) {
+                pertinentPair = allAttributeMeasures.get(allAttributeMeasures.size() - 1);
+                criteria = "Lowest Entropy";
+            } else {
+                pertinentPair = allAttributeMeasures.get(0);
+                criteria = "Highest " + featureMeasureToString(FeatureMeasureMethod);
+            }
+
+            // Affichage formaté
+            System.out.println("Selection Criteria: " + criteria);
+            System.out.println("Attribute: " + pertinentPair.getKey().name().trim());
+            System.out.printf("Measure Value: %.4f%n", pertinentPair.getValue());
+            System.out.println("------------------------------");
+        
+        
+    }
+    
+    
+   
+    
+    /**
+     * Affiche les attributs dépassant un seuil avec leurs mesures
+     * 
+     * @param inst Les instances du dataset
+     * @param threshold Le seuil à dépasser
+     * @throws Exception Si le calcul des mesures échoue
+     */
+    public void printAttributesAboveThreshold(Instances inst, double threshold) throws Exception {
+        // Calculer les mesures pour chaque attribut
+        double[] featureMeasures = computeFeatureMeasures(inst);
+
+        // Créer une liste de tous les attributs avec leurs mesures (sauf la classe)
+        ArrayList<Pair<Attribute, Double>> allAttributeMeasures = new ArrayList<>();
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            if (i != inst.classIndex()) {
+                allAttributeMeasures.add(new Pair<>(inst.attribute(i), featureMeasures[i]));
+            }
+        }
+
+        // Trier tous les attributs selon la métrique
+        allAttributeMeasures.sort((a1, a2) -> {
+            if (FeatureMeasureMethod == FEAT_ENTROPY) {
+                return Double.compare(a1.getValue(), a2.getValue()); // Ascendant
+            } else {
+                return Double.compare(a2.getValue(), a1.getValue()); // Descendant
+            }
+        });
+
+        // === Affichage de TOUS les attributs ===
+        System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+        System.out.println(String.format("%-6s%-30s%12s", "Rang", "Attribut", "Valeur"));
+        System.out.println("-------------------------------------------");
+        int rank = 1;
+        for (Pair<Attribute, Double> p : allAttributeMeasures) {
+            String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
+            System.out.println(String.format("%-6d%-30s%12.4f",
+                rank++,
+                cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
+                p.getValue()));
+        }
+        System.out.println("-------------------------------------------");
+
+        // Statistiques de tous les attributs
+        double max = allAttributeMeasures.get(0).getValue();
+        double min = allAttributeMeasures.get(allAttributeMeasures.size() - 1).getValue();
+        double average = allAttributeMeasures.stream()
+            .mapToDouble(Pair::getValue)
+            .average()
+            .orElse(0);
+
+        System.out.println("\n📊 Statistics:");
+        System.out.println(String.format("\nMax: %8.4f  Min: %8.4f  Moy: %8.4f", max, min, average));
+        // Obtenir les attributs dépassant le seuil
+        ArrayList<Attribute> selectedAttributes = selectAttributesAboveThreshold(inst, threshold);
+        if (selectedAttributes.isEmpty()) {
+            System.out.println("\n ⚠ No attributes above threshold: " + threshold);
+            return;
+        }
+
+        // Créer la liste pour les affichages filtrés
+        ArrayList<Pair<Attribute, Double>> attributeMeasures = new ArrayList<>();
+        for (Attribute attr : selectedAttributes) {
+            int index = attr.index();
+            attributeMeasures.add(new Pair<>(attr, featureMeasures[index]));
+        }
+
+        // Trier cette liste aussi
+        attributeMeasures.sort((a1, a2) -> {
+            if (FeatureMeasureMethod == FEAT_ENTROPY) {
+                return Double.compare(a1.getValue(), a2.getValue());
+            } else {
+                return Double.compare(a2.getValue(), a1.getValue());
+            }
+        });
+
+        // === Affichage des attributs au-dessus du seuil ===
+        System.out.println("\n▬▬▬▬▬▬▬▬ ATTRIBUTES ABOVE THRESHOLD (" + threshold + ") ▬▬▬▬▬▬▬▬");
+        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+        System.out.println("Number of selected attributes: " + selectedAttributes.size() + "\n");
+
+        System.out.println(String.format("%-6s%-30s%12s", "Rang", "Attribut", "Valeur"));
+        System.out.println("-------------------------------------------");
+
+        for (int i = 0; i < attributeMeasures.size(); i++) {
+            Pair<Attribute, Double> p = attributeMeasures.get(i);
+            String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
+            System.out.println(String.format("%-6d%-30s%12.4f",
+                i + 1,
+                cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
+                p.getValue()));
+        }
+
+       
+    }
+
+    private static String centerText(String text, int width) {
+        if (text.length() >= width) return text;
+        int padding = (width - text.length()) / 2;
+        return String.format("%" + (padding + text.length()) + "s", text);
+    }
+
+    private static String truncate(String text, int maxLength) {
+        return text.length() > maxLength ? text.substring(0, maxLength-3) + "..." : text;
+    }
+    // Classe utilitaire Pair pour stocker les paires attribut-mesure
+    private static class Pair<K, V> {
+        private final K key;
+        private final V value;
+
+        public Pair(K key, V value) {
+            this.key = key;
+            this.value = value;
+        }
+
+        public K getKey() { return key; }
+        public V getValue() { return value; }
+    }
+
+   
+
+
+    private ArrayList<String> computeFermeture(Instances inst, ArrayList<Integer> instances) {
+        ArrayList<String> fermeture = new ArrayList<>();
+        
+        // Initialiser avec -null- pour tous les attributs
+        for (int i = 0; i < inst.numAttributes() - 1; i++) {
+            fermeture.add("-null-");
+        }
+        
+        for (int attrIdx = 0; attrIdx < inst.numAttributes() - 1; attrIdx++) {
+            if (attrIdx == inst.classIndex()) continue;
+            
+            String firstValue = inst.instance(instances.get(0)).stringValue(attrIdx);
+            boolean isConstant = true;
+            
+            for (int instIdx : instances) {
+                if (!inst.instance(instIdx).stringValue(attrIdx).equals(firstValue)) {
+                    isConstant = false;
+                    break;
+                }
+            }
+            
+            if (isConstant) {
+                int fermetureIdx = (attrIdx < inst.classIndex()) ? attrIdx : attrIdx - 1;
+                fermeture.set(fermetureIdx, firstValue);
+            }
+        }
+        
+        return fermeture;
+    }
+    
+
+    
+  
+    
+    
+    
+    private ArrayList<String> computeMultiAttributeClosure(Instances inst, 
+            ArrayList<Integer> instances,
+            ArrayList<Attribute> selectedAttributes) {
+			ArrayList<String> closure = new ArrayList<>();
+			// Initialiser avec -null- pour tous les attributs
+			for (int i = 0; i < inst.numAttributes() - 1; i++) {
+				closure.add("-null-");
+			}
+			
+			// Vérifier seulement les attributs sélectionnés
+			for (Attribute attr : selectedAttributes) {
+				String firstValue = inst.instance(instances.get(0)).stringValue(attr);
+				boolean isConstant = true;
+			
+				for (int instIdx : instances) {
+					if (!inst.instance(instIdx).stringValue(attr).equals(firstValue)) {
+						isConstant = false;
+						break;
+					}
+			}
+			
+					if (isConstant) {
+						int closureIdx = (attr.index() < inst.classIndex()) ? attr.index() : attr.index() - 1;
+						closure.set(closureIdx, firstValue);
+					}
+			}
+			
+			return closure;
+			}
+	    
+    
+    
+    
+
+    private ArrayList<Integer> getInstancesForValue(Instances inst, Attribute attr, int valueIdx) {
+        ArrayList<Integer> instances = new ArrayList<>();
+        for (int i = 0; i < inst.numInstances(); i++) {
+            if ((int)inst.instance(i).value(attr) == valueIdx) {
+                instances.add(i);
+            }
+        }
+        return instances;
+    }
+
+    
 
 // Interface pour les différentes stratégies d'extraction de règles
 interface RuleExtractionStrategy {
@@ -985,7 +1808,10 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
             attributeNames.add(inst.attribute(i).name());
         }
         rule.setAttributeNames(attributeNames);
-        
+        if (m_Debug) {
+            System.out.println("Rule: " + rule.affich_nom_rule(true));
+        }
+        rules.add(rule);
         rules.add(rule);
         return rules;
     }
@@ -1084,7 +1910,7 @@ class ClassBasedClosureStrategy implements RuleExtractionStrategy {
                 attributes,
                 classIdx,
                 inst.attribute(inst.classIndex()).value(classIdx),
-                featureMeasures[Utils.maxIndex(featureMeasures)]
+                featureMeasures[Utils.maxIndex(featureMeasures)]  /* ponderation*/
             );
             
             // Ajout des noms des attributs à la règle
@@ -1192,6 +2018,16 @@ class AllValuesClosureStrategy implements RuleExtractionStrategy {
                 attributeNames.add(inst.attribute(i).name());
             }
             rule.setAttributeNames(attributeNames);
+            // Calculer la pondération
+            double weight = calculateRuleWeight(inst, rule);
+            rule.setRule_Ponderation(weight);
+            // Afficher la régle crée
+
+            if (m_Debug) {
+                System.out.println("Rule: " + rule.affich_nom_rule(true));
+            }
+            rules.add(rule);
+            
             
             rules.add(rule);
         }
@@ -1251,4 +2087,28 @@ class AllValuesClosureStrategy implements RuleExtractionStrategy {
         
         return attributes;
     }
+}
+
+public static void main (String []args) throws Exception {
+	boolean debug=true;
+	RuleExtractor exttractor= new RuleExtractor(debug,RuleExtractor.FEAT_INFOGAIN,RuleExtractor.POLICY_LAST,RuleExtractor.CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL);
+	// 1. Charger les données (Instances inst)
+	String dataPath="C:\\Program Files\\Weka-3-8-6\\data\\weather.nominal.arff";
+	Instances inst=null;
+	try {
+		inst = DataSource.read(dataPath);
+	} catch (Exception e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
+    inst.setClassIndex(inst.numAttributes() - 1);
+	// 2. Sélectionner les attributs pertinents
+    exttractor.printAttributesUnderThreshold(inst, 0.1);
+    ArrayList<Classification_Rule>  rules = exttractor.extractAttributeUnderThresholdMajorityValues
+    		(inst,0.1);
+
+	
+
+}
+
 }

@@ -10,6 +10,7 @@ import weka.classifiers.Classifier;
 import weka.classifiers.Sourcable;
 import weka.core.*;
 import weka.core.Capabilities.Capability;
+import weka.core.Debug.Random;
 import weka.classifiers.UpdateableClassifier;
 import weka.classifiers.fca.Classification_Rule;
 import weka.classifiers.fca.Classify_Instance;
@@ -17,11 +18,16 @@ import weka.classifiers.fca._GaloisConnection;
 import weka.classifiers.fca.RuleExtractor;
 import weka.core.TechnicalInformation.Field;
 import weka.core.TechnicalInformation.Type;
+import weka.core.converters.ConverterUtils.DataSource;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.ReplaceMissingValues;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+
+import weka.classifiers.Evaluation;
 
 /**
  * CNC implementation that extracts classification rules
@@ -54,6 +60,22 @@ public class CNC extends AbstractClassifier
     public static final int FEAT_INFOGAIN = 2;
     public static final int FEAT_GAINRATIO = 3;
     
+    
+    
+
+    // seuil a dépasser
+    protected double m_THRESHOLD = 0; 
+   // Getter et Setter pour N
+    public double getThreshold() {
+        return m_THRESHOLD;
+    }
+
+    public void setThreshold(double s) {
+        if (s > 0) {
+            m_THRESHOLD = s;
+        }
+    }
+    
     private int FeatureMeasureMethod = FEAT_INFOGAIN; // Default value : InfoGain
     
     public static final Tag[] TAGS_FeatureMeasure = {
@@ -73,16 +95,63 @@ public class CNC extends AbstractClassifier
         }
     }
 
-    // ConceptLearning is wheteher to use pertinent attribute or all attributes to compute the closure
-    public static final int CONCEPT_LEARNING_PERTINENT = 1;
-    public static final int CONCEPT_LEARNING_ALL = 2;
+ // Constantes pour les stratégies
+    public static final int CONCEPT_LEARNING_ALL_ALL = 1;
+    public static final int CONCEPT_LEARNING_ALL_MAJORITY = 2;
+    public static final int CONCEPT_LEARNING_PERTINENT_ALL = 3;
+    public static final int CONCEPT_LEARNING_PERTINENT_MAJORITY = 4;
+    public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL = 5;
+    public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY = 6;
+    public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_ALL = 7;
+    public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY = 8;
+
     
-    private int ConceptLearningStrategy = CONCEPT_LEARNING_PERTINENT; // Default value : Pertinent
+    private int ConceptLearningStrategy = CONCEPT_LEARNING_ALL_ALL; // Default value : All allF
+    
+    public void setConceptLearningStrategy(int strategy) {
+        if (strategy >= CONCEPT_LEARNING_ALL_ALL && strategy <= CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY) {
+            this.ConceptLearningStrategy = strategy;
+        } else {
+            throw new IllegalArgumentException("Stratégie inconnue: " + strategy);
+        }
+    }
+    
+    public String getConceptLearningStrategyName() {
+        switch (ConceptLearningStrategy) {
+            case CONCEPT_LEARNING_ALL_ALL: 
+                return "Closure of All Attributes & All Values";
+            case CONCEPT_LEARNING_ALL_MAJORITY: 
+                return "Closure of All Attributes & Majority Value";
+            case CONCEPT_LEARNING_PERTINENT_ALL: 
+                return "Closure of Pertinent Attributes & All Values";
+            case CONCEPT_LEARNING_PERTINENT_MAJORITY: 
+                return "Closure of Pertinent Attributes & Majority Value";
+            case CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL: 
+                return "Closure of Attributes Above Threshold & All Values";
+            case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY: 
+                return "Closure of Attributes Above Threshold & Majority Value";
+            case CONCEPT_LEARNING_UNDER_THRESHOLD_ALL: 
+                return "Closure of Attributes Under Threshold & All Values";
+            case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY: 
+                return "Closure of Attributes Under Threshold & Majority Value";
+            default: 
+                return "Unknown Strategy";
+        } 
+    }
+  
+    
     
     public static final Tag[] TAGS_ConceptLearning = {
-        new Tag(CONCEPT_LEARNING_PERTINENT, "Closure of the pertinent attribute"),
-        new Tag(CONCEPT_LEARNING_ALL, "Closure of ALL attributes"),
-    };
+        new Tag(CONCEPT_LEARNING_ALL_ALL , "Closure of All Attributes & All Values"),
+        new Tag(CONCEPT_LEARNING_ALL_MAJORITY, "Closure of ALL attributes & Majority Value"),
+        new Tag(CONCEPT_LEARNING_PERTINENT_ALL, "Closure of the Pertinent Attribute & All Values"),
+        new Tag(CONCEPT_LEARNING_PERTINENT_MAJORITY, "Closure of the Pertinent attribute & Majority Value"),
+        new Tag(CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL, "Closure of attributes above THRESHOLD & All Values"),
+        new Tag(CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY,"Closure of attributes above THRESHOLD & Majority Value"),
+        new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_ALL, "Closure of attributes under THRESHOLD & All Values"),
+        new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY, "Closure of attributes under THRESHOLD & Majority Value")
+        };
+   
     
     public SelectedTag getConceptLearning() {
         return new SelectedTag(ConceptLearningStrategy, TAGS_ConceptLearning);
@@ -94,27 +163,7 @@ public class CNC extends AbstractClassifier
         }
     }
 
-    // ValueStrategy is the strategy used to compute the value of the attribute
-    
-    public static final int VALUE_STRATEGY_BEST = 1;
-    public static final int VALUE_STRATEGY_ALL = 2;
-    
-    private int ValueStrategy = VALUE_STRATEGY_BEST; // Default value : Best Value
-    
-    public static final Tag[] TAGS_ValueStrategy = {
-        new Tag(VALUE_STRATEGY_BEST, "Best Value"),
-        new Tag(VALUE_STRATEGY_ALL, "All Values"),
-    };
-    
-    public SelectedTag getValueStrategy() {
-        return new SelectedTag(ValueStrategy, TAGS_ValueStrategy);
-    }
-    
-    public void setValueStrategy(SelectedTag value) {
-        if (value.getTags() == TAGS_ValueStrategy) {
-            this.ValueStrategy = value.getSelectedTag().getID();
-        }
-    }
+   
 
     // Policy_Selection is the policy used to select the attribute in case of equality
     
@@ -161,54 +210,6 @@ public class CNC extends AbstractClassifier
     
     protected Instances m_FilteredInstances;
 
-    // GaloisConnection is whether to use Galois connection or not
-    // Note : this function isn't tested at the moment
-
-    public static final boolean GALOIS_DISABLED = false;
-    public static final boolean GALOIS_ENABLED = true;
-
-    private boolean UseGaloisConnection = GALOIS_DISABLED; // Default value : Disabled
-
-    public static final Tag[] TAGS_GaloisConnection = {
-        new Tag(0, "Disabled"),
-        new Tag(1, "Enabled"),
-    };
-
-    public SelectedTag get_GaloisConnection() {
-        return new SelectedTag(UseGaloisConnection ? 1 : 0, TAGS_GaloisConnection);
-    }
-
-    public void set_GaloisConnection(SelectedTag value) {
-        if (value.getTags() == TAGS_GaloisConnection) {
-            UseGaloisConnection = (value.getSelectedTag().getID() == 1);
-        }
-    }
-
-    // GaloisStrategy is the strategy used to compute the Galois connection
-
-    public static final int GALOIS_STRATEGY_PERTINENT_MAJORITY = 1;
-    public static final int GALOIS_STRATEGY_PERTINENT_ALL = 2;
-    public static final int GALOIS_STRATEGY_ALL_MAJORITY = 3;
-    public static final int GALOIS_STRATEGY_ALL_ALL = 4;
-
-    private int GaloisStrategy = GALOIS_STRATEGY_PERTINENT_MAJORITY; // Default value : Pertinent Attribute & Majority Value
-
-    public static final Tag[] TAGS_GaloisStrategy = {
-        new Tag(GALOIS_STRATEGY_PERTINENT_MAJORITY, "Pertinent Attribute & Majority Value"),
-        new Tag(GALOIS_STRATEGY_PERTINENT_ALL, "Pertinent Attribute & All Values"),
-        new Tag(GALOIS_STRATEGY_ALL_MAJORITY, "All Attributes & Majority Value"),
-        new Tag(GALOIS_STRATEGY_ALL_ALL, "All Attributes & All Values"),
-    };
-
-    public SelectedTag get_GaloisStrategy() {
-        return new SelectedTag(GaloisStrategy, TAGS_GaloisStrategy);
-    }
-
-    public void set_GaloisStrategy(SelectedTag value) {
-        if (value.getTags() == TAGS_GaloisStrategy) {
-            GaloisStrategy = value.getSelectedTag().getID();
-        }
-    }
     
     @Override
     public TechnicalInformation getTechnicalInformation() {
@@ -253,243 +254,235 @@ public class CNC extends AbstractClassifier
         return result;
     }
     
-
-    // listOptions() returns a list of the options available for this classifier, it is important in order to add a parameter
+ // listOptions() returns a list of the options available for this classifier
     public Enumeration<Option> listOptions() {
         Vector<Option> newVector = new Vector<>(10);
-        
-        newVector.addElement(new Option("\tUse pertinent attribute concept learning.", "pertinent", 0, "-pertinent"));
-        newVector.addElement(new Option("\tUse all attributes concept learning.", "all", 0, "-all"));
-        newVector.addElement(new Option("\tUse best value strategy.", "bestValue", 0, "-bestValue"));
-        newVector.addElement(new Option("\tUse all values strategy.", "allValues", 0, "-allValues"));
-        
-        newVector.addElement(new Option("\tEnable Galois connection.", "_galois", 0, "-_galois"));
-        newVector.addElement(new Option("\tGalois strategy (1=PERTINENT_MAJORITY, 2=PERTINENT_ALL, 3=ALL_MAJORITY, 4=ALL_ALL).", 
-                                       "galoisStrategy", 1, "-galoisStrategy <num>"));
-        
-        newVector.addElement(new Option("\tFeature selection measure (entropy, infogain, gainratio)", 
-                                       "FeatureMeasure", 1, "-FeatureMeasure <string>"));
-        
+
+        // Option pour la stratégie de concept learning
         newVector.addElement(new Option(
-            "\t Full class name of filter to use, followed\n"
-            + "\t by filter options.\n"
-            + "\t eg: \"weka.filters.supervised.attribute.Remove -V -R 1,2\"",
+                "\tConcept learning strategy:\n" +
+                "\t1: All Attributes - All Values\n" +
+                "\t2: All Attributes - Majority Value\n" +
+                "\t3: Pertinent Attributes - All Values\n" +
+                "\t4: Pertinent Attributes - Majority Value\n" +
+                "\t5: Above Threshold - All Values\n" +
+                "\t6: Above Threshold - Majority Value\n" +
+                "\t7: Under Threshold - All Values\n" +
+                "\t8: Under Threshold - Majority Value",
+                "conceptStrategy", 1, "-conceptStrategy <num>"));
+
+        // Option pour le seuil
+        newVector.addElement(new Option(
+            "\tThreshold value for attribute selection",
+            "THRESHOLD", 1, "-THRESHOLD <num>"));
+
+        // Option pour la mesure de caractéristique
+        newVector.addElement(new Option(
+            "\tFeature selection measure:",
+            "FeatureMeasure", 1, "-FeatureMeasure <entropy|infogain|gainratio>"));
+
+        // Option pour le filtre
+        newVector.addElement(new Option(
+            "\tFull filter specification:\n" +
+            "\teg: \"weka.filters.supervised.attribute.Discretize -R first-last\"",
             "F", 1, "-F <filter specification>"));
-        
-        Enumeration<Option> enu = super.listOptions();
-        while (enu.hasMoreElements()) {
-            newVector.addElement(enu.nextElement());
-        }
-        
+
+        // Option pour le debug
+        newVector.addElement(new Option(
+            "\tEnable debug output",
+            "debug", 0, "-debug"));
+
+        // Options de la classe parente
+        newVector.addAll(Collections.list(super.listOptions()));
+
         return newVector.elements();
     }
 
-
-    // setOptions() sets the options for the classifier
     public void setOptions(String[] options) throws Exception {
-        boolean runString;
+        // Gestion de la stratégie de concept learning
+    	 // Reset des valeurs par défaut
+        ConceptLearningStrategy = CONCEPT_LEARNING_ALL_ALL; // Valeur par défaut
         
-        String featMeasure = Utils.getOption("FeatureMeasure", options);
-        if (featMeasure.length() != 0) {
-            if (featMeasure.equalsIgnoreCase("entropy"))
-                FeatureMeasureMethod = FEAT_ENTROPY;
-            else if (featMeasure.equalsIgnoreCase("infogain"))
-                FeatureMeasureMethod = FEAT_INFOGAIN;
-            else if (featMeasure.equalsIgnoreCase("gainratio"))
-                FeatureMeasureMethod = FEAT_GAINRATIO;
+        String strategyStr = Utils.getOption("conceptStrategy", options);
+        if (!strategyStr.isEmpty()) {
+            int strategy = Integer.parseInt(strategyStr);
+            if (strategy < 1 || strategy > 8) {
+                throw new IllegalArgumentException("Invalid strategy number. Must be between 1-8");
+            }
+            ConceptLearningStrategy = strategy;
         }
-        
-        runString = Utils.getFlag("pertinent", options);
-        if (runString)
-            ConceptLearningStrategy = CONCEPT_LEARNING_PERTINENT;
-        
-        runString = Utils.getFlag("all", options);
-        if (runString)
-            ConceptLearningStrategy = CONCEPT_LEARNING_ALL;
-        
-        runString = Utils.getFlag("bestValue", options);
-        if (runString)
-            ValueStrategy = VALUE_STRATEGY_BEST;
-        
-        runString = Utils.getFlag("allValues", options);
-        if (runString)
-            ValueStrategy = VALUE_STRATEGY_ALL;
-        
-        runString = Utils.getFlag("_galois", options);
-        if (runString)
-            UseGaloisConnection = GALOIS_ENABLED;
-        
-        String galoisStrategyStr = Utils.getOption("_galoisStrategy", options);
-        if (galoisStrategyStr.length() != 0) {
-            try {
-                GaloisStrategy = Integer.parseInt(galoisStrategyStr);
-                if (GaloisStrategy < 1 || GaloisStrategy > 4)
-                    GaloisStrategy = GALOIS_STRATEGY_PERTINENT_MAJORITY;
-            } catch (NumberFormatException e) {
-                GaloisStrategy = GALOIS_STRATEGY_PERTINENT_MAJORITY;
+
+        // Gestion du seuil
+        String thresholdStr = Utils.getOption("THRESHOLD", options);
+        if (!thresholdStr.isEmpty()) {
+            setThreshold(Double.parseDouble(thresholdStr));
+        }
+
+        // Gestion de la mesure de caractéristique
+        String measureStr = Utils.getOption("FeatureMeasure", options);
+        if (!measureStr.isEmpty()) {
+            switch (measureStr.toLowerCase()) {
+                case "entropy":
+                    FeatureMeasureMethod = FEAT_ENTROPY;
+                    break;
+                case "infogain":
+                    FeatureMeasureMethod = FEAT_INFOGAIN;
+                    break;
+                case "gainratio":
+                    FeatureMeasureMethod = FEAT_GAINRATIO;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid feature measure: " + measureStr);
             }
         }
-        
-        runString = Utils.getFlag("policyFirst", options);
-        if (runString)
-            Policy_Selection = POLICY_FIRST;
-        
-        runString = Utils.getFlag("policyLast", options);
-        if (runString)
-            Policy_Selection = POLICY_LAST;
-        
-        m_Debug = Utils.getFlag("debug", options);
-        
-        String filterString = Utils.getOption('F', options);
-        if (filterString.length() > 0) {
-            String[] filterSpec = Utils.splitOptions(filterString);
-            if (filterSpec.length == 0)
-                throw new IllegalArgumentException("Invalid filter specification string");
-            String filterName = filterSpec[0];
-            filterSpec[0] = "";
-            setFilter((Filter) Utils.forName(Filter.class, filterName, filterSpec));
+
+        // Gestion du filtre
+        String filterStr = Utils.getOption('F', options);
+        if (!filterStr.isEmpty()) {
+            String[] filterSpec = Utils.splitOptions(filterStr);
+            if (filterSpec.length == 0) {
+                // Default to basic Discretize if no options specified
+                setFilter(new weka.filters.supervised.attribute.Discretize());
+            } else {
+                try {
+                    String filterName = filterSpec[0];
+                    filterSpec[0] = "";
+                    Filter filter = (Filter) Utils.forName(Filter.class, filterName, filterSpec);
+                    setFilter(filter);
+                } catch (Exception e) {
+                    // Fallback to default Discretize if parsing fails
+                    System.err.println("Warning: Could not set filter, using default Discretize. Error: " + e.getMessage());
+                    setFilter(new weka.filters.supervised.attribute.Discretize());
+                }
+            }
         } else {
             setFilter(new weka.filters.supervised.attribute.Discretize());
         }
-        
+
+        // Gestion du debug
+        m_Debug = Utils.getFlag("debug", options);
+
         super.setOptions(options);
     }
 
-
-    // getOptions() returns the options for the classifier
     public String[] getOptions() {
         Vector<String> result = new Vector<>();
+
+        // Stratégie de concept learning
+        result.add("-conceptStrategy");
+        result.add(String.valueOf(ConceptLearningStrategy));
         
-        switch (ConceptLearningStrategy) {
-            case CONCEPT_LEARNING_PERTINENT:
-                result.add("-pertinent");
-                break;
-            case CONCEPT_LEARNING_ALL:
-                result.add("-all");
-                break;
-        }
-        
-        switch (ValueStrategy) {
-            case VALUE_STRATEGY_BEST:
-                result.add("-bestValue");
-                break;
-            case VALUE_STRATEGY_ALL:
-                result.add("-allValues");
-                break;
-        }
-        
-        if (UseGaloisConnection) {
-            result.add("-_galois");
-            result.add("-_galoisStrategy");
-            result.add("" + GaloisStrategy);
-        }
-        
-        switch (Policy_Selection) {
-            case POLICY_FIRST:
-                result.add("-policyFirst");
-                break;
-            case POLICY_LAST:
-                result.add("-policyLast");
-                break;
-        }
-        
-        if (m_Debug) {
-            result.add("-debug");
-        }
-        
-        result.add("-F");
-        result.add(getFilterSpec());
-        
+
+        // Seuil
+        result.add("-THRESHOLD");
+        result.add(String.valueOf(getThreshold()));
+
+        // Mesure de caractéristique
+        result.add("-FeatureMeasure");
         switch (FeatureMeasureMethod) {
             case FEAT_ENTROPY:
-                result.add("-FeatureMeasure");
                 result.add("entropy");
                 break;
             case FEAT_INFOGAIN:
-                result.add("-FeatureMeasure");
                 result.add("infogain");
                 break;
             case FEAT_GAINRATIO:
-                result.add("-FeatureMeasure");
                 result.add("gainratio");
                 break;
         }
-        
-        String[] superOptions = super.getOptions();
-        for (String option : superOptions) {
-            result.add(option);
+
+        // Filtre
+        result.add("-F");
+        result.add(getFilterSpec());
+
+        // Debug
+        if (m_Debug) {
+            result.add("-debug");
         }
-        
+
+        // Options de la classe parente
+        Collections.addAll(result, super.getOptions());
+
         return result.toArray(new String[0]);
     }
 
+    
+    
+    
     // classifyInstance() classifies a given instance, it is mandatory to implement this function
     @Override
     public double classifyInstance(Instance inst) throws Exception {
-        if (m_Filter.numPendingOutput() > 0)
-            throw new Exception("Filter output queue not empty!");
-        
-        if (!m_Filter.input(inst))
-            throw new Exception("Filter didn't make the test instance immediately available!");
-        
+        // Vérification préalable
+        if (m_classifierNC == null) {
+            throw new IllegalStateException("Model not built. Call buildClassifier() first.");
+        }
+
+        // Filtrage unique
+        m_Filter.input(inst);
         m_Filter.batchFinished();
-        Instance newInstance = m_Filter.output();
-        
-        m_Missing.input(inst);
-        m_Missing.batchFinished();
-        inst = m_Missing.output();
-        
-        double result = (double) -1.0;
-        Classify_Instance listRules = new Classify_Instance();
-        
-        if (ConceptLearningStrategy == CONCEPT_LEARNING_PERTINENT && ValueStrategy == VALUE_STRATEGY_BEST) {
-            result = (double) listRules.classify_Instance_nom(newInstance, m_classifierNC.get(0));
-        } else {
-            result = (double) listRules.classify_Instance_nom_VoteLowPondVoter(
-                newInstance, m_classifierNC, newInstance.numClasses(), m_LowPondVoter);
+        Instance filteredInst = m_Filter.output();
+        Classify_Instance classifier = new Classify_Instance();
+
+        double result =-1.0;
+        for (int i = 0; i < m_classifierNC.size(); i++) {
+            Classification_Rule rule = m_classifierNC.get(i);
+         // Décision
+            result = classifier.classify_Instance_nom(
+                filteredInst, 
+                rule );
+            if (result !=-1.0)
+            	break;
         }
         
+
+        // Debug
         if (m_Debug) {
-            System.out.println("- Instance: " + newInstance.toString());
-
-            if ((int) result == -1) {
-                System.out.println("\tDecision: -1 (Class: undetermined - no applicable rule)");
-            } else if ((int) result >= 0 && (int) result < newInstance.classAttribute().numValues()) {
-                String className = newInstance.classAttribute().value((int) result);
-                System.out.println("\tDecision: " + (int) result + " (Class: " + className + ")");
-            } else {
-                System.out.println("\tDecision: " + (int) result + " (Class: unknown - index out of bounds)");
-            }
-
-            System.out.println("\n");
+            System.out.println("=== Classification ===");
+            System.out.println("Instance: " + filteredInst);
+            System.out.println("Matched rules: " + countMatchingRules(filteredInst));
+            System.out.println("Final decision: " + 
+                (result == -1.0 ? "UNCLASSIFIED" : filteredInst.classAttribute().value((int)result)));
         }
-        
-        if (result == -1.0)
-            return Utils.missingValue();
-        
-        return result;
+
+        return result == -1.0 ? Utils.missingValue() : result;
     }
 
+    // Méthode helper pour le debug
+    private int countMatchingRules(Instance inst) throws Exception {
+        int count = 0;
+        for (Classification_Rule rule : m_classifierNC) {
+            if (new Classify_Instance().TestClassifInstance_nom(inst, rule)) {
+                count++;
+            }
+        }
+        return count;
+    }
     // buildClassifier() builds the classifier using the training data, it is mandatory to implement this function
 
+    
     public void buildClassifier(Instances data) throws Exception {
+        // Vérification des capacités et prétraitement des données
         getCapabilities().testWithFail(data);
         
+        // Étape 1: Préparation des données
         m_FilteredInstances = new Instances(data);
         m_FilteredInstances.deleteWithMissingClass();
         
         if (m_FilteredInstances.numInstances() == 0)
             throw new Exception("No training instances left after removing instances with MissingClass!");
         
+        // Gestion des valeurs manquantes
         m_Missing.setInputFormat(m_FilteredInstances);
         m_FilteredInstances = Filter.useFilter(m_FilteredInstances, m_Missing);
         
         if (m_FilteredInstances.numInstances() == 0)
             throw new Exception("No training instances left after removing instances with MissingValues!");
         
+        // Application du filtre (discretisation)
         m_Filter.setInputFormat(m_FilteredInstances);
         m_FilteredInstances = Filter.useFilter(m_FilteredInstances, m_Filter);
         
+        // Cas particulier: seulement l'attribut classe
         if (m_FilteredInstances.numAttributes() == 1) {
             System.err.println("Cannot build model (only class attribute present in data!), "
                 + "using ZeroR model instead!");
@@ -501,217 +494,375 @@ public class CNC extends AbstractClassifier
             this.m_CNC = 1;
         }
         
-        if (UseGaloisConnection) {
-            if (m_Debug) {
-                System.out.println("Using Galois connection with strategy: " + GaloisStrategy);
-            }
-            
-            _GaloisConnection galoisConnection = new _GaloisConnection(m_Debug);
-            galoisConnection.buildConnection(m_FilteredInstances);
-            
-            m_classifierNC = galoisConnection.generateRulesWithStrategy(GaloisStrategy);
-        } else {
-            RuleExtractor extractor = new RuleExtractor(m_Debug, FeatureMeasureMethod, Policy_Selection, ConceptLearningStrategy);
-            
-            if (ConceptLearningStrategy == CONCEPT_LEARNING_PERTINENT) {
-                if (ValueStrategy == VALUE_STRATEGY_BEST) {
-                    m_classifierNC = extractor.ExtraireRegleFermNom(m_FilteredInstances, 1);
-                } else {
-                    m_classifierNC = extractor.ExtraireRegleFermNom(m_FilteredInstances, 3);
+        // Étape 2: Sélection de la stratégie de génération de règles
+     
+        RuleExtractor extractor = new RuleExtractor(m_Debug, FeatureMeasureMethod, Policy_Selection, ConceptLearningStrategy);
+
+        switch (ConceptLearningStrategy) {
+            case CONCEPT_LEARNING_ALL_ALL:
+                if (m_Debug) {
+                    System.out.println("=== ALL ATTRIBUTES - ALL VALUES MODE ACTIVE ===");
+                    System.out.println("Extraction using all attributes with all values");
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                 }
-            } else {
-                ArrayList<Classification_Rule> tempRules = new ArrayList<>();
-                
-                for (int i = 0; i < m_FilteredInstances.numAttributes(); i++) {
-                    if (i == m_FilteredInstances.classIndex()) continue;
-                    
-                    if (ValueStrategy == VALUE_STRATEGY_BEST) {
-                        Attribute attr = m_FilteredInstances.attribute(i);
-                        
-                        int bestValueIdx = 0;
-                        int bestSupport = 0;
-                        
-                        for (int v = 0; v < attr.numValues(); v++) {
-                            int support = 0;
-                            for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
-                                if (m_FilteredInstances.instance(j).value(i) == v) {
-                                    support++;
-                                }
-                            }
-                            
-                            if (support > bestSupport) {
-                                bestSupport = support;
-                                bestValueIdx = v;
-                            }
-                        }
-                        
-                        ArrayList<Integer> instanceIndices = new ArrayList<>();
-                        for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
-                            if (m_FilteredInstances.instance(j).value(i) == bestValueIdx) {
-                                instanceIndices.add(j);
-                            }
-                        }
-                        
-                        if (!instanceIndices.isEmpty()) {
-                            ArrayList<String> attributes = new ArrayList<>();
-                            for (int a = 0; a < m_FilteredInstances.numAttributes() - 1; a++) {
-                                attributes.add("-null-");
-                            }
-                            
-                            int attrIdx = (i < m_FilteredInstances.classIndex()) ? i : i - 1;
-                            attributes.set(attrIdx, attr.value(bestValueIdx));
-                            
-                            int[] classCounts = new int[m_FilteredInstances.numClasses()];
-                            for (int idx : instanceIndices) {
-                                classCounts[(int)m_FilteredInstances.instance(idx).classValue()]++;
-                            }
-                            
-                            int majorityClass = 0;
-                            for (int c = 0; c < classCounts.length; c++) {
-                                if (classCounts[c] > classCounts[majorityClass]) {
-                                    majorityClass = c;
-                                }
-                            }
-                            
-                            Classification_Rule rule = new Classification_Rule(
-                                attributes,
-                                majorityClass,
-                                m_FilteredInstances.attribute(m_FilteredInstances.classIndex()).value(majorityClass)
-                            );
-                            
-                            Classify_Instance classifier = new Classify_Instance();
-                            double weight = 0;
-                            for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
-                                if (classifier.classify_Instance_nom(m_FilteredInstances.instance(j), rule) != -1.0) {
-                                    weight++;
-                                }
-                            }
-                            rule.setRule_Ponderation(weight / m_FilteredInstances.numInstances());
-                            
-                            tempRules.add(rule);
-                        }
-                    } else {
-                        Attribute attr = m_FilteredInstances.attribute(i);
-                        
-                        for (int v = 0; v < attr.numValues(); v++) {
-                            ArrayList<Integer> instanceIndices = new ArrayList<>();
-                            for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
-                                if (m_FilteredInstances.instance(j).value(i) == v) {
-                                    instanceIndices.add(j);
-                                }
-                            }
-                            
-                            if (!instanceIndices.isEmpty()) {
-                                ArrayList<String> attributes = new ArrayList<>();
-                                for (int a = 0; a < m_FilteredInstances.numAttributes() - 1; a++) {
-                                    attributes.add("-null-");
-                                }
-                                
-                                int attrIdx = (i < m_FilteredInstances.classIndex()) ? i : i - 1;
-                                attributes.set(attrIdx, attr.value(v));
-                                
-                                int[] classCounts = new int[m_FilteredInstances.numClasses()];
-                                for (int idx : instanceIndices) {
-                                    classCounts[(int)m_FilteredInstances.instance(idx).classValue()]++;
-                                }
-                                
-                                int majorityClass = 0;
-                                for (int c = 0; c < classCounts.length; c++) {
-                                    if (classCounts[c] > classCounts[majorityClass]) {
-                                        majorityClass = c;
-                                    }
-                                }
-                                
-                                Classification_Rule rule = new Classification_Rule(
-                                    attributes,
-                                    majorityClass,
-                                    m_FilteredInstances.attribute(m_FilteredInstances.classIndex()).value(majorityClass)
-                                );
-                                
-                                Classify_Instance classifier = new Classify_Instance();
-                                double weight = 0;
-                                for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
-                                    if (classifier.classify_Instance_nom(m_FilteredInstances.instance(j), rule) != -1.0) {
-                                        weight++;
-                                    }
-                                }
-                                rule.setRule_Ponderation(weight / m_FilteredInstances.numInstances());
-                                
-                                tempRules.add(rule);
-                            }
-                        }
-                    }
+                m_classifierNC = extractor.extractAllAttributesAllValues(m_FilteredInstances);
+                if (m_Debug) {
+                    System.out.println("All attributes used");
+                    //printRuleStatistics();
                 }
+                break;
                 
-                m_classifierNC = tempRules;
-            }
+            case CONCEPT_LEARNING_ALL_MAJORITY:
+                if (m_Debug) {
+                    System.out.println("=== ALL ATTRIBUTES - MAJORITY VALUE MODE ACTIVE ===");
+                    System.out.println("Extraction using all attributes with majority values");
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                }
+                m_classifierNC = extractor.extractAllAttributesMajorityValue(m_FilteredInstances);
+                
+                break;
+                
+            case CONCEPT_LEARNING_PERTINENT_ALL:
+                if (m_Debug) {
+                    System.out.println("=== PERTINENT ATTRIBUTE - ALL VALUES MODE ACTIVE ==="); 
+                    System.out.println("Extraction using only pertinent attribute with all values");
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printPertinentAttribute(m_FilteredInstances);
+
+                }
+                m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
+                
+                break;
+                
+            case CONCEPT_LEARNING_PERTINENT_MAJORITY:
+                if (m_Debug) {
+                    System.out.println("=== PERTINENT ATTRIBUTES - MAJORITY VALUE MODE ACTIVE ===");
+                    System.out.println("Extraction using only pertinent attribute with majority value");
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printPertinentAttribute(m_FilteredInstances);
+
+                } 
+                m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
+                
+                break;
+                
+            case CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL:
+                if (m_Debug) {
+                    System.out.println("=== ABOVE THRESHOLD - ALL VALUES MODE ACTIVE ===");
+                    System.out.println("Extraction with THRESHOLD " + m_THRESHOLD);
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
+
+                }
+                m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(m_FilteredInstances,m_THRESHOLD);
+                
+                break;
+                
+            case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY:
+                if (m_Debug) {
+                    System.out.println("=== ABOVE THRESHOLD - MAJORITY VALUES MODE ACTIVE ===");
+                    System.out.println("Extraction with THRESHOLD " + m_THRESHOLD);
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
+
+                }
+                m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);
+                
+                break;
+                
+            case CONCEPT_LEARNING_UNDER_THRESHOLD_ALL:
+                if (m_Debug) {
+                    System.out.println("=== UNDER THRESHOLD - ALL VALUES MODE ACTIVE ===");
+                    System.out.println("Extraction with THRESHOLD " + m_THRESHOLD);
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printAttributesUnderThreshold(m_FilteredInstances, m_THRESHOLD);
+
+                }
+                m_classifierNC = extractor.extractAttributeUnderThresholdAllValues(m_FilteredInstances,m_THRESHOLD);
+                
+                break;
+                
+            case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY:
+                if (m_Debug) {
+                    System.out.println("=== UNDER THRESHOLD - MAJORITY VALUES MODE ACTIVE ===");
+                    System.out.println("Extraction with THRESHOLD " + m_THRESHOLD);
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printAttributesUnderThreshold(m_FilteredInstances, m_THRESHOLD);
+
+                }
+                m_classifierNC = extractor.extractAttributeUnderThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);
+                
+                break;
+        }
+
+        
+    }
+    
+  
+    
+    public static String featureMeasureToString(int measureType) {
+        switch (measureType) {
+            case FEAT_ENTROPY:
+                return "Entropy";
+            case FEAT_INFOGAIN:
+                return "Information Gain";
+            case FEAT_GAINRATIO:
+                return "Gain Ratio";
+            default:
+                return "Unknown Measure";
+        }
+    }
+
+    // Méthode helper pour créer une règle à partir d'instances
+    private Classification_Rule createRuleFromInstances(ArrayList<Integer> instanceIndices, int attrIndex, int valueIdx) {
+        Instances instances = m_FilteredInstances;
+        ArrayList<String> attributes = new ArrayList<>();
+        for (int a = 0; a < instances.numAttributes() - 1; a++) {
+            attributes.add("-null-");
         }
         
+        int fermetureIdx = (attrIndex < instances.classIndex()) ? attrIndex : attrIndex - 1;
+        attributes.set(fermetureIdx, instances.attribute(attrIndex).value(valueIdx));
+        
+        int[] classCounts = new int[instances.numClasses()];
+        for (int idx : instanceIndices) {
+            classCounts[(int)instances.instance(idx).classValue()]++;
+        } 
+        
+        int majorityClass = findMajorityClass(classCounts);
+        
+        Classification_Rule rule = new Classification_Rule(
+            attributes,
+            majorityClass,
+            instances.classAttribute().value(majorityClass)
+        );
+        
+        rule.setRule_Ponderation(calculateRuleWeight(instanceIndices.size(), instances.numInstances()));
+        
+        return rule;
+    }
+
+    // Méthode helper pour trouver la classe majoritaire
+    private int findMajorityClass(int[] classCounts) {
+        int majorityClass = 0;
+        for (int c = 0; c < classCounts.length; c++) {
+            if (classCounts[c] > classCounts[majorityClass]) {
+                majorityClass = c;
+            }
+        }
+        return majorityClass;
+    }
+
+    // Méthode helper pour calculer le poids
+    private double calculateRuleWeight(int coveredInstances, int totalInstances) {
+        return (double)coveredInstances / totalInstances;
+    }
+
+    // Méthode helper pour l'affichage debug
+    private void printRuleStatistics() {
+        System.out.println("\n\n--- RULE GENERATION STATISTICS ---\n");
+        System.out.println("Total rules generated: " + m_classifierNC.size());
+        
+        for (int i = 0; i < m_classifierNC.size(); i++) {
+            Classification_Rule rule = m_classifierNC.get(i);
+            int coverageCount = 0;
+            
+            for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
+                try {
+                    if (new Classify_Instance().classify_Instance_nom(m_FilteredInstances.get(j), rule) != -1.0) {
+                        coverageCount++;
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error evaluating rule coverage: " + e.getMessage());
+                }
+            }
+            
+            System.out.printf("Rule #%d:\n", i + 1);
+            System.out.println(rule.affich_nom_rule(true));
+            System.out.printf("Coverage: %d/%d instances (%.1f%%)\n", 
+                coverageCount, m_FilteredInstances.numInstances(),
+                (coverageCount * 100.0 / m_FilteredInstances.numInstances()));
+            System.out.printf("Weight: %.3f\n", rule.getRule_Ponderation());
+            System.out.println("----------------------------\n");
+        }
+    }
+
+    
+    
+    
+    
+    
+    
+    
+    
+    private double evaluateErrorRate(Instances data) throws Exception {
+    	double m_ErrorRate;
+        Evaluation eval = new Evaluation(data);
+        eval.evaluateModel(this, data);
+        m_ErrorRate = eval.errorRate();
+        
+        // Vous pouvez aussi capturer d'autres métriques
         if (m_Debug) {
-            System.out.println("\n\n--- RULE GENERATION ---\n");
+            System.out.println(eval.toSummaryString());
+        }
+        return m_ErrorRate;
+    }
+    
+    
+    
+    
+    
+    
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        SimpleDateFormat sdf = new SimpleDateFormat("EEE yyyy-MM-dd HH:mm:ss.SSS");
+        String currentTime = sdf.format(new Date());
+        
+        // En-tête du classifieur
+        sb.append("=== CNC Classifier Output ===\n");
+        sb.append("Generated at: ").append(currentTime).append("\n\n");
+        
+        // Configuration du classifieur
+        sb.append("=== Configuration ===\n");
+        sb.append(String.format("%-25s: %s\n", "Concept Learning Strategy", getConceptLearningStrategyName()));
+        sb.append(String.format("%-25s: %s\n", "Feature Measure", featureMeasureToString(FeatureMeasureMethod)));
+        sb.append(String.format("%-25s: %.4f\n", "THRESHOLD", m_THRESHOLD));  // Affichage du seuil avec 4 décimales
+        sb.append(String.format("%-25s: %s\n", "Policy Selection", getPolicySelectionName()));
+        sb.append("\n");
+        
+        // Statistiques de performance
+        if (m_classifierNC != null && !m_classifierNC.isEmpty()) {
+            sb.append("=== Performance ===\n");
+           
+            sb.append(String.format("%-25s: %d\n", "Number of Rules Generated", m_classifierNC.size()));
+            sb.append("\n");
             
+            // Détail des règles
+            sb.append("=== Generated Rules ===\n");
             for (int i = 0; i < m_classifierNC.size(); i++) {
-                Classification_Rule rule = m_classifierNC.get(i);
-                double coverageCount = 0;
-                for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
-                    try {
-                        if (new Classify_Instance().classify_Instance_nom(m_FilteredInstances.get(j), rule) != -1.0)
-                            coverageCount++;
-                    } catch (Exception e) {
-                        System.err.println("Error during rule evaluation: " + e.getMessage());
-                    }
-                }
-                double poids = rule.getRule_Ponderation();
-                System.out.printf("--- Rule #%d ---\n", i + 1);
-                System.out.println(rule.affich_nom_rule(true));
-                System.out.printf("\n");
-                System.out.printf("--- RECAP ---\n");
-                System.out.printf("Covers: %.0f / %d instances\n", coverageCount, m_FilteredInstances.numInstances());
-                System.out.printf("Poids: %.2f%%\n", poids * 100);
-                System.out.printf("-------------\n");
-                System.out.printf("\n");
+                sb.append(String.format("\nRule %d:\n", i + 1));
+                sb.append(m_classifierNC.get(i).affich_nom_rule(true));
+                sb.append("\n");
+            }
+        } else if (m_ZeroR != null) {
+            sb.append("Using ZeroR model as fallback\n");
+        } else {
+            sb.append("No model generated\n");
+        }
+        
+        // Information de débogage
+        if (m_Debug) {
+            sb.append("\n=== Debug Information ===\n");
+            sb.append("Log console available\n");
+            sb.append("Last execution: ").append(currentTime).append("\n");
+        }
+        double m_ErrorRate = -1;
+        try {
+            m_ErrorRate = evaluateErrorRate(this.m_FilteredInstances);
+        } catch (Exception e) {
+            System.out.println("Error in error rate calculation: " + e.getMessage());
+        }
+        if (m_ErrorRate >= 0) {
+            sb.append(String.format("%-25s: %.2f%%\n", "Error Rate", m_ErrorRate * 100));
+        }
+        return sb.toString();
+    }
 
-                System.out.println("\n\n--- CLASSIFICATION OF DIFFERENT CONTEXTS ---\n");
+
+
+    private String getPolicySelectionName() {
+        switch (Policy_Selection) {
+            case POLICY_FIRST: return "First Attribute";
+            case POLICY_LAST: return "Last Attribute";
+            default: return "Unknown";
+        }
+    }
+
+    
+    
+    
+    
+    
+    // Main function to run the classifier
+    //
+    public static void main(String[] args) {
+    	//runClassifier(new CNC(), args);
+    	test();
+    	
+    }
+    	
+    public static void test() {    	
+        try {
+            // Chemin vers un jeu de données inclus avec Weka si le vôtre ne fonctionne pas
+        	String dataPath="C:\\Users\\asus\\Desktop\\weather.nominal.arff";
+        	Instances data = DataSource.read(dataPath);
+            data.setClassIndex(data.numAttributes() - 1);
+
+            System.out.println("=== TEST AVEC DONNEES Weather ===");
+            System.out.println("Nombre d'instances: " + data.numInstances());
+            System.out.println("Nombre d'attributs: " + data.numAttributes());
+
+            // Test avec différentes stratégies
+            testStrategy(data, CNC.CONCEPT_LEARNING_PERTINENT_ALL, 0.2);
+            
+
+        } catch (Exception e) {
+            System.err.println("Erreur lors du test: ");
+            e.printStackTrace();
+          
+        }
+    }
+   
+    private static void testStrategy(Instances data, int strategy, double THRESHOLD) throws Exception {
+        // Initialisation du classifieur
+        CNC classifier = new CNC();
+        
+        // Configuration
+        classifier.setConceptLearningStrategy(strategy);
+        if (strategy == CNC.CONCEPT_LEARNING_PERTINENT_MAJORITY) {
+            classifier.setThreshold(THRESHOLD);
+        }
+        classifier.setFeatureMeasure(new SelectedTag(FEAT_INFOGAIN, TAGS_FeatureMeasure));
+        classifier.setDebug(true);  // Activer le mode debug
+        
+        // Construction du modèle
+        System.out.println("\nConstruction du modèle...");
+        classifier.buildClassifier(data);
+        
+        // Evaluation
+        System.out.println("\nEvaluation du modèle:");
+        Evaluation eval = new Evaluation(data);
+        eval.crossValidateModel(classifier, data, 10, new Random(1));  // 10-fold CV
+        
+        // Affichage des résultats
+        System.out.println("\n=== RESULTATS ===");
+        System.out.println("Stratégie: " + classifier.getConceptLearningStrategyName() + 
+                          (strategy == CNC.CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL ? " (N=" + THRESHOLD + ")" : ""));
+        System.out.println("Précision: " + eval.pctCorrect() + "%");
+        System.out.println("Nombre de règles générées: " + classifier.m_classifierNC.size());
+        //System.out.println("Temps de construction: " + eval.getCPUTime() + "s");
+        
+        // Affichage de quelques règles (debug)
+        if (classifier.m_Debug && classifier.m_classifierNC.size() > 0) {
+            System.out.println("\nExemple de règles générées:");
+            for (int i = 0; i < Math.min(3, classifier.m_classifierNC.size()); i++) {
+                System.out.println("Règle " + (i+1) + ": " + 
+                    classifier.m_classifierNC.get(i).affich_nom_rule(true));
             }
         }
     }
+
     
 
-    public String toString() {
-        Calendar calendar = Calendar.getInstance();
-        SimpleDateFormat sdf = new SimpleDateFormat("E MM/dd/yyyy HH:mm:ss.SSS");
-        
-        StringBuffer sb = new StringBuffer(sdf.format(calendar.getTime()) + "\t [Classifier all Nominal Concept Notes] \n");
-        calendar = Calendar.getInstance();
-        
-        if ((m_CNC == 1) && (this.m_ZeroR == null)) {
-            sb.append(sdf.format(calendar.getTime()) + "\t Running OK ... \n");
-            sb.append(sdf.format(calendar.getTime()) + "\t The next display can be missing ... \n");
-            for (int i = 0; i < m_classifierNC.size(); i++)
-                sb.append(sdf.format(calendar.getTime()) + "\t Classifier " + (i + 1) + " : " 
-                     + m_classifierNC.get(i).affich_nom_rule(true) + "\n");
-            if (m_Debug)
-                sb.append(sdf.format(calendar.getTime()) + " \t A Log Console is generated... \n");
-            return sb.toString();
-        } else
-            return sdf.format(calendar.getTime()) + " \t m_ZeroR model \n";
-    }
-    
+	@Override
+	public String toSource(String className) throws Exception {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
-    // Those functions are mandatory because of the interface, but they are not used in this implementation
-    @Override
-    public String toSource(String className) throws Exception {
-        return null;
-    }
-    
-    @Override
-    public void updateClassifier(Instance instance) throws Exception {
-        System.out.println("/** updateClassifier(Instance instance) **/");
-    }
-
-    // Main function to run the classifier
-    
-    public static void main(String[] argv) {
-        runClassifier(new CNC(), argv);
-    }
+	@Override
+	public void updateClassifier(Instance instance) throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
 }

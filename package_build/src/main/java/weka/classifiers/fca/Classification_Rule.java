@@ -31,6 +31,55 @@ public class Classification_Rule  {
 			 this.Rule_Attr.add(attributes.get(i));
 	}
 	
+	
+	
+	/**
+	 * Crée une règle de classification à partir d'instances correspondantes
+	 * @param inst Dataset complet
+	 * @param instanceIndices Indices des instances correspondantes
+	 * @param attributes Liste des valeurs d'attributs pour la règle
+	 * @param poids
+	 * @return La règle générée avec pondération
+	 */
+	public static  Classification_Rule createRule(Instances inst, 
+	                                     ArrayList<Integer> instanceIndices,
+	                                     ArrayList<String> attributes
+										) throws Exception {
+	    
+	    // 1. Trouver la classe majoritaire
+	    int[] classCounts = new int[inst.numClasses()];
+	    for (int idx : instanceIndices) {
+	        classCounts[(int)inst.instance(idx).classValue()]++;
+	    }
+	    
+	    int majorityClass = 0;
+	    for (int c = 1; c < classCounts.length; c++) {
+	        if (classCounts[c] > classCounts[majorityClass]) {
+	            majorityClass = c;
+	        }
+	    }
+	    
+	    double weight = (double)instanceIndices.size() / inst.numInstances();
+	    
+	    // 2. Créer la règle
+	    Classification_Rule rule = new Classification_Rule(
+	        attributes,
+	        majorityClass,
+	        inst.classAttribute().value(majorityClass),
+	        weight
+	    );
+	    
+	    // 3. Ajouter les noms d'attributs pour l'affichage
+	    ArrayList<String> attributeNames = new ArrayList<>();
+	    for (int i = 0; i < inst.numAttributes() - 1; i++) {
+	        attributeNames.add(inst.attribute(i).name());
+	    }
+	    rule.setAttributeNames(attributeNames);
+	    
+	    return rule;
+	}
+	
+	
 	// Un constructeur a partir de la liste des attribut, indice et classe majoritaire et ponderation.	
 	public Classification_Rule(ArrayList<String> attributes, double ind_CM, String CM, double ponderation){
 		this.Rule_Attr 			= new ArrayList <String>();
@@ -201,5 +250,7 @@ public class Classification_Rule  {
 	public  String getRule_ClassMaj()	{
 		return this.Rule_ClassMaj;
 		}
+
+	
 	
 	}
