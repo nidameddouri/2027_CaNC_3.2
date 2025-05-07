@@ -10,7 +10,7 @@ public class Classification_Rule  {
 	public String Rule_ClassMaj; // Classe majoritaire.
 	public double Rule_Ponderation;	// La valeur de la ponderation.
 	private ArrayList<String> attributeNames; // Noms des attributs pour l'affichage
-
+/**/ */
 // Un constructeur null d'une regle
 	public Classification_Rule () {
 		this.Rule_Attr 			= new ArrayList <String>();
