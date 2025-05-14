@@ -92,6 +92,20 @@ public class Classification_Rule  {
 			this.Rule_Attr.add(attributes.get(i));		
 	}
 	
+	/**
+	 * Version sécurisée qui vérifie toutes les règles pour trouver le max
+	 */
+	public static int getMaxNumClass(ArrayList<Classification_Rule> rules) {
+	    int maxClass = -1;
+	    for (Classification_Rule rule : rules) {
+	        if (rule.getRule_indClassMaj() > maxClass) {
+	            maxClass = (int)rule.getRule_indClassMaj();
+	        }
+	    }
+	    return maxClass + 1; // conversion 0-based → count
+	}
+ 
+	
 	// Copier la regle this dans une autre en retour
 	public Classification_Rule copieRules ()	{
 		Classification_Rule ob 	= new Classification_Rule ();
@@ -153,7 +167,6 @@ public class Classification_Rule  {
 	        
 		return chaine;
 	}
-	
 
 	// Affichage Comma-separated values de la premisse de la regle. Si AfficheCM est vraie, on associe une classe majoritaire sinon sans classe
 	public String affich_text_rule (ArrayList <String> attributesList, boolean AfficheCM){

@@ -95,6 +95,133 @@ public class CNC extends AbstractClassifier
         }
     }
 
+    
+ // Types de classification nominale
+    public static final int NOMINAL_CLASSIFICATION_SIMPLE = 1;  
+    public static final int NOMINAL_CLASSIFICATION_WEIGHTED_VOTE = 2;  
+    public static final int NOMINAL_CLASSIFICATION_MAJORITY_VOTE = 3;  
+    public static final int NOMINAL_CLASSIFICATION_PLURALITY_VOTE = 4;  
+    public static final int NOMINAL_CLASSIFICATION_MIN_PLURALITY_THRESHOLD = 5;  
+    public static final int NOMINAL_CLASSIFICATION_LOWEST_WEIGHT_VOTER = 6;  
+    public static final int NOMINAL_CLASSIFICATION_TOP_K_VOTERS = 7;  
+
+    private int NominalClassificationStrategy = NOMINAL_CLASSIFICATION_SIMPLE ; // Default value :simple
+    
+    
+    public static final Tag[] TAGS_NOMINAL_CLASSIFICATION = {
+    	    new Tag(NOMINAL_CLASSIFICATION_SIMPLE, "Simple Nominal Classification"),
+    	    new Tag(NOMINAL_CLASSIFICATION_WEIGHTED_VOTE, "Weighted Vote Classification"),
+    	    new Tag(NOMINAL_CLASSIFICATION_MAJORITY_VOTE, "Majority Vote Classification"),
+    	    new Tag(NOMINAL_CLASSIFICATION_PLURALITY_VOTE, "Plurality Vote Classification"),
+    	    new Tag(NOMINAL_CLASSIFICATION_MIN_PLURALITY_THRESHOLD, "Minimum Plurality Threshold Classification"),
+    	    new Tag(NOMINAL_CLASSIFICATION_LOWEST_WEIGHT_VOTER, "Classification with Lowest Weight Voter"),
+    	    new Tag(NOMINAL_CLASSIFICATION_TOP_K_VOTERS, "Classification with Top-K Best Voters")
+    	};
+    
+    public SelectedTag getNominalClassificationStrategy() {
+        return new SelectedTag(NominalClassificationStrategy,TAGS_NOMINAL_CLASSIFICATION);
+    }
+
+    public void setNominalClassificationStrategy(SelectedTag value) {
+        if (value.getTags() == TAGS_NOMINAL_CLASSIFICATION) {
+            this.NominalClassificationStrategy = value.getSelectedTag().getID();
+        }
+    }
+   
+    
+    public String getNominalClassificationStrategyName() {
+        switch (NominalClassificationStrategy) {
+            case NOMINAL_CLASSIFICATION_SIMPLE:
+                return "Simple Nominal Classification";
+            case NOMINAL_CLASSIFICATION_WEIGHTED_VOTE:
+                return "Weighted Vote Classification";
+            case NOMINAL_CLASSIFICATION_MAJORITY_VOTE:
+                return "Majority Vote Classification";
+            case NOMINAL_CLASSIFICATION_PLURALITY_VOTE:
+                return "Plurality Vote Classification";
+            case NOMINAL_CLASSIFICATION_MIN_PLURALITY_THRESHOLD:
+                return "Minimum Plurality Threshold Classification";
+            case NOMINAL_CLASSIFICATION_LOWEST_WEIGHT_VOTER:
+                return "Lowest Weight Voter Classification";
+            case NOMINAL_CLASSIFICATION_TOP_K_VOTERS:
+                return "Top-K Best Voters Classification";
+            default:
+                return "Unknown Nominal Classification Strategy";
+        }
+    }
+    
+    
+    
+    
+ // Déclarations des variables avec valeurs par défaut
+    protected int m_TopKVoters = 10;
+    protected double m_PluralityThreshold = 50;
+    protected double m_WeightThreshold =10;
+
+    // Getters et Setters pour TopKVoters
+    /**
+     * Retourne le nombre de top voters à considérer
+     * @return le nombre de top voters
+     */
+    public int getTopKVoters() {
+        return m_TopKVoters;
+    }
+
+    /**
+     * Définit le nombre de top voters à considérer
+     * @param topKVoters le nombre de top voters (doit être ≥ 1)
+     * @throws IllegalArgumentException si la valeur est inférieure à 1
+     */
+    public void setTopKVoters(int topKVoters) {
+        if (topKVoters < 1) {
+            throw new IllegalArgumentException("Number of top voters must be at least 1");
+        }
+        m_TopKVoters = topKVoters;
+    }
+
+    // Getters et Setters pour PluralityThreshold
+    /**
+     * Retourne le seuil de pluralité minimum
+     * @return le seuil de pluralité (entre 0.0 et 100)
+     */
+    public double getPluralityThreshold() {
+        return m_PluralityThreshold;
+    }
+
+    /**
+     * Définit le seuil de pluralité minimum
+     * @param pluralityThreshold le seuil de pluralité (doit être entre 0.0 et 100)
+     * @throws IllegalArgumentException si la valeur est hors limites
+     */
+    public void setPluralityThreshold(double pluralityThreshold) {
+        if (pluralityThreshold < 0.0 || pluralityThreshold > 100) {
+            throw new IllegalArgumentException("Plurality threshold must be between 0 and 100");
+        }
+        m_PluralityThreshold = pluralityThreshold;
+    }
+
+    // Getters et Setters pour WeightThreshold
+    /**
+     * Retourne le seuil de pondération minimum pour les voters
+     * @return le seuil de pondération (entre 0.0 et 1.0)
+     */
+    public double getWeightThreshold() {
+        return m_WeightThreshold;
+    }
+
+    /**
+     * Définit le seuil de pondération minimum pour les voters
+     * @param weightThreshold le seuil de pondération (doit être entre 0.0 et 1.0)
+     * @throws IllegalArgumentException si la valeur est hors limites
+     */
+    public void setWeightThreshold(double weightThreshold) {
+        if (weightThreshold < 0 || weightThreshold > 100) {
+            throw new IllegalArgumentException("Weight threshold must be between 0.0 and 1.0");
+        }
+        m_WeightThreshold = weightThreshold;
+        System.out.println("setWeightThreshold: val: m_WeightThreshold="+m_WeightThreshold);
+    }
+    
  // Constantes pour les stratégies
     public static final int CONCEPT_LEARNING_ALL_ALL = 1;
     public static final int CONCEPT_LEARNING_ALL_MAJORITY = 2;
@@ -255,8 +382,36 @@ public class CNC extends AbstractClassifier
     }
     
  // listOptions() returns a list of the options available for this classifier
+   
     public Enumeration<Option> listOptions() {
-        Vector<Option> newVector = new Vector<>(10);
+        Vector<Option> newVector = new Vector<>(16);  
+
+        // Options pour la stratégie de classification nominale
+        newVector.addElement(new Option(
+                "\tNominal classification strategy:\n" +
+                "\t1: Simple Nominal Classification\n" +
+                "\t2: Weighted Vote Classification\n" +
+                "\t3: Majority Vote Classification\n" +
+                "\t4: Plurality Vote Classification\n" +
+                "\t5: Minimum Plurality Threshold\n" +
+                "\t6: Lowest Weight Voter\n" +
+                "\t7: Top-K Best Voters",
+                "nominalStrategy", 1, "-nominalStrategy <num>"));
+
+        // Option pour le nombre K des meilleurs voters
+        newVector.addElement(new Option(
+                "\tNumber of top voters to consider (for Top-K strategy)",
+                "topK", 1, "-topK <num>"));
+
+        // Option pour le seuil de pluralité
+        newVector.addElement(new Option(
+                "\tMinimum plurality threshold value (0.0-100)",
+                "pluralityThreshold", 1, "-pluralityThreshold <num>"));
+
+        // Nouvelle option pour le seuil de pondération
+        newVector.addElement(new Option(
+                "\tWeight threshold for lowest weight voter (0.0-100)",
+                "weightThreshold", 1, "-weightThreshold <num>"));
 
         // Option pour la stratégie de concept learning
         newVector.addElement(new Option(
@@ -297,28 +452,69 @@ public class CNC extends AbstractClassifier
 
         return newVector.elements();
     }
-
+    
+    
     public void setOptions(String[] options) throws Exception {
-        // Gestion de la stratégie de concept learning
-    	 // Reset des valeurs par défaut
+        // Reset des valeurs par défaut
         ConceptLearningStrategy = CONCEPT_LEARNING_ALL_ALL; // Valeur par défaut
+        NominalClassificationStrategy = NOMINAL_CLASSIFICATION_SIMPLE; // Valeur par défaut
         
+        // Gestion de la stratégie de classification nominale
+        String nominalStrategyStr = Utils.getOption("nominalStrategy", options);
+        if (!nominalStrategyStr.isEmpty()) {
+            int strategy = Integer.parseInt(nominalStrategyStr);
+            if (strategy < 1 || strategy > 7) {
+                throw new IllegalArgumentException("Invalid nominal strategy number. Must be between 1-7");
+            }
+            NominalClassificationStrategy = strategy;
+        }
+
+        // Gestion du nombre de top voters
+        String topKStr = Utils.getOption("topK", options);
+        if (!topKStr.isEmpty()) {
+            m_TopKVoters = Integer.parseInt(topKStr);
+            if (m_TopKVoters < 1) {
+                throw new IllegalArgumentException("Number of top voters must be at least 1");
+            }
+        }
+
+        // Gestion du seuil de pluralité
+        String pluralityThresholdStr = Utils.getOption("pluralityThreshold", options);
+        if (!pluralityThresholdStr.isEmpty()) {
+            m_PluralityThreshold = Double.parseDouble(pluralityThresholdStr);
+            if (m_PluralityThreshold < 0 || m_PluralityThreshold > 100) {
+                throw new IllegalArgumentException("Plurality threshold must be between 0 and 100");
+            }
+        }
+
+        // Gestion du seuil de pondération
+        String weightThresholdStr = Utils.getOption("weightThreshold", options);
+        if (!weightThresholdStr.isEmpty()) {
+            m_WeightThreshold= Double.parseDouble(weightThresholdStr);
+            if (m_WeightThreshold < 0 || m_WeightThreshold > 100) {
+                throw new IllegalArgumentException("Weight threshold must be between 0 and 100");
+            }
+            System.out.println("setOptions: val: m_WeightThreshold="+m_WeightThreshold);
+
+        }
+
+        // Gestion de la stratégie de concept learning (existante)
         String strategyStr = Utils.getOption("conceptStrategy", options);
         if (!strategyStr.isEmpty()) {
             int strategy = Integer.parseInt(strategyStr);
             if (strategy < 1 || strategy > 8) {
-                throw new IllegalArgumentException("Invalid strategy number. Must be between 1-8");
+                throw new IllegalArgumentException("Invalid concept strategy number. Must be between 1-8");
             }
             ConceptLearningStrategy = strategy;
         }
 
-        // Gestion du seuil
+        // Gestion du seuil (existante)
         String thresholdStr = Utils.getOption("THRESHOLD", options);
         if (!thresholdStr.isEmpty()) {
             setThreshold(Double.parseDouble(thresholdStr));
         }
 
-        // Gestion de la mesure de caractéristique
+        // Gestion de la mesure de caractéristique (existante)
         String measureStr = Utils.getOption("FeatureMeasure", options);
         if (!measureStr.isEmpty()) {
             switch (measureStr.toLowerCase()) {
@@ -336,12 +532,11 @@ public class CNC extends AbstractClassifier
             }
         }
 
-        // Gestion du filtre
+        // Gestion du filtre (existante)
         String filterStr = Utils.getOption('F', options);
         if (!filterStr.isEmpty()) {
             String[] filterSpec = Utils.splitOptions(filterStr);
             if (filterSpec.length == 0) {
-                // Default to basic Discretize if no options specified
                 setFilter(new weka.filters.supervised.attribute.Discretize());
             } else {
                 try {
@@ -350,7 +545,6 @@ public class CNC extends AbstractClassifier
                     Filter filter = (Filter) Utils.forName(Filter.class, filterName, filterSpec);
                     setFilter(filter);
                 } catch (Exception e) {
-                    // Fallback to default Discretize if parsing fails
                     System.err.println("Warning: Could not set filter, using default Discretize. Error: " + e.getMessage());
                     setFilter(new weka.filters.supervised.attribute.Discretize());
                 }
@@ -359,7 +553,7 @@ public class CNC extends AbstractClassifier
             setFilter(new weka.filters.supervised.attribute.Discretize());
         }
 
-        // Gestion du debug
+        // Gestion du debug (existante)
         m_Debug = Utils.getFlag("debug", options);
 
         super.setOptions(options);
@@ -368,16 +562,31 @@ public class CNC extends AbstractClassifier
     public String[] getOptions() {
         Vector<String> result = new Vector<>();
 
-        // Stratégie de concept learning
+        // Stratégie de classification nominale
+        result.add("-nominalStrategy");
+        result.add(String.valueOf(NominalClassificationStrategy));
+
+        // Nombre de top voters
+        result.add("-topK");
+        result.add(String.valueOf(m_TopKVoters));
+
+        // Seuil de pluralité
+        result.add("-pluralityThreshold");
+        result.add(String.valueOf(m_PluralityThreshold));
+
+        // Seuil de pondération
+        result.add("-weightThreshold");
+        result.add(String.valueOf(m_THRESHOLD));
+
+        // Stratégie de concept learning (existante)
         result.add("-conceptStrategy");
         result.add(String.valueOf(ConceptLearningStrategy));
-        
 
-        // Seuil
+        // Seuil (existante)
         result.add("-THRESHOLD");
         result.add(String.valueOf(getThreshold()));
 
-        // Mesure de caractéristique
+        // Mesure de caractéristique (existante)
         result.add("-FeatureMeasure");
         switch (FeatureMeasureMethod) {
             case FEAT_ENTROPY:
@@ -391,11 +600,11 @@ public class CNC extends AbstractClassifier
                 break;
         }
 
-        // Filtre
+        // Filtre (existante)
         result.add("-F");
         result.add(getFilterSpec());
 
-        // Debug
+        // Debug (existante)
         if (m_Debug) {
             result.add("-debug");
         }
@@ -405,7 +614,6 @@ public class CNC extends AbstractClassifier
 
         return result.toArray(new String[0]);
     }
-
     
     
     
@@ -422,19 +630,111 @@ public class CNC extends AbstractClassifier
         m_Filter.batchFinished();
         Instance filteredInst = m_Filter.output();
         Classify_Instance classifier = new Classify_Instance();
-
+ 
         double result =-1.0;
-        for (int i = 0; i < m_classifierNC.size(); i++) {
-            Classification_Rule rule = m_classifierNC.get(i);
-         // Décision
-            result = classifier.classify_Instance_nom(
+        int nb_class = Classification_Rule.getMaxNumClass(m_classifierNC); // Assuming such a method exists
+        String debug_msg="";
+        switch (NominalClassificationStrategy) {
+        case NOMINAL_CLASSIFICATION_SIMPLE:
+            // Classification nominale simple
+        	 for (int i = 0; i < m_classifierNC.size(); i++) {
+                 Classification_Rule rule = m_classifierNC.get(i);
+                 result = classifier.classify_Instance_nom(filteredInst, rule, m_Debug);
+
+        	 }
+            debug_msg="NOMINAL_CLASSIFICATION_SIMPLE";
+            break;
+            
+        case NOMINAL_CLASSIFICATION_WEIGHTED_VOTE:
+            // Classification par vote pondéré
+            result = classifier.classify_Instance_nom_VotePond(
                 filteredInst, 
-                rule );
-            if (result !=-1.0)
-            	break;
+                m_classifierNC, 
+                nb_class,
+                m_Debug
+            );
+            debug_msg="NOMINAL_CLASSIFICATION_WEIGHTED_VOTE";
+
+            break;
+            
+        case NOMINAL_CLASSIFICATION_MAJORITY_VOTE:
+            // Classification par vote majoritaire
+            result = classifier.classify_Instance_nom_VoteMaj(
+                filteredInst, 
+                m_classifierNC, 
+                nb_class,
+                m_Debug
+            );
+            debug_msg="NOMINAL_CLASSIFICATION_MAJORITY_VOTE";
+
+            break;
+            
+        case NOMINAL_CLASSIFICATION_PLURALITY_VOTE:
+            // Classification par vote pluralitaire
+            result = classifier.classify_Instance_nom_VotePlur(
+                filteredInst, 
+                m_classifierNC, 
+                nb_class,
+                m_Debug
+            );
+            debug_msg="NOMINAL_CLASSIFICATION_PLURALITY_VOTE";
+
+            break;
+            
+        case NOMINAL_CLASSIFICATION_MIN_PLURALITY_THRESHOLD:
+            // Classification avec seuil minimum de pluralité
+            result = classifier.classify_Instance_nom_VotePlurMin(
+                filteredInst, 
+                m_classifierNC, 
+                nb_class,
+                m_PluralityThreshold,
+                m_Debug
+            );
+            debug_msg="NOMINAL_CLASSIFICATION_MIN_PLURALITY_THRESHOLD";
+
+            break;
+            
+        case NOMINAL_CLASSIFICATION_LOWEST_WEIGHT_VOTER:
+            System.out.println("classify instance before: val: m_WeightThreshold="+m_WeightThreshold);
+
+            // Classification en excluant les voters de plus faible poids
+            result = classifier.classify_Instance_nom_VoteLowPondVoter(
+                filteredInst, 
+                m_classifierNC, 
+                nb_class,
+                m_WeightThreshold,
+                m_Debug
+            );
+            System.out.println("classify instance after: val: m_WeightThreshold="+m_WeightThreshold);
+
+            debug_msg="NOMINAL_CLASSIFICATION_LOWEST_WEIGHT_VOTER";
+
+            break;
+            
+        case NOMINAL_CLASSIFICATION_TOP_K_VOTERS:
+            // Classification utilisant seulement les K meilleurs voters
+            result = classifier.classify_Instance_nom_VoteNumBestVoterS(
+                filteredInst, 
+                m_classifierNC, 
+                nb_class,
+                m_TopKVoters,
+                m_Debug
+            );
+            debug_msg="NOMINAL_CLASSIFICATION_TOP_K_VOTERS";
+
+            break;
+            
+        default:
+            throw new Exception("Stratégie de classification nominale inconnue");
+            
+            
+       
+    }
+        
+        if (m_Debug) {
+        	System.out.println(debug_msg);
         }
         
-
         // Debug
         if (m_Debug) {
             System.out.println("=== Classification ===");
@@ -447,6 +747,9 @@ public class CNC extends AbstractClassifier
         return result == -1.0 ? Utils.missingValue() : result;
     }
 
+    
+
+    
     // Méthode helper pour le debug
     private int countMatchingRules(Instance inst) throws Exception {
         int count = 0;
@@ -669,7 +972,7 @@ public class CNC extends AbstractClassifier
             
             for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
                 try {
-                    if (new Classify_Instance().classify_Instance_nom(m_FilteredInstances.get(j), rule) != -1.0) {
+                    if (new Classify_Instance().classify_Instance_nom(m_FilteredInstances.get(j), rule, this.m_Debug) != -1.0) {
                         coverageCount++;
                     }
                 } catch (Exception e) {
@@ -728,6 +1031,14 @@ public class CNC extends AbstractClassifier
         sb.append(String.format("%-25s: %s\n", "Feature Measure", featureMeasureToString(FeatureMeasureMethod)));
         sb.append(String.format("%-25s: %.4f\n", "THRESHOLD", m_THRESHOLD));  // Affichage du seuil avec 4 décimales
         sb.append(String.format("%-25s: %s\n", "Policy Selection", getPolicySelectionName()));
+        sb.append(String.format("%-25s: %s\n", "Nominal Classification Strategy", getNominalClassificationStrategyName()));
+        sb.append(String.format("%-25s: %.4f\n", "Pularity Threshold", m_PluralityThreshold));  // Affichage du seuil avec 4 décimales
+        sb.append(String.format("%-25s: %.4f\n", "Weight Threshold",m_WeightThreshold));  // Affichage du seuil avec 4 décimales
+        sb.append(String.format("%-25s: %d\n", "TOP K Voters Threshold",m_TopKVoters));  
+
+        
+        
+
         sb.append("\n");
         
         // Statistiques de performance
@@ -830,24 +1141,24 @@ public class CNC extends AbstractClassifier
         classifier.buildClassifier(data);
         
         // Evaluation
-        System.out.println("\nEvaluation du modèle:");
+        System.out.println("\nModel Evaluation:");
         Evaluation eval = new Evaluation(data);
         eval.crossValidateModel(classifier, data, 10, new Random(1));  // 10-fold CV
         
         // Affichage des résultats
-        System.out.println("\n=== RESULTATS ===");
-        System.out.println("Stratégie: " + classifier.getConceptLearningStrategyName() + 
-                          (strategy == CNC.CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL ? " (N=" + THRESHOLD + ")" : ""));
+        System.out.println("\n=== RESULTS ===");
+        System.out.println("Strategy: " + classifier.getConceptLearningStrategyName() + 
+                          (strategy == CNC.CONCEPT_LEARNING_PERTINENT_MAJORITY ? " (N=" + THRESHOLD + ")" : ""));
         System.out.println("Précision: " + eval.pctCorrect() + "%");
-        System.out.println("Nombre de règles générées: " + classifier.m_classifierNC.size());
+        System.out.println("Nombre de règles générées: " + CNC.m_classifierNC.size());
         //System.out.println("Temps de construction: " + eval.getCPUTime() + "s");
         
         // Affichage de quelques règles (debug)
-        if (classifier.m_Debug && classifier.m_classifierNC.size() > 0) {
+        if (classifier.m_Debug && CNC.m_classifierNC.size() > 0) {
             System.out.println("\nExemple de règles générées:");
-            for (int i = 0; i < Math.min(3, classifier.m_classifierNC.size()); i++) {
+            for (int i = 0; i < Math.min(3, CNC.m_classifierNC.size()); i++) {
                 System.out.println("Règle " + (i+1) + ": " + 
-                    classifier.m_classifierNC.get(i).affich_nom_rule(true));
+                    CNC.m_classifierNC.get(i).affich_nom_rule(true));
             }
         }
     }

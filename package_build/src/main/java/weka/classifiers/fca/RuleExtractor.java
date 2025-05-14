@@ -1,20 +1,17 @@
 package weka.classifiers.fca;
 
 import java.text.SimpleDateFormat;
-import weka.classifiers.fca.FormalConcept;
-import weka.classifiers.fca.Classification_Rule;
+
 import java.util.ArrayList;
 import java.util.Date;
 
 import weka.attributeSelection.*;
-import weka.classifiers.rules.CNC;
 import weka.core.Attribute;
-import weka.core.Instances; 
+import weka.core.Instances;
 import weka.core.Utils;
 import weka.core.converters.ConverterUtils.DataSource;
 
-import java.util.Enumeration;
-import java.util.List;
+
 import java.util.stream.Collectors;
 
 /**
@@ -117,10 +114,10 @@ public class RuleExtractor {
     public void printGaloisClosure(ArrayList<Integer> objects, ArrayList<String> attributes, Instances inst) {
         if (!m_Debug) return;
 
-        System.out.println("\n--- CALCUL DE LA FERMETURE DE GALOIS ---");
+        System.out.println("\n--- COMPUTING GALOIS CONNEXION ---");
         
         // 1. Affichage des objets (instances)
-        System.out.println("\nObjets (instances) :");
+        System.out.println("\nObjects (instances) :");
         for (Integer objIdx : objects) {
             System.out.print("  o" + (objIdx + 1) + " : ");
             for (int i = 0; i < inst.numAttributes(); i++) {
@@ -132,7 +129,7 @@ public class RuleExtractor {
         }
         
         // 2. Affichage des attributs de la fermeture
-        System.out.println("\nAttributs de la fermeture :");
+        System.out.println("\nConnexion Attributes: ");
         boolean hasAttributes = false;
         for (int i = 0; i < attributes.size(); i++) {
             if (!attributes.get(i).equals("-null-")) {
@@ -142,12 +139,12 @@ public class RuleExtractor {
         }
         
         if (!hasAttributes) {
-            System.out.println("  (Aucun attribut spécifique)");
+            System.out.println("  (No specific attributes)");
         }
         
         // 3. Résumé formel
         System.out.println("\nConcepts :");
-        System.out.print("Fermeture({o" + (objects.get(0) + 1));
+        System.out.print("Connexion({o" + (objects.get(0) + 1));
         for (int i = 1; i < objects.size(); i++) {
             System.out.print(", o" + (objects.get(i) + 1));
         }
@@ -1679,14 +1676,14 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
         ArrayList<Classification_Rule> rules = new ArrayList<>();
         
         if (m_Debug)
-            System.out.println("Génération du CNC en cours ...");
+            System.out.println("Generating CNC in progress...");
 
-        // Trouver la meilleure valeur distincte selon le support
+        // Find the best distinct value based on support
         int supportDistVal = 0;
         int indexBestDistVal = 0;
         int suppBestDistVal = 0;
 
-        // Pour traquer les ex aequo
+        // To track ties
         ArrayList<Integer> bestIndexes = new ArrayList<>();
 
         for (int i = 0; i < inst.numDistinctValues(bestAttribute.index()); i++) {
@@ -1700,7 +1697,7 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
             }
 
             if (m_Debug) {
-                System.out.println("- Valeur \"" + currentVal + "\" a un support de : " + supportDistVal);
+                System.out.println("- Value \"" + currentVal + "\" has support of: " + supportDistVal);
             }
 
             if (supportDistVal > suppBestDistVal) {
@@ -1709,41 +1706,40 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
                 bestIndexes.clear();
                 bestIndexes.add(i);
             } else if (supportDistVal == suppBestDistVal) {
-                bestIndexes.add(i); // match ex aequo
+                bestIndexes.add(i); // tied values
                 if (Policy_Selection == RuleExtractor.POLICY_LAST) {
-                    indexBestDistVal = i; // on garde le dernier
+                    indexBestDistVal = i; // keep the last one
                 } else if (Policy_Selection == RuleExtractor.POLICY_FIRST) {
-                    // on garde le premier déjà sélectionné
+                    // keep the first one already selected
                 }
             }
         }
 
-        // Affichage final de la meilleure valeur
+        // Display final best value
         if (m_Debug) {
             System.out.println();
 
             if (bestIndexes.size() > 1) {
-                System.out.print("Attention : Plusieurs valeurs avec support maximal (" + suppBestDistVal + ") : ");
+                System.out.print("Warning: Multiple values with maximum support (" + suppBestDistVal + "): ");
                 for (int idx : bestIndexes) {
                     System.out.print("\"" + bestAttribute.value(idx) + "\" ");
                 }
                 System.out.println();
 
                 if (Policy_Selection == RuleExtractor.POLICY_LAST) {
-                    System.out.println("Politique de sélection : LAST → on sélectionne la derniere : \"" + bestAttribute.value(indexBestDistVal) + "\"\n");
+                    System.out.println("Selection policy: LAST → selecting the last one: \"" + bestAttribute.value(indexBestDistVal) + "\"\n");
                 } else if (Policy_Selection == RuleExtractor.POLICY_FIRST) {
-                    System.out.println("Politique de sélection : FIRST → on sélectionne la premiere : \"" + bestAttribute.value(bestIndexes.get(0)) + "\"\n");
+                    System.out.println("Selection policy: FIRST → selecting the first one: \"" + bestAttribute.value(bestIndexes.get(0)) + "\"\n");
                 }
             } else {
-                System.out.println("Meilleure valeur unique : \"" + bestAttribute.value(indexBestDistVal) + "\" avec un support de : " + suppBestDistVal + "\n");
+                System.out.println("Unique best value: \"" + bestAttribute.value(indexBestDistVal) + "\" with support of: " + suppBestDistVal + "\n");
             }
 
-            System.out.println("L'attribut retenu pour calculer la fermeture est : " + bestAttribute.name() + 
+            System.out.println("Selected attribute for closure calculation: " + bestAttribute.name() + 
                                " (index: " + bestAttribute.index() + ")");
-
         }
         
-        // Trouver les instances qui ont cette valeur d'attribut
+        // Find instances with this attribute value
         ArrayList<Integer> instances = new ArrayList<>();
         for(int i=0; i<inst.numInstances(); i++) {
             if(inst.instance(i).stringValue(bestAttribute.index()).equals(bestAttribute.value(indexBestDistVal))) {
@@ -1752,7 +1748,7 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
         }
         int numInstances = instances.size();
         
-        // Calculer les attributs de la fermeture
+        // Calculate closure attributes
         ArrayList<String> attributes = new ArrayList<>();
         String nullValue = "-null-";
         for(int i=0; i<inst.numAttributes()-1; i++) {
@@ -1773,28 +1769,27 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
             }
         }
         
-        // Afficher la fermeture de Galois en utilisant la référence à RuleExtractor
+        // Display Galois closure using RuleExtractor reference
         if (m_Debug && ruleExtractor != null) {
             ruleExtractor.printGaloisClosure(instances, attributes, inst);
         }
         
         if(m_Debug) {
-            System.out.print("\nListe des valeurs d'attribut retenues:  ");
-            for(int i=0; i<attributes.size()-1; i++)
-            {
+            System.out.print("\nList of selected attribute values:  ");
+            for(int i=0; i<attributes.size()-1; i++) {
                 if(!attributes.get(i).equals(nullValue)) {
                     System.out.print(attributes.get(i) + ", ");
                 }
             }
         }
         
-        // Trouver la classe majoritaire
+        // Find majority class
         int majorityClassIndex = findMajorityClass(inst, instances);
         
         if(m_Debug)
-            System.out.println("\n\nLa classe Majoritaire est: " + inst.attribute(inst.classIndex()).value(majorityClassIndex));
+            System.out.println("\n\nMajority class is: " + inst.attribute(inst.classIndex()).value(majorityClassIndex));
         
-        // Créer la règle
+        // Create rule
         Classification_Rule rule = new Classification_Rule(
             attributes,
             majorityClassIndex,
@@ -1802,19 +1797,21 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
             featureMeasures[Utils.maxIndex(featureMeasures)]
         );
         
-        // Ajout des noms des attributs à la règle
+        // Add attribute names to rule
         ArrayList<String> attributeNames = new ArrayList<>();
         for (int i = 0; i < inst.numAttributes() - 1; i++) {
             attributeNames.add(inst.attribute(i).name());
         }
         rule.setAttributeNames(attributeNames);
+        
         if (m_Debug) {
             System.out.println("Rule: " + rule.affich_nom_rule(true));
         }
-        rules.add(rule);
+        
         rules.add(rule);
         return rules;
     }
+
     
     // Méthode pour trouver la classe majoritaire
     private int findMajorityClass(Instances inst, ArrayList<Integer> instances) {
@@ -1849,83 +1846,82 @@ class ClassBasedClosureStrategy implements RuleExtractionStrategy {
     }
     
     @Override
-    public ArrayList<Classification_Rule> extractRules(Instances inst, Attribute bestAttribute, double[] featureMeasures) throws Exception {
-        ArrayList<Classification_Rule> rules = new ArrayList<>();
-        
-        if(m_Debug)
-            System.out.println("\nGénération d'un CNC à partir de la fermeture basée sur les classes pour l'attribut retenu");
-        
-        // Pour chaque classe
-        for (int classIdx = 0; classIdx < inst.numClasses(); classIdx++) {
-            if (m_Debug) {
-                System.out.println("\nTraitement de la classe: " + inst.attribute(inst.classIndex()).value(classIdx));
-            }
-            
-            // Collecter les instances de cette classe
-            ArrayList<Integer> classInstances = new ArrayList<>();
-            for (int i = 0; i < inst.numInstances(); i++) {
-                if (inst.instance(i).classValue() == classIdx) {
-                    classInstances.add(i);
-                }
-            }
-            
-            if (classInstances.isEmpty()) continue;
-            
-            // Trouver la valeur la plus fréquente pour cet attribut dans cette classe
-            int[] valueCounts = new int[bestAttribute.numValues()];
-            for (int i : classInstances) {
-                int valueIdx = (int) inst.instance(i).value(bestAttribute.index());
-                valueCounts[valueIdx]++;
-            }
-            
-            int majorityValueIdx = 0;
-            for (int i = 0; i < valueCounts.length; i++) {
-                if (valueCounts[i] > valueCounts[majorityValueIdx]) {
-                    majorityValueIdx = i;
-                } else if (valueCounts[i] == valueCounts[majorityValueIdx] && Policy_Selection == RuleExtractor.POLICY_LAST) {
-                    majorityValueIdx = i;
-                }
-            }
-            
-            // Collecter les instances de cette classe avec cette valeur d'attribut
-            ArrayList<Integer> relevantInstances = new ArrayList<>();
-            for (int i : classInstances) {
-                if (inst.instance(i).value(bestAttribute.index()) == majorityValueIdx) {
-                    relevantInstances.add(i);
-                }
-            }
-            
-            if (relevantInstances.isEmpty()) continue;
-            
-            // Calculer la fermeture des attributs
-            ArrayList<String> attributes = computeAttributeClosure(inst, relevantInstances);
-            
-            // Afficher la fermeture de Galois en utilisant la référence à RuleExtractor
-            if (m_Debug && ruleExtractor != null) {
-                ruleExtractor.printGaloisClosure(relevantInstances, attributes, inst);
-            }
-            
-            // Créer la règle
-            Classification_Rule rule = new Classification_Rule(
-                attributes,
-                classIdx,
-                inst.attribute(inst.classIndex()).value(classIdx),
-                featureMeasures[Utils.maxIndex(featureMeasures)]  /* ponderation*/
-            );
-            
-            // Ajout des noms des attributs à la règle
-            ArrayList<String> attributeNames = new ArrayList<>();
-            for (int i = 0; i < inst.numAttributes() - 1; i++) {
-                attributeNames.add(inst.attribute(i).name());
-            }
-            rule.setAttributeNames(attributeNames);
-            
-            rules.add(rule);
+   public ArrayList<Classification_Rule> extractRules(Instances inst, Attribute bestAttribute, double[] featureMeasures) throws Exception {
+    ArrayList<Classification_Rule> rules = new ArrayList<>();
+    
+    if(m_Debug)
+        System.out.println("\nGenerating a CNC from class-based closure for the selected attribute");
+    
+    // For each class
+    for (int classIdx = 0; classIdx < inst.numClasses(); classIdx++) {
+        if (m_Debug) {
+            System.out.println("\nProcessing class: " + inst.attribute(inst.classIndex()).value(classIdx));
         }
         
-        return rules;
+        // Collect instances of this class
+        ArrayList<Integer> classInstances = new ArrayList<>();
+        for (int i = 0; i < inst.numInstances(); i++) {
+            if (inst.instance(i).classValue() == classIdx) {
+                classInstances.add(i);
+            }
+        }
+        
+        if (classInstances.isEmpty()) continue;
+        
+        // Find most frequent attribute value for this class
+        int[] valueCounts = new int[bestAttribute.numValues()];
+        for (int i : classInstances) {
+            int valueIdx = (int) inst.instance(i).value(bestAttribute.index());
+            valueCounts[valueIdx]++;
+        }
+        
+        int majorityValueIdx = 0;
+        for (int i = 0; i < valueCounts.length; i++) {
+            if (valueCounts[i] > valueCounts[majorityValueIdx]) {
+                majorityValueIdx = i;
+            } else if (valueCounts[i] == valueCounts[majorityValueIdx] && Policy_Selection == RuleExtractor.POLICY_LAST) {
+                majorityValueIdx = i;
+            }
+        }
+        
+        // Collect instances with this attribute value
+        ArrayList<Integer> relevantInstances = new ArrayList<>();
+        for (int i : classInstances) {
+            if (inst.instance(i).value(bestAttribute.index()) == majorityValueIdx) {
+                relevantInstances.add(i);
+            }
+        }
+        
+        if (relevantInstances.isEmpty()) continue;
+        
+        // Compute attribute closure
+        ArrayList<String> attributes = computeAttributeClosure(inst, relevantInstances);
+        
+        // Display Galois closure using RuleExtractor reference
+        if (m_Debug && ruleExtractor != null) {
+            ruleExtractor.printGaloisClosure(relevantInstances, attributes, inst);
+        }
+        
+        // Create rule
+        Classification_Rule rule = new Classification_Rule(
+            attributes,
+            classIdx,
+            inst.attribute(inst.classIndex()).value(classIdx),
+            featureMeasures[Utils.maxIndex(featureMeasures)]  /* weight */
+        );
+        
+        // Add attribute names to rule
+        ArrayList<String> attributeNames = new ArrayList<>();
+        for (int i = 0; i < inst.numAttributes() - 1; i++) {
+            attributeNames.add(inst.attribute(i).name());
+        }
+        rule.setAttributeNames(attributeNames);
+        
+        rules.add(rule);
     }
     
+    return rules;
+}
     // Méthode pour calculer la fermeture des attributs 
     private ArrayList<String> computeAttributeClosure(Instances inst, ArrayList<Integer> instances) {
         ArrayList<String> attributes = new ArrayList<>();
@@ -1972,69 +1968,67 @@ class AllValuesClosureStrategy implements RuleExtractionStrategy {
     
     @Override
     public ArrayList<Classification_Rule> extractRules(Instances inst, Attribute bestAttribute, double[] featureMeasures) throws Exception {
-        ArrayList<Classification_Rule> rules = new ArrayList<>();
-        
-        if(m_Debug)
-            System.out.println("\nGénération d'un CNC à partir de la fermeture de toutes les valeurs de l'attribut retenu");
-        
-        // Pour chaque valeur de l'attribut
-        for (int valueIdx = 0; valueIdx < bestAttribute.numValues(); valueIdx++) {
-            if (m_Debug) {
-                System.out.println("\nTraitement de la valeur: " + bestAttribute.value(valueIdx));
-            }
-            
-            // Trouver les instances avec cette valeur
-            ArrayList<Integer> instances = new ArrayList<>();
-            for (int i = 0; i < inst.numInstances(); i++) {
-                if (inst.instance(i).value(bestAttribute.index()) == valueIdx) {
-                    instances.add(i);
-                }
-            }
-            
-            if (instances.isEmpty()) continue;
-            
-            // Calculer la fermeture des attributs
-            ArrayList<String> attributes = computeAttributeClosure(inst, instances);
-            
-            // Afficher la fermeture de Galois en utilisant la référence à RuleExtractor
-            if (m_Debug && ruleExtractor != null) {
-                ruleExtractor.printGaloisClosure(instances, attributes, inst);
-            }
-            
-            // Trouver la classe majoritaire
-            int majorityClassIndex = findMajorityClass(inst, instances);
-            
-            // Créer la règle
-            Classification_Rule rule = new Classification_Rule(
-                attributes,
-                majorityClassIndex,
-                inst.attribute(inst.classIndex()).value(majorityClassIndex),
-                featureMeasures[Utils.maxIndex(featureMeasures)]
-            );
-            
-            // Ajout des noms des attributs à la règle
-            ArrayList<String> attributeNames = new ArrayList<>();
-            for (int i = 0; i < inst.numAttributes() - 1; i++) {
-                attributeNames.add(inst.attribute(i).name());
-            }
-            rule.setAttributeNames(attributeNames);
-            // Calculer la pondération
-            double weight = calculateRuleWeight(inst, rule);
-            rule.setRule_Ponderation(weight);
-            // Afficher la régle crée
-
-            if (m_Debug) {
-                System.out.println("Rule: " + rule.affich_nom_rule(true));
-            }
-            rules.add(rule);
-            
-            
-            rules.add(rule);
+    ArrayList<Classification_Rule> rules = new ArrayList<>();
+    
+    if(m_Debug)
+        System.out.println("\nGenerating a CNC from closure of all values of the selected attribute");
+    
+    // For each attribute value
+    for (int valueIdx = 0; valueIdx < bestAttribute.numValues(); valueIdx++) {
+        if (m_Debug) {
+            System.out.println("\nProcessing value: " + bestAttribute.value(valueIdx));
         }
         
-        return rules;
+        // Find instances with this value
+        ArrayList<Integer> instances = new ArrayList<>();
+        for (int i = 0; i < inst.numInstances(); i++) {
+            if (inst.instance(i).value(bestAttribute.index()) == valueIdx) {
+                instances.add(i);
+            }
+        }
+        
+        if (instances.isEmpty()) continue;
+        
+        // Compute attribute closure
+        ArrayList<String> attributes = computeAttributeClosure(inst, instances);
+        
+        // Display Galois closure using RuleExtractor reference
+        if (m_Debug && ruleExtractor != null) {
+            ruleExtractor.printGaloisClosure(instances, attributes, inst);
+        }
+        
+        // Find majority class
+        int majorityClassIndex = findMajorityClass(inst, instances);
+        
+        // Create rule
+        Classification_Rule rule = new Classification_Rule(
+            attributes,
+            majorityClassIndex,
+            inst.attribute(inst.classIndex()).value(majorityClassIndex),
+            featureMeasures[Utils.maxIndex(featureMeasures)]
+        );
+        
+        // Add attribute names to rule
+        ArrayList<String> attributeNames = new ArrayList<>();
+        for (int i = 0; i < inst.numAttributes() - 1; i++) {
+            attributeNames.add(inst.attribute(i).name());
+        }
+        rule.setAttributeNames(attributeNames);
+        
+        // Calculate weight
+        double weight = calculateRuleWeight(inst, rule);
+        rule.setRule_Ponderation(weight);
+        
+        // Display created rule
+        if (m_Debug) {
+            System.out.println("Rule: " + rule.affich_nom_rule(true));
+        }
+        
+        rules.add(rule);
     }
     
+    return rules;
+}
     // Méthode pour trouver la classe majoritaire
     private int findMajorityClass(Instances inst, ArrayList<Integer> instances) {
         int[] classCounts = new int[inst.numClasses()];
