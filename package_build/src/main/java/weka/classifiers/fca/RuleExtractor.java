@@ -57,9 +57,10 @@ public class RuleExtractor {
             String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
             System.out.println("\n\n\n-----------[" + timestamp + "]-----------\n"
                 + "RuleExtractor initialized with debug: " + m_Debug + ",\n"
-                + "ConceptLearning: " + conceptLearningToString(conceptLearningStrategy) + ",\n"
-                + "FeatureMeasureMethod: " + featureMeasureToString(featureMeasureMethod) + ",\n"
-                + "Policy_Selection: " + policySelectionToString(policySelection));
+                + "Concept Learning: " + conceptLearningToString(conceptLearningStrategy) + ",\n"
+                + "Feature MeasureMethod: " + featureMeasureToString(featureMeasureMethod) + ",\n"
+                + "Policy Selection: " + policySelectionToString(policySelection)
+               );
         }
     }
 
@@ -398,6 +399,7 @@ public class RuleExtractor {
     public ArrayList<Classification_Rule> extractAllAttributesAllValues(Instances inst) throws Exception {
         ArrayList<Classification_Rule> rules = new ArrayList<>();
         
+        
         if (m_Debug) {
             System.out.println("\nExtracting rules with all attributes and all values");
         }
@@ -430,7 +432,7 @@ public class RuleExtractor {
                 ArrayList<String> attributes = computeAttributeClosure(inst, instances);
                 
                 // Afficher la fermeture de Galois
-               // printGaloisClosure(instances, attributes, inst);
+                printGaloisClosure(instances, attributes, inst);
                 
                 // Trouver la classe majoritaire
                 int majorityClassIndex = findMajorityClass(inst, instances);
@@ -457,6 +459,9 @@ public class RuleExtractor {
                 }
                 rules.add(rule);
             }
+            if (m_Debug) {
+            	System.out.println("══════════════════════════════════════════════════════════════════════════════════════════════════════");
+            }
         }
         
         return rules;
@@ -478,13 +483,16 @@ public class RuleExtractor {
         if(m_Debug) {
             //printFeatureMeasures(inst, featureMeasures);
             //
-        	this.printSelectedAttribute(inst, bestAttribute);
+        	printSelectedAttribute(inst, bestAttribute);
             
         }
-        
+
         AllValuesClosureStrategy strategy = new AllValuesClosureStrategy(m_Debug, Policy_Selection, this);
+        
+        
         return strategy.extractRules(inst, bestAttribute, featureMeasures);
 
+        
 
     }
     /**

@@ -759,7 +759,7 @@ public class CNC extends AbstractClassifier
         // Étape 2: Sélection de la stratégie de génération de règles
      
         RuleExtractor extractor = new RuleExtractor(m_Debug, FeatureMeasureMethod, Policy_Selection, ConceptLearningStrategy);
-        System.out.println("Aggregation Strategy: "+getAggregationStrategyName());
+        System.out.println("Aggregation Strategy:"+AggregationStrategy+",\n");
 
         switch (ConceptLearningStrategy) {
             case CONCEPT_LEARNING_ALL_ALL:
