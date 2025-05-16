@@ -138,13 +138,13 @@ public class Classification_Rule  {
 	
 		if (AfficheCM) {
 			chaine.append(" THEN ").append(this.getRule_ClassMaj())
-				  .append("\t Indice classe: ").append(this.getRule_indClassMaj());
+				  .append("\tClass Index: ").append(this.getRule_indClassMaj());
 		} else if (!first) {
 			// If we displayed some attributes but not AfficheCM
 			chaine.append(" THEN ").append(this.getRule_ClassMaj());
 		}
 	
-		chaine.append("\t Ponderation: ")
+		chaine.append("\t Weight: ")
 			  .append(Utils.roundDouble(this.getRule_Ponderation(), 3));
 	
 		return chaine.toString();
