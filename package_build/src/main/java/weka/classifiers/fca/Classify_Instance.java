@@ -272,93 +272,66 @@ public class Classify_Instance
 	 * @return L'indice de la classe predite pour l'instance inst
 	 */
 	
-	public double classify_Instance_nom_VotePlur(Instance inst, 
-                                           ArrayList<Classification_Rule> ensemble_regles, 
-                                           int nb_class, 
-                                           boolean debug) throws Exception {
-    // Initialisation des votes
-    int[] tab_vote = new int[nb_class];
-    Arrays.fill(tab_vote, 0);
-    
-    // Comptage des règles déclenchées
-    int ruleCount = 0;
-    StringBuilder triggeredRules = new StringBuilder();
-    boolean etat_classement = false;
-    
-    // Parcourir les règles de classification
-    for (int i = 0; i < ensemble_regles.size(); i++) {
-        if (TestClassifInstance_nom(inst, ensemble_regles.get(i))) {
-            etat_classement = true;
-            ruleCount++;
-            int classIndex = (int) ensemble_regles.get(i).Rule_indClassMaj;
-            tab_vote[classIndex]++;
-            
-            if (debug) {
-                triggeredRules.append(String.format("- Rule %d: %s → Class: %s (Weight: %.2f)%n",
-                    i+1,
-                    ensemble_regles.get(i).affich_nom_rule(false),
-                    inst.classAttribute().value(classIndex),
-                    ensemble_regles.get(i).getRule_Ponderation()));
-            }
-        }
-    }
+	public double classify_Instance_nom_VotePlur(Instance inst, ArrayList<Classification_Rule> ensemble_regles, int nb_class, boolean debug) throws Exception 
+	{
+		//Selection selon le vote majore		
+		int [] tab_vote = new int [nb_class];
+		for(int i=0; i<nb_class; i++)
+			tab_vote[i] = (int) 0;
+		
+		// Parcourir les regles de classification
+		boolean etat_classement=false;
+		int tmp_ind_class=-1;
+		for(int i=0; i<ensemble_regles.size(); i++)
+		{		
+			if (TestClassifInstance_nom(inst , ensemble_regles.get(i))) //Si une regle classifie cette instance nominale
+			{
+				etat_classement=true;
+				tmp_ind_class = (int) ensemble_regles.get(i).Rule_indClassMaj; 
+				tab_vote[tmp_ind_class] ++; 
+			}
+		}
+		
+		double ind_class;
+		double seuilMajorite= (ensemble_regles.size() / 2.0);
+		if (debug) {
+			System.out.print("ensemble size: "+ensemble_regles.size() +"    seuil majorité:"+seuilMajorite);
 
-    double seuilMajorite = (ensemble_regles.size() / 2.0);
-    double ind_class = -1.0;
-    int classeMajoritaire = -1;
-    int maxVotes = 0;
+		}
 
-    if (ruleCount == 0) {
-        if (debug) {
-            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-            System.out.println("NO Matching Rules");
-            System.out.println("═══════════════════════════════════════════════════");
-        }
-        return -1.0;
-    }
+		if(etat_classement)
+		{
+			//Rechercher l'indice de la classe la plus votee
+			double tmp_vote;
+			tmp_vote = -1;
+			tmp_ind_class = -1;
 
-    if (etat_classement) {
-        // Recherche de la classe majoritaire
-        for (int i = 0; i < nb_class; i++) {
-            if (tab_vote[i] > maxVotes) {
-                maxVotes = tab_vote[i];
-                classeMajoritaire = i;
-            }
-        }
-        
-        // Vérification du seuil de majorité
-        if (maxVotes > seuilMajorite) {
-            ind_class = classeMajoritaire;
-        }
-    }
+			for(int i=0 ; i<nb_class ; i++)
+				if(tab_vote[i] > tmp_vote)
+				{
+					tmp_vote = tab_vote[i];
+					tmp_ind_class = i;
+				}
+			if(tab_vote[tmp_ind_class] >seuilMajorite)  // Compare en double				
+				ind_class = (double) tmp_ind_class; 
+			else
+				ind_class = (double) -1.0;
+		}
+		else
+			ind_class = (double) -1.0;
+		
+		
+		if(debug) {
+			System.out.println("Votes per classe : " + Arrays.toString(tab_vote));
+			System.out.println("Majority threshold (Default) : " + seuilMajorite);
+		}
 
-    // Affichage debug
-    if (debug) {
-        System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-        System.out.println("=== INSTANCE ===");
-        System.out.println(inst.toString());
-        
-        System.out.println("\n=== MATCHED RULES (" + ruleCount + ") ===");
-        System.out.print(triggeredRules.toString());
-        
-        System.out.println("\n=== RESULTS PER CLASS ===");
-        for (int i = 0; i < nb_class; i++) {
-            System.out.printf("Class %-4s | Votes: %d%s%n",
-                inst.classAttribute().value(i),
-                tab_vote[i],
-                (i == classeMajoritaire) ? " ← SELECTED" : "");
-        }
-        
-        System.out.printf("\nFINAL DECISION: %s (votes count: %d)%n",
-            ind_class != -1.0 ? inst.classAttribute().value((int)ind_class) : "UNCLASSIFIED",
-            maxVotes);
-        System.out.println("═══════════════════════════════════════════════════");
-    }
+		return ind_class ;			
+	}
 
-    return ind_class;
-}
+
 	
-
+	
 	/**
 	 * Cette fonction permet de classifier une instance nominale 
 	 * par une technique de vote a la pluralite avec un seuil variable
