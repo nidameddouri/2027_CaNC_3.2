@@ -1072,7 +1072,10 @@ public class CNC extends AbstractClassifier
         try {
             m_ErrorRate = evaluateErrorRate(this.m_FilteredInstances);
         } catch (Exception e) {
-            System.out.println("Error in error rate calculation: " + e.getMessage());
+        	if (m_Debug) {
+                System.out.println("Error in error rate calculation: " + e.getMessage());
+
+        	}
         }
         if (m_ErrorRate >= 0) {
             sb.append(String.format("%-25s: %.2f%%\n", "Error Rate", m_ErrorRate * 100));
@@ -1131,7 +1134,7 @@ public class CNC extends AbstractClassifier
         
         // Configuration
         classifier.setConceptLearningStrategy(strategy);
-        if (strategy == CNC.CONCEPT_LEARNING_PERTINENT_MAJORITY) {
+        if (strategy == CNC.CONCEPT_LEARNING_PERTINENT_MAJORITY) { 
             classifier.setThreshold(THRESHOLD);
         }
         classifier.setFeatureMeasure(new SelectedTag(FEAT_INFOGAIN, TAGS_FeatureMeasure));

@@ -361,6 +361,8 @@ public class RuleExtractor {
             ArrayList<String> attributes = computeAttributeClosure(inst, instances);
             
             // Afficher la fermeture de Galois
+            System.out.println("Galois closure for All Attributes-Majority Values"  + ":");
+
             printGaloisClosure(instances, attributes, inst);
             
             // Trouver la classe majoritaire
@@ -432,12 +434,15 @@ public class RuleExtractor {
                 ArrayList<String> attributes = computeAttributeClosure(inst, instances);
                 
                 // Afficher la fermeture de Galois
-                printGaloisClosure(instances, attributes, inst);
                 
                 // Trouver la classe majoritaire
                 int majorityClassIndex = findMajorityClass(inst, instances);
                 
                 if (m_Debug) {
+                    System.out.println("Galois closure for All Attributes-All Majority Values"  + ":");
+
+                    printGaloisClosure(instances, attributes, inst);
+
                     System.out.println("Majority class: " + inst.attribute(inst.classIndex()).value(majorityClassIndex));
                 }
               
@@ -481,11 +486,8 @@ public class RuleExtractor {
         double[] featureMeasures = computeFeatureMeasures(inst);
         Attribute bestAttribute = this.selectBestAttribute(inst, featureMeasures);
         if(m_Debug) {
-            //printFeatureMeasures(inst, featureMeasures);
-            //
+            
         	printSelectedAttribute(inst, bestAttribute);
-           // printGaloisClosure(instances, attributes, inst);
-
             
         }
 
@@ -536,6 +538,8 @@ public class RuleExtractor {
 	                
 	                if (!matchingInstances.isEmpty()) {
 	                    ArrayList<String> closure = computeMultiAttributeClosure(inst, matchingInstances, topAttributes);
+	                    printGaloisClosure(matchingInstances, closure, inst);
+
 	                    if (closure != null) {
 	                        Classification_Rule rule = Classification_Rule.createRule(inst, matchingInstances, closure);
 	                     // Afficher la régle crée
@@ -628,10 +632,9 @@ public class RuleExtractor {
 	  /**
 	     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et tous ses valeur
 	     */
-		public ArrayList<Classification_Rule> extractAttributeUnderThresholdAllValues(Instances inst, double threshold) throws Exception {
+	  public ArrayList<Classification_Rule> extractAttributeUnderThresholdAllValues(Instances inst, double threshold) throws Exception {
 			// utilisation de methode compute multiAtt closure
 	        ArrayList<Classification_Rule> rules = new ArrayList<>();
-	        double[] featureMeasures = computeFeatureMeasures(inst);
 	        ArrayList<Attribute> topAttributes =  selectAttributesUnderThreshold(inst,  threshold);
 	        if (m_Debug) {
 		        System.out.println("\n=== EXTRACTING RULES (Under Threshold=" + threshold + ") ===");
@@ -674,7 +677,7 @@ public class RuleExtractor {
 	  /**
 	     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et tous ses valeur
 	     */
-			public ArrayList<Classification_Rule> extractAttributeUnderThresholdMajorityValues(Instances inst, double threshold) throws Exception {
+		public ArrayList<Classification_Rule> extractAttributeUnderThresholdMajorityValues(Instances inst, double threshold) throws Exception {
 				ArrayList<Classification_Rule> rules = new ArrayList<>();
 			    ArrayList<Attribute> topAttributes = selectAttributesUnderThreshold(inst, threshold);
 
@@ -893,12 +896,16 @@ public class RuleExtractor {
                 Attribute attribute = inst.attribute(attrIdx);
                 
                 if (m_Debug) {
+                	System.out.println("----------------------------------------------------------------------------------------------");
+
                     System.out.println("Processing attribute: " + attribute.name());
                 }
                 
                 // Pour chaque valeur de l'attribut
                 for (int valueIdx = 0; valueIdx < attribute.numValues(); valueIdx++) {
                     if (m_Debug) {
+                    	System.out.println("");
+
                         System.out.println("Processing value: " + attribute.value(valueIdx));
                     }
                     
@@ -1578,45 +1585,6 @@ public class RuleExtractor {
         public V getValue() { return value; }
     }
 
-   
-
-
-    private ArrayList<String> computeFermeture(Instances inst, ArrayList<Integer> instances) {
-        ArrayList<String> fermeture = new ArrayList<>();
-        
-        // Initialiser avec -null- pour tous les attributs
-        for (int i = 0; i < inst.numAttributes() - 1; i++) {
-            fermeture.add("-null-");
-        }
-        
-        for (int attrIdx = 0; attrIdx < inst.numAttributes() - 1; attrIdx++) {
-            if (attrIdx == inst.classIndex()) continue;
-            
-            String firstValue = inst.instance(instances.get(0)).stringValue(attrIdx);
-            boolean isConstant = true;
-            
-            for (int instIdx : instances) {
-                if (!inst.instance(instIdx).stringValue(attrIdx).equals(firstValue)) {
-                    isConstant = false;
-                    break;
-                }
-            }
-            
-            if (isConstant) {
-                int fermetureIdx = (attrIdx < inst.classIndex()) ? attrIdx : attrIdx - 1;
-                fermeture.set(fermetureIdx, firstValue);
-            }
-        }
-        
-        return fermeture;
-    }
-    
-
-    
-  
-    
-    
-    
     private ArrayList<String> computeMultiAttributeClosure(Instances inst, 
             ArrayList<Integer> instances,
             ArrayList<Attribute> selectedAttributes) {
@@ -1745,8 +1713,7 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
                 System.out.println("Unique best value: \"" + bestAttribute.value(indexBestDistVal) + "\" with support of: " + suppBestDistVal + "\n");
             }
 
-            System.out.println("Selected attribute for closure calculation: " + bestAttribute.name() + 
-                               " (index: " + bestAttribute.index() + ")");
+            
         }
         
         // Find instances with this attribute value
@@ -1781,6 +1748,7 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
         
         // Display Galois closure using RuleExtractor reference
         if (m_Debug && ruleExtractor != null) {
+            System.out.println("Galois closure for Pertinent Attribute-Majority Value" +  ":"+ bestAttribute.name()+"="+  bestAttribute.value(indexBestDistVal));
             ruleExtractor.printGaloisClosure(instances, attributes, inst);
         }
         
@@ -1986,6 +1954,7 @@ class AllValuesClosureStrategy implements RuleExtractionStrategy {
     // For each attribute value
     for (int valueIdx = 0; valueIdx < bestAttribute.numValues(); valueIdx++) {
         if (m_Debug) {
+        	System.out.println("\n");
             System.out.println("\nProcessing value: " + bestAttribute.value(valueIdx));
         }
         
@@ -2001,9 +1970,12 @@ class AllValuesClosureStrategy implements RuleExtractionStrategy {
         
         // Compute attribute closure
         ArrayList<String> attributes = computeAttributeClosure(inst, instances);
+
         
         // Display Galois closure using RuleExtractor reference
         if (m_Debug && ruleExtractor != null) {
+            System.out.println("Galois closure for Pertinent Attribute-All values" + bestAttribute.name() +  ":");
+
             ruleExtractor.printGaloisClosure(instances, attributes, inst);
         }
         
