@@ -354,7 +354,7 @@ public class CNC extends AbstractClassifier
         return "Classifier Nominal Concepts (CNC) discovers classification Rules using concept learning "
              + "and feature measures.\n\n"
              + "For more information, see:\n\n"
-             + getTechnicalInformation().toString() + "\n\nThis code was rewritten and improved by Francoise Lapetite & Younes Kara Zaitri\n";
+             + getTechnicalInformation().toString() + "\n\nThis code was rewritten and improved by Francoise Lapetite & Younes Kara Zaitri \n";
     }
     
     public Capabilities getCapabilities() {
@@ -382,6 +382,11 @@ public class CNC extends AbstractClassifier
    
     public Enumeration<Option> listOptions() {
         Vector<Option> newVector = new Vector<>(16);  
+
+        
+        newVector.addElement(new Option( 
+        	    "\tCustom classifier key for display in Weka (not used internally).",
+        	    "CNC_ID", 1, "-CNC_ID <string>"));
 
         // Options pour la stratégie de classification nominale
         newVector.addElement(new Option(
@@ -453,7 +458,9 @@ public class CNC extends AbstractClassifier
         // Reset des valeurs par défaut
         ConceptLearningStrategy = CONCEPT_LEARNING_ALL_ALL; // Valeur par défaut
         AggregationStrategy = AGGREGATION_WEIGHTED_VOTE; // Valeur par défaut
-        
+     // Option factice pour affichage uniquement
+        Utils.getOption("CNC_ID", options); // Ne rien en faire, juste pour vider les options restantes
+
         // Gestion de la stratégie de classification nominale
         String aggregationStrategyStr = Utils.getOption("aggregationStrategy", options);
         if (!aggregationStrategyStr.isEmpty()) {
@@ -798,7 +805,6 @@ public class CNC extends AbstractClassifier
         // Étape 2: Sélection de la stratégie de génération de règles
      
         RuleExtractor extractor = new RuleExtractor(m_Debug, FeatureMeasureMethod, Policy_Selection, ConceptLearningStrategy);
-        System.out.println("Aggregation Strategy:"+AggregationStrategy+",\n");
 
         switch (ConceptLearningStrategy) {
             case CONCEPT_LEARNING_ALL_ALL:
@@ -810,7 +816,7 @@ public class CNC extends AbstractClassifier
                 m_classifierNC = extractor.extractAllAttributesAllValues(m_FilteredInstances);
                 if (m_Debug) {
                     System.out.println("All attributes used");
-                    //printRuleStatistics();
+                    printRuleStatistics();
                 }
                 break;
                 
@@ -821,7 +827,9 @@ public class CNC extends AbstractClassifier
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                 }
                 m_classifierNC = extractor.extractAllAttributesMajorityValue(m_FilteredInstances);
-                
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
                 break;
                 
             case CONCEPT_LEARNING_PERTINENT_ALL:
@@ -833,7 +841,10 @@ public class CNC extends AbstractClassifier
 
                 }
                 m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
-                
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
                 break;
                 
             case CONCEPT_LEARNING_PERTINENT_MAJORITY:
@@ -845,7 +856,10 @@ public class CNC extends AbstractClassifier
 
                 } 
                 m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
-                
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
                 break;
                 
             case CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL:
@@ -857,7 +871,10 @@ public class CNC extends AbstractClassifier
 
                 }
                 m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(m_FilteredInstances,m_THRESHOLD);
-                
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
                 break;
                 
             case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY:
@@ -869,7 +886,10 @@ public class CNC extends AbstractClassifier
 
                 }
                 m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);
-                
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
                 break;
                 
             case CONCEPT_LEARNING_UNDER_THRESHOLD_ALL:
@@ -881,7 +901,10 @@ public class CNC extends AbstractClassifier
 
                 }
                 m_classifierNC = extractor.extractAttributeUnderThresholdAllValues(m_FilteredInstances,m_THRESHOLD);
-                
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
                 break;
                 
             case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY:
@@ -893,7 +916,10 @@ public class CNC extends AbstractClassifier
 
                 }
                 m_classifierNC = extractor.extractAttributeUnderThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);
-                
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
                 break;
         }
 
@@ -967,26 +993,13 @@ public class CNC extends AbstractClassifier
         
         for (int i = 0; i < m_classifierNC.size(); i++) {
             Classification_Rule rule = m_classifierNC.get(i);
-            int coverageCount = 0;
-            
-            for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
-                try {
-                    if (new Classify_Instance().classify_Instance_nom(m_FilteredInstances.get(j), rule, this.m_Debug) != -1.0) {
-                        coverageCount++;
-                    }
-                } catch (Exception e) {
-                    System.err.println("Error evaluating rule coverage: " + e.getMessage());
-                }
-            }
             
             System.out.printf("Rule #%d:\n", i + 1);
             System.out.println(rule.affich_nom_rule(true));
-            System.out.printf("Coverage: %d/%d instances (%.1f%%)\n", 
-                coverageCount, m_FilteredInstances.numInstances(),
-                (coverageCount * 100.0 / m_FilteredInstances.numInstances()));
-            System.out.printf("Weight: %.3f\n", rule.getRule_Ponderation());
+            
             System.out.println("----------------------------\n");
         }
+        
     }
 
     

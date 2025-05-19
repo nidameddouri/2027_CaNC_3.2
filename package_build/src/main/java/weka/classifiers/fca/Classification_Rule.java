@@ -144,7 +144,7 @@ public class Classification_Rule  {
 			chaine.append(" THEN ").append(this.getRule_ClassMaj());
 		}
 	
-		chaine.append("\t Weight: ")
+		chaine.append("\t Weight (coverage): ")
 			  .append(Utils.roundDouble(this.getRule_Ponderation(), 3));
 	
 		return chaine.toString();
