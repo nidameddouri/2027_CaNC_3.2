@@ -553,8 +553,47 @@ public class CNC extends AbstractClassifier
         super.setOptions(options);
     }
 
+    
+    public String getIdentifier() {
+        StringBuilder id = new StringBuilder();
+
+        id.append("CNC");
+        id.append("_Agg=").append(getAggregationStrategyName());
+
+        if (AggregationStrategy == AGGREGATION_TOP_K_VOTERS) {
+            id.append("_TopK=").append(m_TopKVoters);
+        }
+
+        if (AggregationStrategy == AGGREGATION_MIN_PLURALITY_THRESHOLD) {
+            id.append("_PluralityThr=").append(m_PluralityThreshold);
+        }
+
+        if (AggregationStrategy == AGGREGATION_LOWEST_WEIGHT_VOTER) {
+            id.append("_MinWeightThr=").append(m_WeightThreshold);
+        }
+
+        id.append("_ConceptLearning=").append(getConceptLearningStrategyName());
+
+        if (ConceptLearningStrategy >= CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL &&
+            ConceptLearningStrategy <= CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY) {
+            id.append("_Threshold=").append(m_THRESHOLD);
+        }
+
+        id.append("_Measure=").append(featureMeasureToString(FeatureMeasureMethod));
+
+        return id.toString();
+    }
+
+
+    
     public String[] getOptions() {
         Vector<String> result = new Vector<>();
+        
+     // Clé personnalisée pour Weka Experimenter
+        result.add("-CNC_ID");
+        result.add(getIdentifier());
+        
+        
 
      // strategies d aggregation
         result.add("-aggregationStrategy");
@@ -972,11 +1011,13 @@ public class CNC extends AbstractClassifier
     }
     
     
-    
+
     
     
     
     public String toString() {
+        
+        
         StringBuilder sb = new StringBuilder();
         SimpleDateFormat sdf = new SimpleDateFormat("EEE yyyy-MM-dd HH:mm:ss.SSS");
         String currentTime = sdf.format(new Date());
@@ -1057,8 +1098,8 @@ public class CNC extends AbstractClassifier
     // Main function to run the classifier
     //
     public static void main(String[] args) {
-    	//runClassifier(new CNC(), args);
-    	test();
+    	runClassifier(new CNC(), args);
+    	//test();
     	
     }
     	

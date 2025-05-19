@@ -484,6 +484,8 @@ public class RuleExtractor {
             //printFeatureMeasures(inst, featureMeasures);
             //
         	printSelectedAttribute(inst, bestAttribute);
+           // printGaloisClosure(instances, attributes, inst);
+
             
         }
 
