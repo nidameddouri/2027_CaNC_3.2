@@ -214,6 +214,7 @@ public class RuleExtractor {
                 throw new IllegalStateException("Méthode de mesure inconnue");
         }
     }
+   
     
     return featureMeasures;
 }
@@ -327,11 +328,7 @@ public class RuleExtractor {
      */
     public ArrayList<Classification_Rule> extractAllAttributesMajorityValue(Instances inst) throws Exception {
         ArrayList<Classification_Rule> rules = new ArrayList<>();
-        
-        if (m_Debug) {
-            System.out.println("\nExtracting rules with all attributes and majority values");
-        }
-        
+               
         // Pour chaque attribut
         for (int attrIdx = 0; attrIdx < inst.numAttributes() - 1; attrIdx++) {
             Attribute attribute = inst.attribute(attrIdx);
@@ -344,7 +341,7 @@ public class RuleExtractor {
             
             if (m_Debug) {
                 System.out.println("Majority value: " + attribute.value(majorityValueIdx) + 
-                                 " with count: " + countOccurrences(inst, attrIdx, majorityValueIdx));
+                                 " with support: " + countOccurrences(inst, attrIdx, majorityValueIdx));
             }
             
             // Calculer la fermeture pour la valeur majoritaire
@@ -529,6 +526,9 @@ public class RuleExtractor {
 	        // utilisation de methode compute multiAtt closure
 	        ArrayList<Classification_Rule> rules = new ArrayList<>();
 	        double[] featureMeasures = computeFeatureMeasures(inst);
+	        threshold=checkThreshold(threshold,inst,featureMeasures);
+	            
+
 	        ArrayList<Attribute> topAttributes =  selectAttributesAboveThreshold(inst,  threshold);
 	
 	        // Nouvelle logique spécifique pour les attributs depassant le seuil
@@ -556,13 +556,15 @@ public class RuleExtractor {
 	        return rules;
 	    }
     
-    
+	 
 	  /**
 	     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et sa val maj
 	     */
 	  public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValues(Instances inst, double threshold) throws Exception {
 		    ArrayList<Classification_Rule> rules = new ArrayList<>();
 		    double[] featureMeasures = computeFeatureMeasures(inst);
+	        threshold=checkThreshold(threshold,inst,featureMeasures);
+
 		    ArrayList<Attribute> topAttributes = selectAttributesAboveThreshold(inst, threshold);
 
 		    if (m_Debug) {
@@ -635,6 +637,10 @@ public class RuleExtractor {
 	  public ArrayList<Classification_Rule> extractAttributeUnderThresholdAllValues(Instances inst, double threshold) throws Exception {
 			// utilisation de methode compute multiAtt closure
 	        ArrayList<Classification_Rule> rules = new ArrayList<>();
+		    double[] featureMeasures = computeFeatureMeasures(inst);
+
+	        threshold=checkThreshold(threshold,inst,featureMeasures);
+
 	        ArrayList<Attribute> topAttributes =  selectAttributesUnderThreshold(inst,  threshold);
 	        if (m_Debug) {
 		        System.out.println("\n=== EXTRACTING RULES (Under Threshold=" + threshold + ") ===");
@@ -679,6 +685,10 @@ public class RuleExtractor {
 	     */
 		public ArrayList<Classification_Rule> extractAttributeUnderThresholdMajorityValues(Instances inst, double threshold) throws Exception {
 				ArrayList<Classification_Rule> rules = new ArrayList<>();
+			    double[] featureMeasures = computeFeatureMeasures(inst);
+		        threshold=checkThreshold(threshold,inst,featureMeasures);
+
+				
 			    ArrayList<Attribute> topAttributes = selectAttributesUnderThreshold(inst, threshold);
 
 			    if (m_Debug) {
@@ -746,6 +756,31 @@ public class RuleExtractor {
 			}
   
  
+		
+		 public double checkThreshold(double threshold, Instances inst,double[] featureMeasures  ) {
+			  if (threshold == -1) {
+				    ArrayList<Pair<Attribute, Double>> allAttributeMeasures = new ArrayList<>();
+				    for (int i = 0; i < inst.numAttributes(); i++) {
+				        if (i != inst.classIndex()) {
+				            allAttributeMeasures.add(new Pair<>(inst.attribute(i), featureMeasures[i]));
+				        }
+				    }
+
+				    threshold = allAttributeMeasures.stream()
+				        .mapToDouble(Pair::getValue)
+				        .average()
+				        .orElse(0);
+
+				    if (m_Debug) {
+				        System.out.println("\n⚠ Auto-adjusted threshold: No user-defined value provided. Setting threshold to the average feature score: " + threshold);
+				    }
+				    
+				}
+			  return threshold;
+		  }
+	    
+		
+		
     /* a supprimer*/
     public ArrayList<Classification_Rule> ExtraireRegleFermNom(Instances inst, int critere) throws Exception {        
         if(m_Debug) {
@@ -1438,7 +1473,7 @@ public class RuleExtractor {
             System.out.println("\n=== MOST PERTINENT ATTRIBUTE ===");
             
             if (allAttributeMeasures == null || allAttributeMeasures.isEmpty()) {
-                System.out.println("No attributes available!");
+                System.out.println("⚠No attributes available!");
                 return;
             }
 

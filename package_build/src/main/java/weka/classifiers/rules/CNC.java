@@ -428,7 +428,8 @@ public class CNC extends AbstractClassifier
 
         // Option pour le seuil
         newVector.addElement(new Option(
-            "\tThreshold value for attribute selection",
+            "\t Threshold value for attribute selection (>= 0 or -1 for automatic average).",
+            
             "THRESHOLD", 1, "-THRESHOLD <num>"));
 
         // Option pour la mesure de caractéristique
@@ -509,10 +510,14 @@ public class CNC extends AbstractClassifier
             ConceptLearningStrategy = strategy;
         }
 
-        // Gestion du seuil (existante)
+     // Gestion du seuil (avec autorisation de -1 pour moyenne automatique)
         String thresholdStr = Utils.getOption("THRESHOLD", options);
         if (!thresholdStr.isEmpty()) {
-            setThreshold(Double.parseDouble(thresholdStr));
+            double parsedThreshold = Double.parseDouble(thresholdStr);
+            if (parsedThreshold < -1.0) {
+                throw new IllegalArgumentException("Threshold must be -1 (auto) or >= 0.");
+            }
+            setThreshold(parsedThreshold);
         }
 
         // Gestion de la mesure de caractéristique (existante)
@@ -520,7 +525,7 @@ public class CNC extends AbstractClassifier
         if (!measureStr.isEmpty()) {
             switch (measureStr.toLowerCase()) {
                 case "entropy":
-                    FeatureMeasureMethod = FEAT_ENTROPY;
+                    FeatureMeasureMethod = FEAT_ENTROPY; 
                     break;
                 case "infogain":
                     FeatureMeasureMethod = FEAT_INFOGAIN;
