@@ -14,7 +14,7 @@ import weka.core.converters.ConverterUtils.DataSource;
 
 import java.util.stream.Collectors;
 
-/**
+	/**
  * Classe principale qui gère l'extraction des règles avec support pour les connexions de Galois
  */
 public class RuleExtractor {
@@ -1281,13 +1281,13 @@ public class RuleExtractor {
     }
     
     private void printSelectedAttribute(Instances inst, Attribute attribute) {
-        System.out.println("\nL'attribut retenu pour calculer la fermeture est : " + attribute.name() + 
+        System.out.println("\nSelected attribute for Galois Connexion computing is : " + attribute.name() + 
                            " (index: " + attribute.index() + ")");
 
-        System.out.println("\tCet attribut peut avoir " + inst.numDistinctValues(attribute.index()) + 
-                           " valeurs possibles.");
+        System.out.println("\tThis attribute can have " + inst.numDistinctValues(attribute.index()) + 
+                           "  possibles values.");
         for(int i=0; i<inst.numDistinctValues(attribute.index()); i++)
-            System.out.println("\t\tValeur "+(i+1)+" : "+inst.attribute(attribute.index()).value(i));
+            System.out.println("\t\tValue "+(i+1)+" : "+inst.attribute(attribute.index()).value(i));
 
         System.out.println("\n");
     }
@@ -1582,7 +1582,7 @@ public class RuleExtractor {
         System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
         System.out.println("Number of selected attributes: " + selectedAttributes.size() + "\n");
 
-        System.out.println(String.format("%-6s%-30s%12s", "Rang", "Attribut", "Valeur"));
+        System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
         System.out.println("-------------------------------------------");
 
         for (int i = 0; i < attributeMeasures.size(); i++) {
@@ -1710,7 +1710,8 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
             }
 
             if (m_Debug) {
-                System.out.println("- Value \"" + currentVal + "\" has support of: " + supportDistVal);
+            	
+                System.out.println("\t\tValue " + currentVal + "\" has support of: " + supportDistVal);
             }
 
             if (supportDistVal > suppBestDistVal) {
@@ -1726,7 +1727,7 @@ class BestValueClosureStrategy implements RuleExtractionStrategy {
                     // keep the first one already selected
                 }
             }
-        }
+        }   
 
         // Display final best value
         if (m_Debug) {

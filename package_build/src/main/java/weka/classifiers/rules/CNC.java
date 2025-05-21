@@ -1,6 +1,7 @@
 package weka.classifiers.rules;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Vector;
 
@@ -1030,11 +1031,19 @@ public class CNC extends AbstractClassifier
     
     
 
-    
+    private boolean isInExperimentMode() {
+        // Vérifie la pile d'appels pour détecter le contexte d'expérimentation
+        return Arrays.stream(Thread.currentThread().getStackTrace())
+                .anyMatch(e -> e.getClassName().contains("Experiment"));
+    }
     
     
     public String toString() {
-        
+
+    	// Vérifie si on est en mode expérimentation
+        if (isInExperimentMode()) {
+            return super.toString(); // ou return "";
+        }
         
         StringBuilder sb = new StringBuilder();
         SimpleDateFormat sdf = new SimpleDateFormat("EEE yyyy-MM-dd HH:mm:ss.SSS");
