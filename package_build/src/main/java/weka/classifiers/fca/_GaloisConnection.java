@@ -451,7 +451,7 @@ public class _GaloisConnection {
             Classify_Instance classifier = new Classify_Instance();
             
             for (int i = 0; i < m_Instances.numInstances(); i++) {
-                if (classifier.classify_Instance_nom(m_Instances.instance(i), rule) != -1.0) {
+                if (classifier.TestClassifInstance_nom(m_Instances.instance(i), rule)) {
                     weight++;
                 }
             }

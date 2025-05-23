@@ -61,7 +61,7 @@ public class DataGenerator extends WekaAlgorithmWrapper {
    * @return the class of the wrapped algorithm
    */
   @Override
-  public Class getWrappedAlgorithmClass() {
+  public Class<weka.datagenerators.DataGenerator> getWrappedAlgorithmClass() {
     return weka.datagenerators.DataGenerator.class;
   }
 

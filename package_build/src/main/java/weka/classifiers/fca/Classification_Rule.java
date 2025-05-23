@@ -21,13 +21,14 @@ public class Classification_Rule  {
 	
 	// Un constructeur a partir de la liste des attributs, indice et classe majoritaire.	
 	public Classification_Rule(ArrayList<String> attributes, double ind_CM, String CM){
-		this.Rule_Attr 			= new ArrayList <String>();
+		this.Rule_Attr 			= new ArrayList <String>(); //Noms des attributs
 		this.Rule_indClassMaj 	= (double) ind_CM;
 		this.Rule_ClassMaj 		= CM;
 		this.attributeNames     = new ArrayList<String>();
 		
 		for(int i=0; i< attributes.size();i++)	
 			 this.Rule_Attr.add(attributes.get(i));
+		
 	}
 	
 	
@@ -130,11 +131,13 @@ public class Classification_Rule  {
 				
 				// Ajout du nom de l'attribut avant sa valeur
 				String attrName = (i < this.attributeNames.size()) ? this.attributeNames.get(i) : "attr" + i;
+
+
 				chaine.append(attrName).append("=").append(attr);
 				first = false;
 			}
+
 		}
-	
 		if (AfficheCM) {
 			chaine.append(" THEN ").append(this.getRule_ClassMaj())
 				  .append("\tClass Index: ").append(this.getRule_indClassMaj());

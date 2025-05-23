@@ -59,7 +59,7 @@ public class Associator extends WekaAlgorithmWrapper {
    * @return the class of the wrapped algorithm
    */
   @Override
-  public Class getWrappedAlgorithmClass() {
+  public Class<weka.associations.Associator> getWrappedAlgorithmClass() {
     return weka.associations.Associator.class;
   }
 

@@ -113,7 +113,7 @@ public class ConnectionPanel extends JPanel implements CaretListener {
   protected DbUtils m_DbUtils;
 
   /** the history of connections. */
-  protected DefaultListModel m_History = new DefaultListModel();
+  protected DefaultListModel<String> m_History = new DefaultListModel<String>();
 
   /** the file chooser for the setup files. */
   protected WekaFileChooser m_SetupFileChooser;
@@ -330,7 +330,7 @@ public class ConnectionPanel extends JPanel implements CaretListener {
    * 
    * @param history the history to use
    */
-  public void setHistory(DefaultListModel history) {
+  public void setHistory(DefaultListModel<String> history) {
     int i;
 
     m_History.clear();
@@ -346,7 +346,7 @@ public class ConnectionPanel extends JPanel implements CaretListener {
    * 
    * @return the current history
    */
-  public DefaultListModel getHistory() {
+  public DefaultListModel<String> getHistory() {
     return m_History;
   }
 
@@ -410,11 +410,11 @@ public class ConnectionPanel extends JPanel implements CaretListener {
    * displays the query history.
    */
   public void showHistory() {
-    JList list;
+    JList<String> list;
     ListSelectorDialog dialog;
     String tmpStr;
 
-    list = new JList(m_History);
+    list = new JList<String>(m_History);
     dialog = new ListSelectorDialog(m_Parent, list);
 
     if (dialog.showDialog() == ListSelectorDialog.APPROVE_OPTION) {

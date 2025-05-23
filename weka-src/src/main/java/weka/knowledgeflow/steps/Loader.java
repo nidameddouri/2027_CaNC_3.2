@@ -74,7 +74,7 @@ public class Loader extends WekaAlgorithmWrapper implements Serializable {
    * @return the class of the wrapped algorithm
    */
   @Override
-  public Class getWrappedAlgorithmClass() {
+  public Class<weka.core.converters.Loader> getWrappedAlgorithmClass() {
     return weka.core.converters.Loader.class;
   }
 

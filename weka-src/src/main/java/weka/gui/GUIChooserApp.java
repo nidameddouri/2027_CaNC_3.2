@@ -923,7 +923,7 @@ public class GUIChooserApp extends JFrame {
         @Override
         public void actionPerformed(ActionEvent e) {
           try {
-            Class groovyConsoleClass = WekaPackageClassLoaderManager.forName("groovy.ui.Console");
+            Class<?> groovyConsoleClass = WekaPackageClassLoaderManager.forName("groovy.ui.Console");
 
             if (System.getProperty("os.name").toLowerCase().startsWith("mac")) {
 
@@ -965,7 +965,7 @@ public class GUIChooserApp extends JFrame {
             if (tigerLoader == null) {
               throw new Exception("no tigerjython");
             }
-            Class tigerJythonClass =
+            Class<?> tigerJythonClass =
                     Class.forName("tigerjython.core.TigerJython", true, tigerLoader);
             Object[] args = new Object[1];
             args[0] = new String[0];
@@ -1655,7 +1655,8 @@ public class GUIChooserApp extends JFrame {
    *
    * @param args ignored.
    */
-  public static void main(String[] args) {
+  @SuppressWarnings("deprecation")
+public static void main(String[] args) {
 
     weka.core.logging.Logger.log(weka.core.logging.Logger.Level.INFO,
       "Logging started");
@@ -1679,7 +1680,7 @@ public class GUIChooserApp extends JFrame {
         }
 
         // Currently, we are just checking for calls from TigerJython code
-        for (Class cl : getClassContext()) {
+        for (Class<?> cl : getClassContext()) {
           if (cl.getName().equals("tigerjython.gui.MainWindow")) {
             for (Frame frame : Frame.getFrames()) {
               if (frame.getTitle().toLowerCase().startsWith("tigerjython")) {

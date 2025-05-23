@@ -354,7 +354,8 @@ public class Capabilities implements Cloneable, Serializable, RevisionHandler {
    * 
    * @param c the capabilities object to initialize with
    */
-  public void assign(Capabilities c) {
+  @SuppressWarnings("rawtypes")
+public void assign(Capabilities c) {
 
     for (Capability cap : Capability.values()) {
       // capability
@@ -373,7 +374,7 @@ public class Capabilities implements Cloneable, Serializable, RevisionHandler {
 
     setMinimumNumberInstances(c.getMinimumNumberInstances());
 
-    m_InterfaceDefinedCapabilities = new HashSet(c.m_InterfaceDefinedCapabilities);
+    m_InterfaceDefinedCapabilities = new HashSet<Class>(c.m_InterfaceDefinedCapabilities);
   }
 
   /**
@@ -404,8 +405,9 @@ public class Capabilities implements Cloneable, Serializable, RevisionHandler {
       setMinimumNumberInstances(c.getMinimumNumberInstances());
     }
 
-    HashSet<Class> intersection = new HashSet<Class>();
-    for (Class cl : c.m_InterfaceDefinedCapabilities) {
+    @SuppressWarnings("rawtypes")
+	HashSet<Class> intersection = new HashSet<Class>();
+    for (Class<?> cl : c.m_InterfaceDefinedCapabilities) {
       if (m_InterfaceDefinedCapabilities.contains(cl)) {
         intersection.add(cl);
       }
@@ -500,7 +502,8 @@ public class Capabilities implements Cloneable, Serializable, RevisionHandler {
    * 
    * @param value the new owner
    */
-  public void setOwner(CapabilitiesHandler value) {
+  @SuppressWarnings("rawtypes")
+public void setOwner(CapabilitiesHandler value) {
     m_Owner = value;
     m_InterfaceDefinedCapabilities = new HashSet<Class>();
     if (m_Owner != null) {
@@ -1141,7 +1144,7 @@ public class Capabilities implements Cloneable, Serializable, RevisionHandler {
   /**
    * Gets the class for the given name. Return Object if class is not found.
    */
-  protected static Class getClass(String name) {
+  protected static Class<?> getClass(String name) {
 
     try {
       return Class.forName(name);
@@ -1208,7 +1211,7 @@ public class Capabilities implements Cloneable, Serializable, RevisionHandler {
       && (data.classIndex() <= toIndex);
 
     // attributes
-    Class weightedAttributesHandler = getClass("weka.core.WeightedAttributesHandler");
+    Class<?> weightedAttributesHandler = getClass("weka.core.WeightedAttributesHandler");
     for (i = fromIndex; i <= toIndex; i++) {
       att = data.attribute(i);
 
@@ -1477,7 +1480,7 @@ public class Capabilities implements Cloneable, Serializable, RevisionHandler {
   public String listCapabilities() {
 
     Iterator<Capability> iter = capabilities();
-    ArrayList<String> caps = new ArrayList();
+    ArrayList<String> caps = new ArrayList<String>();
     while (iter.hasNext()) {
       caps.add(iter.next().toString());
     }

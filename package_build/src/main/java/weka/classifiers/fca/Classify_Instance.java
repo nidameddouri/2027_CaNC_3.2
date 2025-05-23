@@ -112,10 +112,10 @@ public class Classify_Instance
 		            int classe = (int) rule.Rule_indClassMaj;
 		            double poids = rule.Rule_Ponderation;
 		            tab_ponderation[classe] += poids;
-		            
+		            ruleCount++;
 		            // Enregistrement des règles déclenchées pour debug
 		            if (debug) {
-		                ruleCount++;
+		               
 		                triggeredRules.append(String.format(
 		                    "%2d. %-60s | Class: %-10s \n",
 		                    ruleCount,
@@ -135,6 +135,17 @@ public class Classify_Instance
 		            max_ponderation = tab_ponderation[i];
 		            ind_class = i;
 		        }
+		    }
+		    
+		    if (ruleCount == 0) {
+		        if (debug) {
+		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            System.out.println("=== INSTANCE ===");
+			        System.out.println(inst.toString() );
+		            System.out.println("NO Matching Rules");
+		            System.out.println("═══════════════════════════════════════════════════");
+		        }
+		        return -1.0;
 		    }
 		    
 		    // Affichage debug organisé
@@ -221,6 +232,8 @@ public class Classify_Instance
 		    if (ruleCount == 0) {
 		        if (debug) {
 		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            System.out.println("=== INSTANCE ===");
+			        System.out.println(inst.toString() );
 		            System.out.println("NO Matching Rules");
 		            System.out.println("═══════════════════════════════════════════════════");
 		        }
@@ -305,14 +318,16 @@ public class Classify_Instance
 	            }
 			}
 		}
-		if (ruleCount == 0) {
-	        if (debug) {
-	            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-	            System.out.println("NO Matching Rules");
-	            System.out.println("═══════════════════════════════════════════════════");
-	        }
-	        return -1.0;
-	    }
+		 if (ruleCount == 0) {
+		        if (debug) {
+		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            System.out.println("=== INSTANCE ===");
+			        System.out.println(inst.toString() );
+		            System.out.println("NO Matching Rules");
+		            System.out.println("═══════════════════════════════════════════════════");
+		        }
+		        return -1.0;
+		    }
 		
 		double ind_class;
 	    int classeMajoritaire = -1;
@@ -354,7 +369,7 @@ public class Classify_Instance
 	        System.out.print(triggeredRules.toString());
 	        System.out.println("\n=== RESULTS PER CLASS ===");
 	       
-	        if (ind_class!=-1) {
+	 	    if (ind_class!=-1|| ruleCount==0 ) {
 	        	System.out.printf("\nFINAL DECISION: %s (plurality: %d)%n",
 			            inst.classAttribute().value(classeMajoritaire),  tab_vote[(int) ind_class]
 			            );
@@ -429,14 +444,16 @@ public class Classify_Instance
 			
 			
 		}
-		if (ruleCount == 0) {
-	        if (debug) {
-	            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-	            System.out.println("NO Matching Rules");
-	            System.out.println("═══════════════════════════════════════════════════");
-	        }
-	        return -1.0;
-	    }
+		 if (ruleCount == 0) {
+		        if (debug) {
+		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            System.out.println("=== INSTANCE ===");
+			        System.out.println(inst.toString() );
+		            System.out.println("NO Matching Rules");
+		            System.out.println("═══════════════════════════════════════════════════");
+		        }
+		        return -1.0;
+		    }
 		double ind_class;
 		double conv_PlurMin=0.0;
 	    int classeMajoritaire = -1;
@@ -474,7 +491,7 @@ public class Classify_Instance
 	        System.out.print(triggeredRules.toString());
 	        System.out.println("\n=== RESULTS PER CLASS ===");
 	        
-	        if (ind_class!=-1) {
+	 	    if (ind_class!=-1|| ruleCount==0 ) {
 	        	for (int i = 0; i < nb_class; i++) {
 		            System.out.printf("Class %-4s | Votes: %d%s%n",
 		                inst.classAttribute().value(i),
@@ -543,7 +560,6 @@ public class Classify_Instance
 	        Classification_Rule rule = ensemble_regles.get(i);
 
 			if (TestClassifInstance_nom(inst, rule)) {
-            int classe = (int) rule.Rule_indClassMaj;
         
             
             // Enregistrement des règles déclenchées pour debug
@@ -587,7 +603,16 @@ public class Classify_Instance
 		else
 			ind_class = (double) -1.0;
 				
-
+		 if (ruleCount == 0) {
+		        if (debug) {
+		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            System.out.println("=== INSTANCE ===");
+			        System.out.println(inst.toString() );
+		            System.out.println("NO Matching Rules");
+		            System.out.println("═══════════════════════════════════════════════════");
+		        }
+		        return -1.0;
+		    }
 		// Affichage debug organisé
 	    if (debug) {
 	        System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
@@ -621,7 +646,7 @@ public class Classify_Instance
 	 	                tab_weight[i],
 	 	                (i == ind_class) ? " ← SELECTED" : "");
 	 	        }
-	 	       if (ind_class!=-1) {
+	 	       if (ind_class!=-1|| ruleCount==0 ) {
 		        	System.out.printf("\nFINAL DECISION: %s (vote count: %d)%n",
 				            inst.classAttribute().value((int) ind_class),  tab_vote[(int) ind_class]
 				            );
@@ -712,14 +737,16 @@ public class Classify_Instance
 			}
 		}
 		
-		if (ruleCount == 0) {
-	        if (debug) {
-	            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-	            System.out.println("NO Matching Rules");
-	            System.out.println("═══════════════════════════════════════════════════");
-	        }
-	        return -1.0;
-	    }
+		 if (ruleCount == 0) {
+		        if (debug) {
+		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            System.out.println("=== INSTANCE ===");
+			        System.out.println(inst.toString() );
+		            System.out.println("NO Matching Rules");
+		            System.out.println("═══════════════════════════════════════════════════");
+		        }
+		        return -1.0;
+		    }
 	    int classeMajoritaire = -1;
 
 		// Rechercher l'indice de la classe la plus votee		

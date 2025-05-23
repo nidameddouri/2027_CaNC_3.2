@@ -84,7 +84,7 @@ public class Filter extends WekaAlgorithmWrapper {
    * @return the class of the wrapped algorithm
    */
   @Override
-  public Class getWrappedAlgorithmClass() {
+  public Class<weka.filters.Filter> getWrappedAlgorithmClass() {
     return weka.filters.Filter.class;
   }
 

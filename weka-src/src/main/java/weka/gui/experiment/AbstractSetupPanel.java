@@ -115,10 +115,11 @@ public abstract class AbstractSetupPanel
    *
    * @return		the available panels
    */
-  public static AbstractSetupPanel[] getPanels() {
+  @SuppressWarnings("deprecation")
+public static AbstractSetupPanel[] getPanels() {
     List<AbstractSetupPanel>	result;
     List<String> 		names;
-    Class			cls;
+    Class<?>			cls;
     AbstractSetupPanel		panel;
 
     result = new ArrayList<AbstractSetupPanel>();

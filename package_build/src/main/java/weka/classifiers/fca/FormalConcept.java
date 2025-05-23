@@ -1,58 +1,58 @@
 package weka.classifiers.fca;
 
-import java.util.ArrayList;
-
-import weka.core.Instances;
+import java.util.Set;
 
 public class FormalConcept {
+  	private Set<String> m_Objects;
+    private Set<String> m_Attributes;
 
-    private ArrayList<Integer> extent;  // Ensemble d'instances
-    private ArrayList<String> intent;   // Ensemble d'attributs
-    
-    public FormalConcept(ArrayList<Integer> extent, ArrayList<String> intent) {
-        this.extent = new ArrayList<>(extent);
-        this.intent = new ArrayList<>(intent);
-    }
-    
-    // Getters
-    public ArrayList<Integer> getExtent() { return extent; }
-    public ArrayList<String> getIntent() { return intent; }
-    
-    // Affichage formaté
-    public String toString(Instances inst) {
-        StringBuilder sb = new StringBuilder("Concept Formel:\n");
-        sb.append("  Extent (Instances): ").append(formatExtent(inst)).append("\n");
-        sb.append("  Intent (Attributs): ").append(formatIntent(inst));
-        return sb.toString();
-    }
-    
-    private String formatExtent(Instances inst) {
-        if (extent.isEmpty()) return "{}";
-        
-        StringBuilder sb = new StringBuilder("{");
-        for (int i = 0; i < extent.size(); i++) {
-            if (i > 0) sb.append(", ");
-            sb.append("o").append(extent.get(i)+1);  // o1, o2, etc.
-        }
-        sb.append("}");
-        return sb.toString();
-    }
-    
-    private String formatIntent(Instances inst) {
-        if (intent.isEmpty()) return "{}";
-        
-        StringBuilder sb = new StringBuilder("{");
-        boolean first = true;
-        for (int i = 0; i < intent.size(); i++) {
-            if (!intent.get(i).equals("-null-")) {
-                if (!first) sb.append(", ");
-                sb.append(inst.attribute(i).name())
-                  .append("=")
-                  .append(intent.get(i));
-                first = false;
-            }
-        }
-        sb.append("}");
-        return sb.toString();
-    }
+     public FormalConcept(Set<String> objects, Set<String> attributes) {
+         this.m_Objects = objects;
+         this.m_Attributes = attributes;
+     }
+
+     @Override
+     public String toString() {
+         return
+                "Objects: " + m_Objects +
+                "  Attributes: " + m_Attributes;
+     }
+     
+     public Set<String> getObjects()
+     {
+    	 return m_Objects;
+     }
+     
+     
+     public Set<String> getAttributes()
+     {
+    	 return m_Attributes;
+     }
+     
+     // Check if this concept is a parent of another concept
+     public boolean isParentOf(FormalConcept other) {
+         return this.m_Objects.containsAll(other.getObjects()) && 
+                other.getAttributes().containsAll(this.m_Attributes);
+     }
+     
+     // Get the level in the lattice (number of attributes)
+     public int getLevel() {
+         return m_Attributes.size();
+     }
+     
+     @Override
+     public boolean equals(Object obj) {
+         if (!(obj instanceof FormalConcept)) return false;
+         FormalConcept other = (FormalConcept) obj;
+         return m_Objects.equals(other.m_Objects) && m_Attributes.equals(other.m_Attributes);
+     }
+     
+     @Override
+     public int hashCode() {
+         return m_Objects.hashCode() + m_Attributes.hashCode();
+     }
+     
+
 }
+
+

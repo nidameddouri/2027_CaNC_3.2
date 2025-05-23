@@ -119,7 +119,7 @@ public class Classifier extends WekaAlgorithmWrapper implements
   protected boolean m_isReset;
 
   @Override
-  public Class getWrappedAlgorithmClass() {
+  public Class<weka.classifiers.Classifier> getWrappedAlgorithmClass() {
     return weka.classifiers.Classifier.class;
   }
 

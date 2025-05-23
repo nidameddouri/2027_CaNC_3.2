@@ -141,7 +141,7 @@ public class Clusterer extends WekaAlgorithmWrapper implements
    * @return the class of the wrapped algorithm
    */
   @Override
-  public Class getWrappedAlgorithmClass() {
+  public Class<weka.clusterers.Clusterer> getWrappedAlgorithmClass() {
     return weka.clusterers.Clusterer.class;
   }
 

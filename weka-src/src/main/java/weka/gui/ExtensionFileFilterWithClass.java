@@ -28,8 +28,12 @@ package weka.gui;
 public class ExtensionFileFilterWithClass
   extends ExtensionFileFilter {
 
-  /** the underlying class. */
-  protected Class m_FilterClass;
+  /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+/** the underlying class. */
+  protected Class<?> m_FilterClass;
 
   /**
    * Creates the ExtensionFileFilterWithClass
@@ -38,7 +42,7 @@ public class ExtensionFileFilterWithClass
    * @param description a text description of accepted files.
    * @param filterClass the underlying class
    */
-  public ExtensionFileFilterWithClass(String extension, String description, Class filterClass) {
+  public ExtensionFileFilterWithClass(String extension, String description, Class<?> filterClass) {
     super(extension, description);
     if (filterClass == null)
       throw new IllegalArgumentException("Filter class cannot be null!");
@@ -53,7 +57,7 @@ public class ExtensionFileFilterWithClass
    * @param description a text description of accepted files.
    * @param filterClass the underlying class
    */
-  public ExtensionFileFilterWithClass(String[] extensions, String description, Class filterClass) {
+  public ExtensionFileFilterWithClass(String[] extensions, String description, Class<?> filterClass) {
     super(extensions, description);
     if (filterClass == null)
       throw new IllegalArgumentException("Filter class cannot be null!");
@@ -65,7 +69,7 @@ public class ExtensionFileFilterWithClass
    *
    * @return		the class
    */
-  public Class getFilterClass() {
+  public Class<?> getFilterClass() {
     return m_FilterClass;
   }
 
