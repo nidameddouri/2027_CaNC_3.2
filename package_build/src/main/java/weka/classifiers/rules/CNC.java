@@ -4,30 +4,22 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Vector;
-
-import weka.attributeSelection.*;
-import weka.classifiers.AbstractClassifier;
-import weka.classifiers.Classifier;
-import weka.classifiers.Sourcable;
-import weka.core.*;
-import weka.core.Capabilities.Capability;
-import weka.core.Debug.Random;
-import weka.classifiers.UpdateableClassifier;
-import weka.classifiers.fca.Classification_Rule;
-import weka.classifiers.fca.Classify_Instance;
-import weka.classifiers.fca.RuleExtractor;
-import weka.core.TechnicalInformation.Field;
-import weka.core.TechnicalInformation.Type;
-import weka.core.converters.ConverterUtils.DataSource;
-import weka.filters.Filter;
-import weka.filters.unsupervised.attribute.ReplaceMissingValues;
-
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 
-import weka.classifiers.Evaluation;
+import weka.attributeSelection.*;
+import weka.classifiers.*;
+import weka.classifiers.fca.*;
+import weka.core.*;
+import weka.core.Capabilities.Capability;
+import weka.core.Debug.Random;
+import weka.core.TechnicalInformation.Field;
+import weka.core.TechnicalInformation.Type;
+import weka.core.converters.ConverterUtils.DataSource;
+import weka.filters.Filter;
+import weka.filters.unsupervised.attribute.ReplaceMissingValues;
 
 /**
  * CNC implementation that extracts classification rules
@@ -36,40 +28,112 @@ import weka.classifiers.Evaluation;
 public class CNC extends AbstractClassifier 
     implements UpdateableClassifier, TechnicalInformationHandler, WeightedInstancesHandler, Sourcable {
 
+    // Constants and configuration
     static final long serialVersionUID = -2011091561919L;
     
-    Calendar calendar;
-    SimpleDateFormat sdf = new SimpleDateFormat("E MM/dd/yyyy HH:mm:ss.SSS");
-    
-    protected int m_CNC = 0;
-    
-    protected ReplaceMissingValues m_Missing = new ReplaceMissingValues();
-    
-    protected Classifier m_ZeroR;
-    
-    protected double m_LowPondVoter = (double) 66.66;
-    
-    public static ArrayList<Classification_Rule> m_classifierNC;
-    
-    protected static InfoGainAttributeEval m_InfoGainAttributeEval = new InfoGainAttributeEval();
-    protected static GainRatioAttributeEval m_GainRatioAttributeEval = new GainRatioAttributeEval();
-
-    // FeatureMeasureMethod is the method used to compute the feature measure
-    
+    // Feature measure constants
     public static final int FEAT_ENTROPY = 1;
     public static final int FEAT_INFOGAIN = 2;
     public static final int FEAT_GAINRATIO = 3;
     
+    //All Combinations constants
     
+    // Threshold timing constants
     public static final int THRESHOLD_BEFORE_DISCRETIZATION = 1;
     public static final int THRESHOLD_AFTER_DISCRETIZATION = 2;
-
-    private int m_ThresholdTiming = THRESHOLD_BEFORE_DISCRETIZATION; // Valeur par défaut
     
+    // Aggregation strategy constants
+    public static final int AGGREGATION_WEIGHTED_VOTE = 1;  
+    public static final int AGGREGATION_MAJORITY_VOTE = 2;  
+    public static final int AGGREGATION_PLURALITY_VOTE = 3;  
+    public static final int AGGREGATION_MIN_PLURALITY_THRESHOLD = 4;  
+    public static final int AGGREGATION_LOWEST_WEIGHT_VOTER = 5;  
+    public static final int AGGREGATION_TOP_K_VOTERS = 6;  
 
-    // seuil a dépasser
-    protected double m_THRESHOLD = 0; 
-   // Getter et Setter pour N
+    // Concept learning strategy constants
+    public static final int CONCEPT_LEARNING_ALL_ALL = 1;
+    public static final int CONCEPT_LEARNING_ALL_MAJORITY = 2;
+    public static final int CONCEPT_LEARNING_PERTINENT_ALL = 3;
+    public static final int CONCEPT_LEARNING_PERTINENT_MAJORITY = 4;
+    public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL = 5;
+    public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY = 6;
+    public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_ALL = 7;
+    public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY = 8;
+
+    // Policy selection constants
+    public static final int POLICY_FIRST = 1;
+    public static final int POLICY_LAST = 2;
+    
+    //All Combinations constants
+
+    public static final boolean ALL_COMBINATIONS = true;
+    
+    // Tag arrays for GUI options
+    public static final Tag[] TAGS_THRESHOLD_TIMING = {
+        new Tag(THRESHOLD_BEFORE_DISCRETIZATION, "Calculate threshold BEFORE discretization"),
+        new Tag(THRESHOLD_AFTER_DISCRETIZATION, "Calculate threshold AFTER discretization")
+    };
+    
+    public static final Tag[] TAGS_FeatureMeasure = {
+        new Tag(FEAT_ENTROPY, "Entropy"),
+        new Tag(FEAT_INFOGAIN, "Information Gain"),
+        new Tag(FEAT_GAINRATIO, "Gain Ratio"),
+    };
+    
+    public static final Tag[] TAGS_AGGREGATION = {
+        new Tag(AGGREGATION_WEIGHTED_VOTE, "Weighted Vote Aggregation"),
+        new Tag(AGGREGATION_MAJORITY_VOTE, "Majority Vote Aggregation"),
+        new Tag(AGGREGATION_PLURALITY_VOTE, "Plurality Vote Aggregation"),
+        new Tag(AGGREGATION_MIN_PLURALITY_THRESHOLD, "Plurality Vote Aggregation With Minimum Threshold"),
+        new Tag(AGGREGATION_LOWEST_WEIGHT_VOTER, "Weighted Vote Aggregation With Minimum Weight Threshold"),
+        new Tag(AGGREGATION_TOP_K_VOTERS, "Weighted Vote Aggregation With with Top-K Best Voters")
+    };
+    
+    public static final Tag[] TAGS_ConceptLearning = {
+        new Tag(CONCEPT_LEARNING_ALL_ALL, "Closure of All Attributes & All Values"),
+        new Tag(CONCEPT_LEARNING_ALL_MAJORITY, "Closure of ALL attributes & Majority Value"),
+        new Tag(CONCEPT_LEARNING_PERTINENT_ALL, "Closure of the Pertinent Attribute & All Values"),
+        new Tag(CONCEPT_LEARNING_PERTINENT_MAJORITY, "Closure of the Pertinent attribute & Majority Value"),
+        new Tag(CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL, "Closure of attributes above THRESHOLD & All Values"),
+        new Tag(CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY, "Closure of attributes above THRESHOLD & Majority Value"),
+        new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_ALL, "Closure of attributes under THRESHOLD & All Values"),
+        new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY, "Closure of attributes under THRESHOLD & Majority Value")
+    };
+    
+    public static final Tag[] TAGS_Policy_Selection = {
+        new Tag(POLICY_FIRST, "First occurrence in case of equality"),
+        new Tag(POLICY_LAST, "Last occurrence in case of equality"),
+    };
+
+    // Class members
+    protected int m_CNC = 0;
+    protected double m_LowPondVoter = 66.66;
+    protected double m_THRESHOLD = 0;
+    protected boolean Auto_THRESHOLD = true;
+    protected int m_ThresholdTiming = THRESHOLD_BEFORE_DISCRETIZATION;
+    protected int FeatureMeasureMethod = FEAT_GAINRATIO;
+    protected int AggregationStrategy = AGGREGATION_WEIGHTED_VOTE;
+    protected int ConceptLearningStrategy = CONCEPT_LEARNING_ALL_ALL;
+    protected int Policy_Selection = POLICY_LAST;
+    protected int m_TopKVoters = 10;
+    protected double m_PluralityThreshold = 50;
+    protected double m_WeightThreshold = 10;
+    protected boolean All_Combinations = true;
+
+    
+    protected ReplaceMissingValues m_Missing = new ReplaceMissingValues();
+    protected Classifier m_ZeroR;
+    protected static Filter m_Filter = new weka.filters.unsupervised.attribute.Discretize();
+    protected Instances m_FilteredInstances;
+    public static ArrayList<Classification_Rule> m_classifierNC;
+    
+    protected static InfoGainAttributeEval m_InfoGainAttributeEval = new InfoGainAttributeEval();
+    protected static GainRatioAttributeEval m_GainRatioAttributeEval = new GainRatioAttributeEval();
+    
+    Calendar calendar;
+    SimpleDateFormat sdf = new SimpleDateFormat("E MM/dd/yyyy HH:mm:ss.SSS");
+
+    // Getters and Setters
     public double getThreshold() {
         return m_THRESHOLD;
     }
@@ -80,51 +144,22 @@ public class CNC extends AbstractClassifier
         }
     }
     
-    // seuil a dépasser
-    protected boolean Auto_THRESHOLD = true; 
-   // Getter et Setter pour N
     public boolean getAuto_Threshold() {
         return Auto_THRESHOLD;
     }
 
     public void setAuto_Threshold(boolean s) {
-        
-        	Auto_THRESHOLD = s;  
+        Auto_THRESHOLD = s;  
     }
+    
     public String autoThresholdToString() {
-    	String res="";
-    	if(Auto_THRESHOLD) 
-    		res="Auto Generated";
-    	else
-    		res="Manually Set";
-
-    	return res;
+        return Auto_THRESHOLD ? "Auto Generated" : "Manually Set";
     }
-    public String  m_ThresholdTimingToString() {
-    	String res="";
-    	if (m_ThresholdTiming==1) {
-    		res="BEFORE discretization";
-    	}
-    	else {
-    		res="AFTER discretization";
-    	}
-    	return res;
+    
+    public String m_ThresholdTimingToString() {
+        return (m_ThresholdTiming == 1) ? "BEFORE discretization" : "AFTER discretization";
     }
 
-    public static final Tag[] TAGS_THRESHOLD_TIMING = {
-        new Tag(THRESHOLD_BEFORE_DISCRETIZATION, "Calculate threshold BEFORE discretization"),
-        new Tag(THRESHOLD_AFTER_DISCRETIZATION, "Calculate threshold AFTER discretization")
-    };
-    
-    private int FeatureMeasureMethod = FEAT_GAINRATIO; // Default value : Gain Ratio
-    
-    public static final Tag[] TAGS_FeatureMeasure = {
-        new Tag(FEAT_ENTROPY, "Entropy"),
-        new Tag(FEAT_INFOGAIN, "Information Gain"),
-        new Tag(FEAT_GAINRATIO, "Gain Ratio"),
-    };
-    
-    // Each parameter is using two functions : a getter and a setter, in order to work on the code 
     public SelectedTag getFeatureMeasure() {
         return new SelectedTag(FeatureMeasureMethod, TAGS_FeatureMeasure);
     }
@@ -135,30 +170,8 @@ public class CNC extends AbstractClassifier
         }
     }
 
-    
- // Types de classification nominale
-    //public static final int AGGREGATION_SIMPLE = 1;  
-    public static final int AGGREGATION_WEIGHTED_VOTE = 1;  
-    public static final int AGGREGATION_MAJORITY_VOTE = 2;  
-    public static final int AGGREGATION_PLURALITY_VOTE = 3;  
-    public static final int AGGREGATION_MIN_PLURALITY_THRESHOLD = 4;  
-    public static final int AGGREGATION_LOWEST_WEIGHT_VOTER =5 ;  
-    public static final int AGGREGATION_TOP_K_VOTERS = 6;  
-
-    private int AggregationStrategy = AGGREGATION_WEIGHTED_VOTE ; // Default value : vote ponderé
-    
-    
-    public static final Tag[] TAGS_AGGREGATION = {
-    	    new Tag(AGGREGATION_WEIGHTED_VOTE, "Weighted Vote Aggregation"),
-    	    new Tag(AGGREGATION_MAJORITY_VOTE, "Majority Vote Aggregation"),
-    	    new Tag(AGGREGATION_PLURALITY_VOTE, "Plurality Vote Aggregation"),
-    	    new Tag(AGGREGATION_MIN_PLURALITY_THRESHOLD, "Plurality Vote Aggregation With Minimum Threshold"),
-    	    new Tag(AGGREGATION_LOWEST_WEIGHT_VOTER, "Weighted Vote Aggregation With Minimum Weight Threshold"),
-    	    new Tag(AGGREGATION_TOP_K_VOTERS, "Weighted Vote Aggregation With with Top-K Best Voters")
-    	};
-    
     public SelectedTag getAggregationStrategy() {
-        return new SelectedTag(AggregationStrategy,TAGS_AGGREGATION);
+        return new SelectedTag(AggregationStrategy, TAGS_AGGREGATION);
     }
 
     public void setAggregationStrategy(SelectedTag value) {
@@ -167,49 +180,22 @@ public class CNC extends AbstractClassifier
         }
     }
    
-    
     public String getAggregationStrategyName() {
         switch (AggregationStrategy) {
-           
-            case AGGREGATION_WEIGHTED_VOTE:
-                return "Weighted Vote Aggregation";
-            case AGGREGATION_MAJORITY_VOTE:
-                return "Majority Vote Aggregation";
-            case AGGREGATION_PLURALITY_VOTE:
-                return "Plurality Vote Aggregation";
-            case AGGREGATION_MIN_PLURALITY_THRESHOLD:
-                return "Plurality Vote Aggregation With Minimum Threshold";
-            case AGGREGATION_LOWEST_WEIGHT_VOTER:
-                return "Lowest Weight Voter Classification";
-            case AGGREGATION_TOP_K_VOTERS:
-                return "Top-K Best Voters Classification";
-            default:
-                return "Unknown Nominal Classification Strategy";
+            case AGGREGATION_WEIGHTED_VOTE: return "Weighted Vote Aggregation";
+            case AGGREGATION_MAJORITY_VOTE: return "Majority Vote Aggregation";
+            case AGGREGATION_PLURALITY_VOTE: return "Plurality Vote Aggregation";
+            case AGGREGATION_MIN_PLURALITY_THRESHOLD: return "Plurality Vote Aggregation With Minimum Threshold";
+            case AGGREGATION_LOWEST_WEIGHT_VOTER: return "Lowest Weight Voter Classification";
+            case AGGREGATION_TOP_K_VOTERS: return "Top-K Best Voters Classification";
+            default: return "Unknown Nominal Classification Strategy";
         }
     }
     
-    
-    
-    
- // Déclarations des variables avec valeurs par défaut
-    protected int m_TopKVoters = 10;
-    protected double m_PluralityThreshold = 50;
-    protected double m_WeightThreshold =10;
-
-    // Getters et Setters pour TopKVoters
-    /**
-     * Retourne le nombre de top voters à considérer
-     * @return le nombre de top voters
-     */
     public int getTopKVoters() {
         return m_TopKVoters;
     }
 
-    /**
-     * Définit le nombre de top voters à considérer
-     * @param numbTopKVotersVoters le nombre de top voters (doit être ≥ 1)
-     * @throws IllegalArgumentException si la valeur est inférieure à 1
-     */
     public void setTopKVoters(int numbTopKVotersVoters) {
         if (numbTopKVotersVoters < 1) {
             throw new IllegalArgumentException("Number of top voters must be at least 1");
@@ -217,20 +203,10 @@ public class CNC extends AbstractClassifier
         m_TopKVoters = numbTopKVotersVoters;
     }
 
-    // Getters et Setters pour PluralityThreshold
-    /**
-     * Retourne le seuil de pluralité minimum
-     * @return le seuil de pluralité (entre 0.0 et 100)
-     */
     public double getPluralityThreshold() {
         return m_PluralityThreshold;
     }
 
-    /**
-     * Définit le seuil de pluralité minimum
-     * @param pluralityAgregationThreshold le seuil de pluralité (doit être entre 0.0 et 100)
-     * @throws IllegalArgumentException si la valeur est hors limites
-     */
     public void setPluralityThreshold(double pluralityAgregationThreshold) {
         if (pluralityAgregationThreshold < 0.0 || pluralityAgregationThreshold > 100) {
             throw new IllegalArgumentException("Plurality threshold must be between 0 and 100");
@@ -238,39 +214,16 @@ public class CNC extends AbstractClassifier
         m_PluralityThreshold = pluralityAgregationThreshold;
     }
 
-    // Getters et Setters pour WeightThreshold
-    /**
-     * Retourne le seuil de pondération minimum pour les voters
-     * @return le seuil de pondération (entre 0.0 et 1.0)
-     */
     public double getWeightThreshold() {
         return m_WeightThreshold;
     }
 
-    /**
-     * Définit le seuil de pondération minimum pour les voters
-     * @param minWeightThreshold le seuil de pondération (doit être entre 0.0 et 1.0)
-     * @throws IllegalArgumentException si la valeur est hors limites
-     */
     public void setWeightThreshold(double minWeightThreshold) {
         if (minWeightThreshold < 0 || minWeightThreshold > 100) {
             throw new IllegalArgumentException("Weight threshold must be between 0.0 and 1.0");
         }
         m_WeightThreshold = minWeightThreshold;
     }
-    
- // Constantes pour les stratégies
-    public static final int CONCEPT_LEARNING_ALL_ALL = 1;
-    public static final int CONCEPT_LEARNING_ALL_MAJORITY = 2;
-    public static final int CONCEPT_LEARNING_PERTINENT_ALL = 3;
-    public static final int CONCEPT_LEARNING_PERTINENT_MAJORITY = 4;
-    public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL = 5;
-    public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY = 6;
-    public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_ALL = 7;
-    public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY = 8;
-
-    
-    private int ConceptLearningStrategy = CONCEPT_LEARNING_ALL_ALL; // Default value : All allF
     
     public void setConceptLearningStrategy(int strategy) {
         if (strategy >= CONCEPT_LEARNING_ALL_ALL && strategy <= CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY) {
@@ -282,40 +235,17 @@ public class CNC extends AbstractClassifier
     
     public String getConceptLearningStrategyName() {
         switch (ConceptLearningStrategy) {
-            case CONCEPT_LEARNING_ALL_ALL: 
-                return "Closure of All Attributes & All Values";
-            case CONCEPT_LEARNING_ALL_MAJORITY: 
-                return "Closure of All Attributes & Majority Value";
-            case CONCEPT_LEARNING_PERTINENT_ALL: 
-                return "Closure of Pertinent Attributes & All Values";
-            case CONCEPT_LEARNING_PERTINENT_MAJORITY: 
-                return "Closure of Pertinent Attributes & Majority Value";
-            case CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL: 
-                return "Closure of Attributes Above Threshold & All Values";
-            case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY: 
-                return "Closure of Attributes Above Threshold & Majority Value";
-            case CONCEPT_LEARNING_UNDER_THRESHOLD_ALL: 
-                return "Closure of Attributes Under Threshold & All Values";
-            case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY: 
-                return "Closure of Attributes Under Threshold & Majority Value";
-            default: 
-                return "Unknown Strategy";
+            case CONCEPT_LEARNING_ALL_ALL: return "Closure of All Attributes & All Values";
+            case CONCEPT_LEARNING_ALL_MAJORITY: return "Closure of All Attributes & Majority Value";
+            case CONCEPT_LEARNING_PERTINENT_ALL: return "Closure of Pertinent Attributes & All Values";
+            case CONCEPT_LEARNING_PERTINENT_MAJORITY: return "Closure of Pertinent Attributes & Majority Value";
+            case CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL: return "Closure of Attributes Above Threshold & All Values";
+            case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY: return "Closure of Attributes Above Threshold & Majority Value";
+            case CONCEPT_LEARNING_UNDER_THRESHOLD_ALL: return "Closure of Attributes Under Threshold & All Values";
+            case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY: return "Closure of Attributes Under Threshold & Majority Value";
+            default: return "Unknown Strategy";
         } 
     }
-  
-    
-    
-    public static final Tag[] TAGS_ConceptLearning = {
-        new Tag(CONCEPT_LEARNING_ALL_ALL , "Closure of All Attributes & All Values"),
-        new Tag(CONCEPT_LEARNING_ALL_MAJORITY, "Closure of ALL attributes & Majority Value"),
-        new Tag(CONCEPT_LEARNING_PERTINENT_ALL, "Closure of the Pertinent Attribute & All Values"),
-        new Tag(CONCEPT_LEARNING_PERTINENT_MAJORITY, "Closure of the Pertinent attribute & Majority Value"),
-        new Tag(CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL, "Closure of attributes above THRESHOLD & All Values"),
-        new Tag(CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY,"Closure of attributes above THRESHOLD & Majority Value"),
-        new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_ALL, "Closure of attributes under THRESHOLD & All Values"),
-        new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY, "Closure of attributes under THRESHOLD & Majority Value")
-        };
-   
     
     public SelectedTag getConceptLearning() {
         return new SelectedTag(ConceptLearningStrategy, TAGS_ConceptLearning);
@@ -327,20 +257,6 @@ public class CNC extends AbstractClassifier
         }
     }
 
-   
-
-    // Policy_Selection is the policy used to select the attribute in case of equality
-    
-    public static final int POLICY_FIRST = 1;
-    public static final int POLICY_LAST = 2;
-    
-    private int Policy_Selection = POLICY_LAST; // Default value : Last
-    
-    public static final Tag[] TAGS_Policy_Selection = {
-        new Tag(POLICY_FIRST, "First occurence in case of equality"),
-        new Tag(POLICY_LAST, "Last occurence in case of equality"),
-    };
-    
     public SelectedTag getPolicy_Selection() {
         return new SelectedTag(Policy_Selection, TAGS_Policy_Selection);
     }
@@ -351,7 +267,6 @@ public class CNC extends AbstractClassifier
         }
     }
 
-    
     public SelectedTag getThresholdTiming() {
         return new SelectedTag(m_ThresholdTiming, TAGS_THRESHOLD_TIMING);
     }
@@ -361,9 +276,6 @@ public class CNC extends AbstractClassifier
             m_ThresholdTiming = value.getSelectedTag().getID();
         }
     }
-    // Filter is the filter used to preprocess the data before classification
-    
-    protected static Filter m_Filter = new weka.filters.supervised.attribute.Discretize();
     
     public void setFilter(Filter filter) {
         m_Filter = filter;
@@ -381,22 +293,25 @@ public class CNC extends AbstractClassifier
         }
         return c.getClass().getName();
     }
+    public boolean getAllCombinations() {
+    	return All_Combinations;
+    }
+    public void setAllCombinations(boolean all) {
+    	All_Combinations=all;
+    }
     
-    protected Instances m_FilteredInstances;
+    
 
-    
+    // Core methods
     @Override
     public TechnicalInformation getTechnicalInformation() {
-        TechnicalInformation result;
-        
-        result = new TechnicalInformation(Type.INPROCEEDINGS);
+        TechnicalInformation result = new TechnicalInformation(Type.INPROCEEDINGS);
         result.setValue(Field.YEAR, "2011");
         result.setValue(Field.AUTHOR, "N. MEDDOURI");
         result.setValue(Field.PUBLISHER, "Academic Publisher");
         result.setValue(Field.ADDRESS, "Tunis, Tunisia");
         result.setValue(Field.ORGANIZATION, "Research Unit on Programming, Algorithmics and Heuristics");
         result.setValue(Field.SCHOOL, "Faculty of Science");
-        
         return result;
     }
     
@@ -407,6 +322,7 @@ public class CNC extends AbstractClassifier
              + getTechnicalInformation().toString() + "\n\nThis code was rewritten and improved by Francoise Lapetite & Younes Kara Zaitri \n";
     }
     
+    @Override
     public Capabilities getCapabilities() {
         Capabilities result = super.getCapabilities();
         result.disableAll();
@@ -414,7 +330,6 @@ public class CNC extends AbstractClassifier
         result.enable(Capability.BINARY_ATTRIBUTES);
         result.enable(Capability.NOMINAL_ATTRIBUTES);
         result.enable(Capability.NUMERIC_ATTRIBUTES);
-        
         result.enable(Capability.MISSING_VALUES);
         
         result.disableAllClasses();
@@ -428,58 +343,55 @@ public class CNC extends AbstractClassifier
         return result;
     }
     
- // listOptions() returns a list of the options available for this classifier
-   
+    @Override
     public Enumeration<Option> listOptions() {
         Vector<Option> newVector = new Vector<>(16);  
 
-        
         newVector.addElement(new Option( 
-        	    "\tCustom classifier key for display in Weka (not used internally).",
-        	    "CNC_ID", 1, "-CNC_ID <string>"));
+            "\tCustom classifier key for display in Weka (not used internally).",
+            "CNC_ID", 1, "-CNC_ID <string>"));
 
-        // Options pour la stratégie de classification nominale
+        // Options for nominal classification strategy
         newVector.addElement(new Option(
-                "\t1: Weighted Vote Aggregation\n" +
-                "\t2: Majority Vote Aggregation\n" +
-                "\t3: Plurality Vote Aggregation\n" +
-                "\t4: Minimum Plurality Threshold\n" +
-                "\t5: Lowest Weight Voter\n" +
-                "\t6: Top-K Best Voters",
-                "aggregationStrategy", 1, "-aggregationStrategy <num>"));
+            "\t1: Weighted Vote Aggregation\n" +
+            "\t2: Majority Vote Aggregation\n" +
+            "\t3: Plurality Vote Aggregation\n" +
+            "\t4: Minimum Plurality Threshold\n" +
+            "\t5: Lowest Weight Voter\n" +
+            "\t6: Top-K Best Voters",
+            "aggregationStrategy", 1, "-aggregationStrategy <num>"));
 
-        // Option pour le nombre K des meilleurs voters
+        // Option for number of top voters
         newVector.addElement(new Option(
-                "\tNumber of top voters to consider (for Top-K strategy)",
-                "numbTopKVoters", 1, "-numbTopKVoters <num>"));
+            "\tNumber of top voters to consider (for Top-K strategy)",
+            "numbTopKVoters", 1, "-numbTopKVoters <num>"));
 
-        // Option pour le seuil de pluralité
+        // Option for plurality threshold
         newVector.addElement(new Option(
-                "\tMinimum plurality threshold value (0.0-100)",
-                "pluralityAgregationThreshold", 1, "-pluralityAgregationThreshold <num>"));
+            "\tMinimum plurality threshold value (0.0-100)",
+            "pluralityAgregationThreshold", 1, "-pluralityAgregationThreshold <num>"));
 
-        // Nouvelle option pour le seuil de pondération
+        // New option for weight threshold
         newVector.addElement(new Option(
-                "\tWeight threshold for lowest weight voter (0.0-100)",
-                "minWeightThreshold", 1, "-minWeightThreshold <num>"));
+            "\tWeight threshold for lowest weight voter (0.0-100)",
+            "minWeightThreshold", 1, "-minWeightThreshold <num>"));
 
-        // Option pour la stratégie de concept learning
+        // Option for concept learning strategy
         newVector.addElement(new Option(
-                "\tConcept learning strategy:\n" +
-                "\t1: All Attributes - All Values\n" +
-                "\t2: All Attributes - Majority Value\n" +
-                "\t3: Pertinent Attributes - All Values\n" +
-                "\t4: Pertinent Attributes - Majority Value\n" +
-                "\t5: Above Threshold - All Values\n" +
-                "\t6: Above Threshold - Majority Value\n" +
-                "\t7: Under Threshold - All Values\n" +
-                "\t8: Under Threshold - Majority Value",
-                "conceptStrategy", 1, "-conceptStrategy <num>"));
+            "\tConcept learning strategy:\n" +
+            "\t1: All Attributes - All Values\n" +
+            "\t2: All Attributes - Majority Value\n" +
+            "\t3: Pertinent Attributes - All Values\n" +
+            "\t4: Pertinent Attributes - Majority Value\n" +
+            "\t5: Above Threshold - All Values\n" +
+            "\t6: Above Threshold - Majority Value\n" +
+            "\t7: Under Threshold - All Values\n" +
+            "\t8: Under Threshold - Majority Value",
+            "conceptStrategy", 1, "-conceptStrategy <num>"));
 
-        // Option pour le seuil
+        // Option for threshold
         newVector.addElement(new Option(
-            "\t Threshold value for attribute selection (>= 0 ).",
-            
+            "\tThreshold value for attribute selection (>= 0).",
             "THRESHOLD", 1, "-THRESHOLD <num>"));
         
         newVector.addElement(new Option(
@@ -488,42 +400,46 @@ public class CNC extends AbstractClassifier
             "\t2: After discretization",
             "thresholdTiming", 1, "-thresholdTiming <1|2>"));
         
-        // Option pour le seuil auto
+        // Option for auto threshold
         newVector.addElement(new Option(
             "\tIf True, threshold is auto-calculated (average of feature measures)",
             "autoThreshold", 1, "-autoThreshold <bool>"));
         
-        // Option pour la mesure de caractéristique
+        // Option for ALL Combinations
+        newVector.addElement(new Option(
+            "\tIf True, Compute all attribute possible Combinations ",
+            "allCombinations", 1, "-allCombinations <bool>"));
+        
+        // Option for feature measure
         newVector.addElement(new Option(
             "\tFeature selection measure:",
-            "FeatureMeasure", 1, "-FeatureMeasure <entropy|infogain |gainratio>"));
+            "FeatureMeasure", 1, "-FeatureMeasure <entropy|infogain|gainratio>"));
 
-        // Option pour le filtre
+        // Option for filter
         newVector.addElement(new Option(
             "\tFull filter specification:\n" +
-            "\teg: \"weka.filters.supervised.attribute.Discretize -R first-last\"",
+            "\teg: \"weka.filters.unsupervised.attribute.Discretize -O -B 10 -M -1.0 -R first-last \"",
             "F", 1, "-F <filter specification>"));
 
-        // Option pour le debug
+        // Option for debug
         newVector.addElement(new Option(
             "\tEnable debug output",
             "debug", 0, "-debug"));
 
-        // Options de la classe parente
+        // Parent class options
         newVector.addAll(Collections.list(super.listOptions()));
 
         return newVector.elements();
     }
     
-    
+    @Override
     public void setOptions(String[] options) throws Exception {
-        // Reset des valeurs par défaut
-        ConceptLearningStrategy = CONCEPT_LEARNING_ALL_ALL; // Valeur par défaut
-        AggregationStrategy = AGGREGATION_WEIGHTED_VOTE; // Valeur par défaut
-        // Option factice pour affichage uniquement
-        Utils.getOption("CNC_ID", options); // Ne rien en faire, juste pour vider les options restantes
+        // Reset default values
+        ConceptLearningStrategy = CONCEPT_LEARNING_ALL_ALL;
+        AggregationStrategy = AGGREGATION_WEIGHTED_VOTE;
+        Utils.getOption("CNC_ID", options); // Just to consume the option
 
-        // Gestion de la stratégie de classification nominale
+        // Handle aggregation strategy
         String aggregationStrategyStr = Utils.getOption("aggregationStrategy", options);
         if (!aggregationStrategyStr.isEmpty()) {
             int strategy = Integer.parseInt(aggregationStrategyStr);
@@ -533,7 +449,7 @@ public class CNC extends AbstractClassifier
             AggregationStrategy = strategy;
         }
 
-        // Gestion du nombre de top voters
+        // Handle number of top voters
         String numbTopKVotersStr = Utils.getOption("numbTopKVoters", options);
         if (!numbTopKVotersStr.isEmpty()) {
             m_TopKVoters = Integer.parseInt(numbTopKVotersStr);
@@ -542,7 +458,7 @@ public class CNC extends AbstractClassifier
             }
         }
 
-        // Gestion du seuil de pluralité
+        // Handle plurality threshold
         String pluralityAgregationThresholdStr = Utils.getOption("pluralityAgregationThreshold", options);
         if (!pluralityAgregationThresholdStr.isEmpty()) {
             m_PluralityThreshold = Double.parseDouble(pluralityAgregationThresholdStr);
@@ -551,7 +467,7 @@ public class CNC extends AbstractClassifier
             }
         }
         
-        // Gestion du timing du seuil
+        // Handle threshold timing
         String thresholdTimingStr = Utils.getOption("thresholdTiming", options);
         if (!thresholdTimingStr.isEmpty()) {
             int timing = Integer.parseInt(thresholdTimingStr);
@@ -561,17 +477,16 @@ public class CNC extends AbstractClassifier
             m_ThresholdTiming = timing;
         }
 
-        // Gestion du seuil de pondération
+        // Handle weight threshold
         String minWeightThresholdStr = Utils.getOption("minWeightThreshold", options);
         if (!minWeightThresholdStr.isEmpty()) {
-            m_WeightThreshold= Double.parseDouble(minWeightThresholdStr);
+            m_WeightThreshold = Double.parseDouble(minWeightThresholdStr);
             if (m_WeightThreshold < 0 || m_WeightThreshold > 100) {
                 throw new IllegalArgumentException("Weight threshold must be between 0 and 100");
             }
-
         }
 
-        // Gestion de la stratégie de concept learning (existante)
+        // Handle concept learning strategy
         String strategyStr = Utils.getOption("conceptStrategy", options);
         if (!strategyStr.isEmpty()) {
             int strategy = Integer.parseInt(strategyStr);
@@ -581,7 +496,7 @@ public class CNC extends AbstractClassifier
             ConceptLearningStrategy = strategy;
         }
 
-     // Gestion du seuil 
+        // Handle threshold
         String thresholdStr = Utils.getOption("THRESHOLD", options);
         if (!thresholdStr.isEmpty()) {
             double parsedThreshold = Double.parseDouble(thresholdStr);
@@ -590,38 +505,40 @@ public class CNC extends AbstractClassifier
             }
             setThreshold(parsedThreshold);
         }
-     // Gestion du seuil auto
+        
+        // Handle auto threshold
         String autoThresholdStr = Utils.getOption("autoThreshold", options);
         if (!autoThresholdStr.isEmpty()) {
             setAuto_Threshold(autoThresholdStr.equalsIgnoreCase("true") || 
                             autoThresholdStr.equalsIgnoreCase("yes") ||
                             autoThresholdStr.equalsIgnoreCase("1"));
         }
+        
+        //allCombinations
+        String allCombinationsStr = Utils.getOption("allCombinations", options);
+        if (!allCombinationsStr.isEmpty()) {
+           setAllCombinations(allCombinationsStr.equalsIgnoreCase("true") || 
+        		   allCombinationsStr.equalsIgnoreCase("yes") ||
+        		   allCombinationsStr.equalsIgnoreCase("1"));
+        }
 
-        // Gestion de la mesure de caractéristique (existante)
+        // Handle feature measure
         String measureStr = Utils.getOption("FeatureMeasure", options);
         if (!measureStr.isEmpty()) {
             switch (measureStr.toLowerCase()) {
-                case "entropy":
-                    FeatureMeasureMethod = FEAT_ENTROPY; 
-                    break;
-                case "infogain":
-                    FeatureMeasureMethod = FEAT_INFOGAIN;
-                    break;
-                case "gainratio":
-                    FeatureMeasureMethod = FEAT_GAINRATIO;
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid feature measure: " + measureStr);
+                case "entropy": FeatureMeasureMethod = FEAT_ENTROPY; break;
+                case "infogain": FeatureMeasureMethod = FEAT_INFOGAIN; break;
+                case "gainratio": FeatureMeasureMethod = FEAT_GAINRATIO; break;
+                default: throw new IllegalArgumentException("Invalid feature measure: " + measureStr);
             }
         }
 
-        // Gestion du filtre (existante)
+        // Handle filter
         String filterStr = Utils.getOption('F', options);
         if (!filterStr.isEmpty()) {
             String[] filterSpec = Utils.splitOptions(filterStr);
             if (filterSpec.length == 0) {
-                setFilter(new weka.filters.supervised.attribute.Discretize());
+                setFilter(new weka.filters.unsupervised.attribute.Discretize());
             } else {
                 try {
                     String filterName = filterSpec[0];
@@ -630,285 +547,222 @@ public class CNC extends AbstractClassifier
                     setFilter(filter);
                 } catch (Exception e) {
                     System.err.println("Warning: Could not set filter, using default Discretize. Error: " + e.getMessage());
-                    setFilter(new weka.filters.supervised.attribute.Discretize());
+                    setFilter(new weka.filters.unsupervised.attribute.Discretize());
                 }
             }
         } else {
-            setFilter(new weka.filters.supervised.attribute.Discretize());
+            setFilter(new weka.filters.unsupervised.attribute.Discretize());
         }
 
-        // Gestion du debug (existante)
+        // Handle debug
         m_Debug = Utils.getFlag("debug", options);
 
         super.setOptions(options);
     }
 
-    
-   
-    
+    @Override
     public String[] getOptions() {
         Vector<String> result = new Vector<>();
         
-     // Clé personnalisée pour Weka Experimenter
+        // Custom key for Weka Experimenter
         result.add("-CNC_ID");
         result.add(getIdentifier());
         
-        
-
-     // strategies d aggregation
+        // Aggregation strategies
         result.add("-aggregationStrategy");
         result.add(String.valueOf(AggregationStrategy));
 
-
-        // Nombre de top voters
+        // Number of top voters
         result.add("-numbTopKVoters");
         result.add(String.valueOf(m_TopKVoters));
         
         result.add("-thresholdTiming");
         result.add(String.valueOf(m_ThresholdTiming));
 
-        // Seuil de pluralité
+        // Plurality threshold
         result.add("-pluralityAgregationThreshold");
         result.add(String.valueOf(m_PluralityThreshold));
 
-        // Seuil de pondération
+        // Weight threshold
         result.add("-minWeightThreshold");
         result.add(String.valueOf(m_WeightThreshold));
 
-        // Stratégie de concept learning 
+        // Concept learning strategy
         result.add("-conceptStrategy");
         result.add(String.valueOf(ConceptLearningStrategy));
 
-        // Seuil 
+        // Threshold
         result.add("-THRESHOLD");
         result.add(String.valueOf(getThreshold()));
         
-        // Seuil auto
-     // Seuil auto
+        // Auto threshold
         result.add("-autoThreshold");
         result.add(String.valueOf(getAuto_Threshold()));
-
-        // Mesure de caractéristique 
+        
+        //allCombinations
+        result.add("-allCombinations");
+        result.add(String.valueOf(getAllCombinations()));
+        
+        // Feature measure
         result.add("-FeatureMeasure");
         switch (FeatureMeasureMethod) {
-            case FEAT_ENTROPY:
-                result.add("entropy");
-                break;
-            case FEAT_INFOGAIN:
-                result.add("infogain");
-                break;
-            case FEAT_GAINRATIO:
-                result.add("gainratio");
-                break;
+            case FEAT_ENTROPY: result.add("entropy"); break;
+            case FEAT_INFOGAIN: result.add("infogain"); break;
+            case FEAT_GAINRATIO: result.add("gainratio"); break;
         }
 
-        // Filtre (existante)
+        // Filter
         result.add("-F");
         result.add(getFilterSpec());
 
-        // Debug (existante)
+        // Debug
         if (m_Debug) {
             result.add("-debug");
         }
 
-        // Options de la classe parente
+        // Parent class options
         Collections.addAll(result, super.getOptions());
 
         return result.toArray(new String[0]);
     }
     
-    
     public String getIdentifier() {
-    StringBuilder id = new StringBuilder();
+        StringBuilder id = new StringBuilder();
 
-    id.append("CNC");
-    id.append("_Agg=").append(getAggregationStrategyName());
+        id.append("CNC");
+        id.append("_Agg=").append(getAggregationStrategyName());
 
-    if (AggregationStrategy == AGGREGATION_TOP_K_VOTERS) {
-        id.append("_TopK=").append(m_TopKVoters);
+        if (AggregationStrategy == AGGREGATION_TOP_K_VOTERS) {
+            id.append("_TopK=").append(m_TopKVoters);
+        }
+
+        if (AggregationStrategy == AGGREGATION_MIN_PLURALITY_THRESHOLD) {
+            id.append("_PlurThr=").append(m_PluralityThreshold);
+        }
+
+        if (AggregationStrategy == AGGREGATION_LOWEST_WEIGHT_VOTER) {
+            id.append("_MinWeigThr=").append(m_WeightThreshold);
+        }
+
+        id.append("_ConLearn=").append(getConceptLearningStrategyName());
+
+        if (ConceptLearningStrategy >= CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL &&
+            ConceptLearningStrategy <= CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY) {
+            id.append("_Thr=").append(m_THRESHOLD);
+            id.append("_ThrTim=").append(m_ThresholdTiming == 1 ? "BEF disc" : "AFT disc");
+            id.append("_ThrCalc=").append(Auto_THRESHOLD ? "Auto" : "Manual");
+        }
+
+        id.append("_Measure=").append(featureMeasureToString(FeatureMeasureMethod));
+
+        // Add filter information if used
+        if (m_Filter != null) {
+            id.append("_Filter=").append(getFilterTypeName());
+            id.append("_FiltOpts=").append(getFilterOptionsAsString());
+        }
+
+        return id.toString();
     }
 
-    if (AggregationStrategy == AGGREGATION_MIN_PLURALITY_THRESHOLD) {
-        id.append("_PluralityThr=").append(m_PluralityThreshold);
+    private String getFilterTypeName() {
+        if (m_Filter == null) {
+            return "None";
+        }
+        return m_Filter.getClass().getSimpleName();
     }
 
-    if (AggregationStrategy == AGGREGATION_LOWEST_WEIGHT_VOTER) {
-        id.append("_MinWeightThr=").append(m_WeightThreshold);
-    }
-
-    id.append("_ConceptLearning=").append(getConceptLearningStrategyName());
-
-    if (ConceptLearningStrategy >= CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL &&
-        ConceptLearningStrategy <= CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY) {
-        id.append("_Threshold=").append(m_THRESHOLD);
-        id.append("_ThrTiming=").append(m_ThresholdTiming == 1 ? "BEFORE discretization" : "AFTER discretization");
-        id.append("_ThrCalc=").append(Auto_THRESHOLD ? "Auto" : "Manual");
-    }
-
-    id.append("_Measure=").append(featureMeasureToString(FeatureMeasureMethod));
-
-    // Ajout des informations sur le filtre si utilisé
-    if (m_Filter != null) {
-        id.append("_Filter=").append(getFilterTypeName());
-        id.append("_FilterOpts=").append(getFilterOptionsAsString());
-    }
-
-    return id.toString();
-}
-
-// Méthode pour obtenir le nom du type de filtre
-private String getFilterTypeName() {
-    if (m_Filter == null) {
-        return "None";
-    }
-    return m_Filter.getClass().getSimpleName();
-}
-
-// Méthode pour obtenir les options du filtre sous forme de chaîne
-private String getFilterOptionsAsString() {
-    if (m_Filter == null) {
-        return "";
-    }
-    
-    try {
-        String[] options = m_Filter.getOptions();
-        if (options == null || options.length == 0) {
-            return "default";
+    private String getFilterOptionsAsString() {
+        if (m_Filter == null) {
+            return "";
         }
         
-        // Construire une chaîne avec les options non vides
-        StringBuilder opts = new StringBuilder();
-        for (String opt : options) {
-            if (!opt.trim().isEmpty()) {
-                if (opts.length() > 0) {
-                    opts.append(" ");
-                }
-                opts.append(opt);
+        try {
+            String[] options = m_Filter.getOptions();
+            if (options == null || options.length == 0) {
+                return "default";
             }
+            
+            // Build string with non-empty options
+            StringBuilder opts = new StringBuilder();
+            for (String opt : options) {
+                if (!opt.trim().isEmpty()) {
+                    if (opts.length() > 0) {
+                        opts.append(" ");
+                    }
+                    opts.append(opt);
+                }
+            }
+            return opts.toString();
+        } catch (Exception e) {
+            return "error";
         }
-        return opts.toString();
-    } catch (Exception e) {
-        return "error";
     }
-}
-    // classifyInstance() classifies a given instance, it is mandatory to implement this function
+
     @Override
     public double classifyInstance(Instance inst) throws Exception {
-        // Vérification préalable
         if (m_classifierNC == null) {
             throw new IllegalStateException("Model not built. Call buildClassifier() first.");
         }
 
-        // Filtrage unique
+        // Filter the instance
         m_Filter.input(inst);
         m_Filter.batchFinished();
         Instance filteredInst = m_Filter.output();
         Classify_Instance classifier = new Classify_Instance();
  
-        double result =-1.0;
-        int nb_class = Classification_Rule.getMaxNumClass(m_classifierNC); // Assuming such a method exists
+        double result = -1.0;
+        int nb_class = Classification_Rule.getMaxNumClass(m_classifierNC);
+        
         switch (AggregationStrategy) {
-       
-        case AGGREGATION_WEIGHTED_VOTE :
-            // Classification par vote pondéré
-            result = classifier.classify_Instance_nom_VotePond(
-                filteredInst, 
-                m_classifierNC, 
-                nb_class,
-                m_Debug
-            );
-
-            break;
-            
-        case AGGREGATION_MAJORITY_VOTE:
-            // Classification par vote majoritaire
-            result = classifier.classify_Instance_nom_VoteMaj(
-                filteredInst, 
-                m_classifierNC, 
-                nb_class,
-                m_Debug
-            );
-
-            break;
-            
-        case AGGREGATION_PLURALITY_VOTE:
-            // Classification par vote pluralitaire
-            result = classifier.classify_Instance_nom_VotePlur(
-                filteredInst, 
-                m_classifierNC, 
-                nb_class,
-                m_Debug
-            );
-
-            break;
-            
-        case AGGREGATION_MIN_PLURALITY_THRESHOLD:
-            // Classification avec seuil minimum de pluralité
-            result = classifier.classify_Instance_nom_VotePlurMin(
-                filteredInst, 
-                m_classifierNC, 
-                nb_class,
-                m_PluralityThreshold,
-                m_Debug
-            );
-
-            break;
-            
-        case AGGREGATION_LOWEST_WEIGHT_VOTER:
-
-            // Classification en excluant les voters de plus faible poids
-            result = classifier.classify_Instance_nom_VoteLowPondVoter(
-                filteredInst, 
-                m_classifierNC, 
-                nb_class,
-                m_WeightThreshold,
-                m_Debug
-            );
-
-
-            break;
-            
-        case AGGREGATION_TOP_K_VOTERS:
-            // Classification utilisant seulement les K meilleurs voters
-            result = classifier.classify_Instance_nom_VoteNumBestVoterS(
-                filteredInst, 
-                m_classifierNC, 
-                nb_class,
-                m_TopKVoters,
-                m_Debug
-            );
-
-            break;
-            
-        default:
-            throw new Exception("Stratégie de classification nominale inconnue");
-            
-            
-       
-    }
+            case AGGREGATION_WEIGHTED_VOTE:
+                result = classifier.classify_Instance_nom_VotePond(
+                    filteredInst, m_classifierNC, nb_class, m_Debug);
+                break;
+                
+            case AGGREGATION_MAJORITY_VOTE:
+                result = classifier.classify_Instance_nom_VoteMaj(
+                    filteredInst, m_classifierNC, nb_class, m_Debug);
+                break;
+                
+            case AGGREGATION_PLURALITY_VOTE:
+                result = classifier.classify_Instance_nom_VotePlur(
+                    filteredInst, m_classifierNC, nb_class, m_Debug);
+                break;
+                
+            case AGGREGATION_MIN_PLURALITY_THRESHOLD:
+                result = classifier.classify_Instance_nom_VotePlurMin(
+                    filteredInst, m_classifierNC, nb_class, m_PluralityThreshold, m_Debug);
+                break;
+                
+            case AGGREGATION_LOWEST_WEIGHT_VOTER:
+                result = classifier.classify_Instance_nom_VoteLowPondVoter(
+                    filteredInst, m_classifierNC, nb_class, m_WeightThreshold, m_Debug);
+                break;
+                
+            case AGGREGATION_TOP_K_VOTERS:
+                result = classifier.classify_Instance_nom_VoteNumBestVoterS(
+                    filteredInst, m_classifierNC, nb_class, m_TopKVoters, m_Debug);
+                break;
+                
+            default:
+                throw new Exception("Unknown nominal classification strategy");
+        }
         
-       
-        
-        
-
         return result == -1.0 ? Utils.missingValue() : result;
     }
 
-    
-
     public double getm_Threshold(double[] featureMeasures) {
-    	
-    	if(Auto_THRESHOLD) {
-    		
-    		double sum = 0.0;
+        if (Auto_THRESHOLD) {
+            double sum = 0.0;
             for (double value : featureMeasures) {
                 sum += value;
             }
-            m_THRESHOLD = sum / featureMeasures.length;    	}
-    	
-    	
-    	return m_THRESHOLD;
+            m_THRESHOLD = sum / featureMeasures.length;
+        }
+        return m_THRESHOLD;
     }
+
+    
     
     // buildClassifier() builds the classifier using the training data, it is mandatory to implement this function
 
@@ -959,20 +813,17 @@ private String getFilterOptionsAsString() {
         	m_THRESHOLD=getm_Threshold(extractor.computeFeatureMeasures(m_FilteredInstances));
         	
          }
-
-
-        switch (ConceptLearningStrategy) {
+        
+        if (getAllCombinations()) {
+        	switch (ConceptLearningStrategy) {
             case CONCEPT_LEARNING_ALL_ALL:
                 if (m_Debug) {
                     System.out.println("=== ALL ATTRIBUTES - ALL VALUES MODE ACTIVE ===");
                     System.out.println("Extraction using all attributes with all values");
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                 }
-                m_classifierNC = extractor.extractAllAttributesAllValues(m_FilteredInstances);
-                if (m_Debug) {
-                    System.out.println("All attributes used");
-                    printRuleStatistics();
-                }
+                m_classifierNC = extractor.extractAllAttributesAllValuesAllCombinations(m_FilteredInstances);
+               
                 break;
                 
             case CONCEPT_LEARNING_ALL_MAJORITY:
@@ -981,7 +832,7 @@ private String getFilterOptionsAsString() {
                     System.out.println("Extraction using all attributes with majority values");
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                 }
-                m_classifierNC = extractor.extractAllAttributesMajorityValue(m_FilteredInstances);
+                m_classifierNC = extractor.extractAllAttributesMajorityValueAllCombinations(m_FilteredInstances);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -995,7 +846,7 @@ private String getFilterOptionsAsString() {
                     extractor.printPertinentAttribute(m_FilteredInstances);
 
                 }
-                m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
+                m_classifierNC = extractor.extractPertinentAttributeAllValuesAllCombinations(m_FilteredInstances);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -1039,7 +890,7 @@ private String getFilterOptionsAsString() {
                     extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
 
                 }
-                m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(m_FilteredInstances,m_THRESHOLD);
+                m_classifierNC = extractor.extractAttributeAboveThresholdAllValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -1067,7 +918,7 @@ private String getFilterOptionsAsString() {
                     extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
 
                 }
-                m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);
+                m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -1094,7 +945,8 @@ private String getFilterOptionsAsString() {
                     extractor.printAttributesUnderThreshold(m_FilteredInstances, m_THRESHOLD);
 
                 }
-                m_classifierNC = extractor.extractAttributeUnderThresholdAllValues(m_FilteredInstances,m_THRESHOLD);
+                m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesAllCombinations
+                		(m_FilteredInstances,m_THRESHOLD);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -1128,6 +980,180 @@ private String getFilterOptionsAsString() {
 
                 break;
         }
+        }
+        else {
+        	switch (ConceptLearningStrategy) {
+            case CONCEPT_LEARNING_ALL_ALL:
+                if (m_Debug) {
+                    System.out.println("=== ALL ATTRIBUTES - ALL VALUES MODE ACTIVE ===");
+                    System.out.println("Extraction using all attributes with all values");
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                }
+                m_classifierNC = extractor.extractPertinentAttributeAllValuesAllCombinations(m_FilteredInstances);
+                if (m_Debug) {
+                    System.out.println("All attributes used");
+                    printRuleStatistics();
+                }
+                break;
+                
+            case CONCEPT_LEARNING_ALL_MAJORITY:
+                if (m_Debug) {
+                    System.out.println("=== ALL ATTRIBUTES - MAJORITY VALUE MODE ACTIVE ===");
+                    System.out.println("Extraction using all attributes with majority values");
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                }
+                m_classifierNC = extractor.extractAllAttributesMajorityValue(m_FilteredInstances);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+                break;
+                
+            case CONCEPT_LEARNING_PERTINENT_ALL:
+                if (m_Debug) {
+                    System.out.println("=== PERTINENT ATTRIBUTE - ALL VALUES MODE ACTIVE ==="); 
+                    System.out.println("Extraction using only pertinent attribute with all values");
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printPertinentAttribute(m_FilteredInstances);
+
+                }
+                m_classifierNC = extractor.extractPertinentAttributeAllValuesAllCombinations(m_FilteredInstances);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
+                break;
+                
+            case CONCEPT_LEARNING_PERTINENT_MAJORITY:
+                if (m_Debug) {
+                    System.out.println("=== PERTINENT ATTRIBUTE - MAJORITY VALUE MODE ACTIVE ===");
+                    System.out.println("Extraction using only pertinent attribute with majority value");
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printPertinentAttribute(m_FilteredInstances);
+
+                } 
+                m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
+                break;
+                
+            case CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL:
+                if (m_Debug) {
+                    System.out.println("=== ABOVE THRESHOLD - ALL VALUES MODE ACTIVE ===");
+                    if(Auto_THRESHOLD) {
+                        System.out.println("===Auto Threshold Mode Active=== ");
+
+                    }
+                    if ( m_ThresholdTiming == THRESHOLD_BEFORE_DISCRETIZATION) {
+                    	setThreshold(getm_Threshold(extractor.computeFeatureMeasures(data)));
+                    	System.out.println("Threshold timing::THRESHOLD_BEFORE_DISCRETIZATION");
+
+                    }
+                    else if (m_ThresholdTiming == THRESHOLD_AFTER_DISCRETIZATION) {
+                    	setThreshold(getm_Threshold(extractor.computeFeatureMeasures(m_FilteredInstances)));
+                    	System.out.println("Threshold timing:: THRESHOLD_AFTER_DISCRETIZATION");
+
+                    }
+                    System.out.printf("Extraction with (Threshold=%.4f) " ,m_THRESHOLD);
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
+
+                }
+                m_classifierNC = extractor.extractAttributeAboveThresholdAllValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
+                break;
+                
+            case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY:
+                if (m_Debug) {
+                    System.out.println("=== ABOVE THRESHOLD - MAJORITY VALUES MODE ACTIVE ===");
+                    if(Auto_THRESHOLD) {
+                        System.out.println("===Auto Threshold Mode Active=== ");
+
+                    }
+                    if ( m_ThresholdTiming == THRESHOLD_BEFORE_DISCRETIZATION) {
+                    	System.out.println("Threshold timing::THRESHOLD_BEFORE_DISCRETIZATION");
+
+                    }
+                    else if (m_ThresholdTiming == THRESHOLD_AFTER_DISCRETIZATION) {
+                    	System.out.println("Threshold timing:: THRESHOLD_AFTER_DISCRETIZATION");
+
+                    }
+                    
+                    System.out.printf("Extraction with(Threshold=%.4f) " ,m_THRESHOLD);
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
+
+                }
+                m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
+                break;
+                
+            case CONCEPT_LEARNING_UNDER_THRESHOLD_ALL:
+                if (m_Debug) {
+                    System.out.println("=== UNDER THRESHOLD - ALL VALUES MODE ACTIVE ===");
+                    if(Auto_THRESHOLD) {
+                        System.out.println("===Auto Threshold Mode Active=== ");
+
+                    }
+                    if ( m_ThresholdTiming == THRESHOLD_BEFORE_DISCRETIZATION) {
+                    	System.out.println("Threshold timing::THRESHOLD_BEFORE_DISCRETIZATION");
+
+                    }
+                    else if (m_ThresholdTiming == THRESHOLD_AFTER_DISCRETIZATION) {
+                    	System.out.println("Threshold timing:: THRESHOLD_AFTER_DISCRETIZATION");
+
+                    }
+                    System.out.printf("Extraction with (Threshold=%.4f) " ,m_THRESHOLD);
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printAttributesUnderThreshold(m_FilteredInstances, m_THRESHOLD);
+
+                }
+                m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesAllCombinations
+                		(m_FilteredInstances,m_THRESHOLD);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
+                break;
+                
+            case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY:
+                if (m_Debug) {
+                    System.out.println("=== UNDER THRESHOLD - MAJORITY VALUES MODE ACTIVE ===");
+                    if(Auto_THRESHOLD) {
+                        System.out.println("===Auto Threshold Mode Active=== ");
+
+                    }
+                    if ( m_ThresholdTiming == THRESHOLD_BEFORE_DISCRETIZATION) {
+                    	System.out.println("Threshold timing::THRESHOLD_BEFORE_DISCRETIZATION");
+
+                    }
+                    else if (m_ThresholdTiming == THRESHOLD_AFTER_DISCRETIZATION) {
+                    	System.out.println("Threshold timing:: THRESHOLD_AFTER_DISCRETIZATION");
+
+                    }
+                    System.out.printf("Extraction with(Threshold=%.4f) " ,m_THRESHOLD);
+                    System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
+                    extractor.printAttributesUnderThreshold(m_FilteredInstances, m_THRESHOLD);
+
+                }
+                m_classifierNC = extractor.extractAttributeUnderThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+
+                break;
+        }
+        	
+        }
+
+        
 
         
     }
