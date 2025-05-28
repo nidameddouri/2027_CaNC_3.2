@@ -332,85 +332,124 @@ public class RuleExtractor {
      * Extrait des règles en utilisant tous les attributs et toutes leurs valeurs all attributes all values
      */
     public ArrayList<Classification_Rule> extractAllAttributesAllValues(Instances inst) throws Exception {
-        ArrayList<Classification_Rule> rules = new ArrayList<>();
-        
+    ArrayList<Classification_Rule> rules = new ArrayList<>();
+    Set<String> seenClosures = new HashSet<>();
+    Map<String, Classification_Rule> uniqueRules = new HashMap<>();
+    List<String> allConceptsList = new ArrayList<>(); // Liste pour stocker tous les concepts
+
+    if (m_Debug) {
+        System.out.println("\n=== EXTRACTION AVEC TOUS LES ATTRIBUTS ET VALEURS ===");
+        System.out.println("Nombre d'attributs à traiter: " + (inst.numAttributes() - 1));
+    }
+    
+    for (int attrIdx = 0; attrIdx < inst.numAttributes() - 1; attrIdx++) {
+        Attribute attribute = inst.attribute(attrIdx);
         
         if (m_Debug) {
-            System.out.println("\nExtracting rules with all attributes and all values");
+            System.out.println("\n--- Traitement de l'attribut: " + attribute.name() + 
+                             " (" + attribute.numValues() + " valeurs) ---");
         }
         
-        // Pour chaque attribut
-        for (int attrIdx = 0; attrIdx < inst.numAttributes() - 1; attrIdx++) {
-            Attribute attribute = inst.attribute(attrIdx);
+        for (int valueIdx = 0; valueIdx < attribute.numValues(); valueIdx++) {
+            String currentValue = attribute.value(valueIdx);
             
             if (m_Debug) {
-                System.out.println("\nProcessing attribute: " + attribute.name());
+                System.out.println("\nValeur courante: " + currentValue);
             }
             
-            // Pour chaque valeur de l'attribut
-            for (int valueIdx = 0; valueIdx < attribute.numValues(); valueIdx++) {
+            ArrayList<Integer> instances = new ArrayList<>();
+            for (int i = 0; i < inst.numInstances(); i++) {
+                if (inst.instance(i).value(attrIdx) == valueIdx) {
+                    instances.add(i);
+                }
+            }
+            
+            if (instances.isEmpty()) {
                 if (m_Debug) {
-                    System.out.println("Processing value: " + attribute.value(valueIdx));
+                    System.out.println("Aucune instance trouvée pour cette valeur - ignoré");
                 }
-                
-                // Trouver les instances avec cette valeur
-                ArrayList<Integer> instances = new ArrayList<>();
-                for (int i = 0; i < inst.numInstances(); i++) {
-                    if (inst.instance(i).value(attrIdx) == valueIdx) {
-                        instances.add(i);
-                    }
+                continue;
+            }
+            
+            ArrayList<String> closure = computeAttributeClosure(inst, instances);
+            
+            // Construction de la représentation du concept pour l'affichage final
+            StringBuilder conceptBuilder = new StringBuilder();
+            conceptBuilder.append("Concept ").append(allConceptsList.size() + 1).append(": {");
+            conceptBuilder.append("Attribut: ").append(attribute.name()).append("=").append(currentValue).append(", ");
+            conceptBuilder.append("Objets: [");
+            for (int i = 0; i < instances.size(); i++) {
+                if (i > 0) conceptBuilder.append(", ");
+                conceptBuilder.append("o").append(instances.get(i) + 1);
+            }
+            conceptBuilder.append("], Fermeture: [");
+            
+            boolean firstAttr = true;
+            for (int i = 0; i < closure.size(); i++) {
+                if (!closure.get(i).equals("-null-")) {
+                    if (!firstAttr) conceptBuilder.append(", ");
+                    conceptBuilder.append(inst.attribute(i).name()).append("=").append(closure.get(i));
+                    firstAttr = false;
                 }
-                
-                if (instances.isEmpty()) continue;
-                
-                // Calculer la fermeture des attributs
-                ArrayList<String> attributes = computeAttributeClosure(inst, instances);
-                
-                // Afficher la fermeture de Galois
-                
-                // Trouver la classe majoritaire
-                int majorityClassIndex = findMajorityClass(inst, instances);
-                
+            }
+            conceptBuilder.append("]}");
+            
+            String closureKey = String.join("|", closure) + "|" + 
+                              instances.stream()
+                                  .map(String::valueOf)
+                                  .collect(Collectors.joining(","));
+            
+            if (seenClosures.contains(closureKey)) {
                 if (m_Debug) {
-                    System.out.println("Galois closure for All Attributes-All Majority Values"  + ":");
-
-                    printGaloisClosure(instances, attributes, inst);
-
-                    System.out.println("Majority class: " + inst.attribute(inst.classIndex()).value(majorityClassIndex));
+                    System.out.println("Concept dupliqué ignoré: " + conceptBuilder.toString());
                 }
-              
-
-                // Créer la règle
+                continue;
+            }
+            seenClosures.add(closureKey);
+            allConceptsList.add(conceptBuilder.toString()); // Ajout à la liste des concepts
+            
+            int majorityClassIndex = findMajorityClass(inst, instances);
+            String className = inst.classAttribute().value(majorityClassIndex);
+            
+            String ruleKey = closureKey + "|" + className;
+            
+            if (!uniqueRules.containsKey(ruleKey)) {
                 Classification_Rule rule = new Classification_Rule(
-                    attributes,
+                    closure,
                     majorityClassIndex,
-                    inst.attribute(inst.classIndex()).value(majorityClassIndex)
+                    className
                 );
-               
-                // Add attribute names to rule
+                
                 ArrayList<String> attributeNames = new ArrayList<>();
                 for (int i = 0; i < inst.numAttributes() - 1; i++) {
                     attributeNames.add(inst.attribute(i).name());
                 }
                 rule.setAttributeNames(attributeNames);
                 
-                // Calculer la pondération
                 double weight = calculateRuleWeight(inst, rule);
                 rule.setRule_Ponderation(weight);
-                // Afficher la régle crée
-
-                if (m_Debug) {
-                    System.out.println("Rule: " + rule.affich_nom_rule(true));
-                }
+                
+                uniqueRules.put(ruleKey, rule);
                 rules.add(rule);
-            }
-            if (m_Debug) {
-            	System.out.println("══════════════════════════════════════════════════════════════════════════════════════════════════════");
+                
+                if (m_Debug) {
+                    System.out.println("\nNouveau concept trouvé:");
+                    printGaloisClosure(instances, closure, inst);
+                    System.out.println("Règle générée: " + rule.affich_nom_rule(true));
+                }
             }
         }
-        
-        return rules;
     }
+    
+    if (m_Debug) {
+        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+        System.out.println("Nombre total de concepts uniques: " + allConceptsList.size());
+        System.out.println("--------------------------------------------");
+        
+    }
+    
+    return rules;
+}
     
     
     /**
@@ -424,6 +463,7 @@ public class RuleExtractor {
    public ArrayList<Classification_Rule> extractAllAttributesAllValuesAllCombinations(Instances inst) throws Exception {
     ArrayList<Classification_Rule> rules = new ArrayList<>();
     Set<String> seenClosures = new HashSet<>();
+    ArrayList<String> allConcepts = new ArrayList<>(); // Nouvelle liste pour stocker les concepts
 
     // 1. Préparer la liste des attributs (sans la classe)
     ArrayList<Attribute> attributes = new ArrayList<>();
@@ -438,51 +478,65 @@ public class RuleExtractor {
 
         // 3. Pour chaque combinaison d'attributs
         for (List<Attribute> attrCombination : attrCombinations) {
-            // Conversion en ArrayList
             ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
-            
-            // 4. Trouver les instances ayant les mêmes valeurs pour ces attributs
             Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, attrCombinationArrayList);
 
             // 5. Pour chaque groupe d'instances
             for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
                 ArrayList<Integer> instanceSubset = entry.getValue();
-                
-                // 6. Calculer la fermeture
                 ArrayList<String> closure = computeMultiAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
 
                 String closureKey = String.join(";", closure);
                 if (seenClosures.contains(closureKey)) continue;
                 seenClosures.add(closureKey);
 
-                // 7. Trouver la classe majoritaire
-                int majorityClassIndex = findMajorityClass(inst, instanceSubset);
+                // Construction de la représentation du concept
+                StringBuilder conceptBuilder = new StringBuilder();
+                conceptBuilder.append("Concept ").append(allConcepts.size() + 1).append(": {");
+                
+                // Ajout des objets
+                conceptBuilder.append("Objects: [");
+                for (int i = 0; i < instanceSubset.size(); i++) {
+                    if (i > 0) conceptBuilder.append(", ");
+                    conceptBuilder.append("o").append(instanceSubset.get(i) + 1);
+                }
+                conceptBuilder.append("], ");
+                
+                // Ajout des attributs
+                conceptBuilder.append("Attributes: [");
+                boolean firstAttr = true;
+                for (int i = 0; i < closure.size(); i++) {
+                    if (!closure.get(i).equals("-null-")) {
+                        if (!firstAttr) conceptBuilder.append(", ");
+                        conceptBuilder.append(inst.attribute(i).name())
+                                     .append("=")
+                                     .append(closure.get(i));
+                        firstAttr = false;
+                    }
+                }
+                conceptBuilder.append("]}");
+                
+                // Ajout du concept à la liste
+                allConcepts.add(conceptBuilder.toString());
 
-                // 8. Créer la règle
+                int majorityClassIndex = findMajorityClass(inst, instanceSubset);
                 Classification_Rule rule = new Classification_Rule(
                     closure,
                     majorityClassIndex,
                     inst.classAttribute().value(majorityClassIndex)
                 );
 
-                // 9. Ajouter les noms d'attributs
                 ArrayList<String> attributeNames = new ArrayList<>();
                 for (Attribute attr : attributes) {
                     attributeNames.add(attr.name());
                 }
                 rule.setAttributeNames(attributeNames);
 
-                // 10. Calculer le poids
                 double weight = calculateRuleWeight(inst, rule);
                 rule.setRule_Ponderation(weight);
 
                 if (m_Debug) {
-                    System.out.println("Combinaison d'attributs: " + 
-                        attrCombinationArrayList.stream()
-                            .map(Attribute::name)
-                            .collect(Collectors.joining(", ")));
-                    System.out.println("Fermeture: " + closure);
-                    System.out.println("Règle: " + rule.affich_nom_rule(true));
+                    printGaloisClosure(instanceSubset, closure, inst);
                 }
 
                 rules.add(rule);
@@ -490,10 +544,22 @@ public class RuleExtractor {
         }
     }
 
+    // Affichage de tous les concepts en mode debug
+    if (m_Debug && !allConcepts.isEmpty()) {
+        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+        System.out.println("Nombre total de concepts: " + allConcepts.size());
+        System.out.println("--------------------------------------------");
+        
+        for (int i = 0; i < allConcepts.size(); i++) {
+            System.out.println((i + 1) + ". " + allConcepts.get(i));
+        }
+        
+        System.out.println("=== FIN DE LA LISTE DES CONCEPTS ===");
+    }
+
     return rules;
 }
-   
-    /**
+   /**
      * Extrait des règles en utilisant tous les attributs mais seulement la valeur majoritaire all attributes Maj value
      */
     public ArrayList<Classification_Rule> extractAllAttributesMajorityValue(Instances inst) throws Exception {

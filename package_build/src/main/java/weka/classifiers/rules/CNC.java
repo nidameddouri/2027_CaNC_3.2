@@ -118,7 +118,7 @@ public class CNC extends AbstractClassifier
     protected int m_TopKVoters = 10;
     protected double m_PluralityThreshold = 50;
     protected double m_WeightThreshold = 10;
-    protected boolean All_Combinations = true;
+    protected boolean allCombinations = true;
 
     
     protected ReplaceMissingValues m_Missing = new ReplaceMissingValues();
@@ -294,12 +294,16 @@ public class CNC extends AbstractClassifier
         return c.getClass().getName();
     }
     public boolean getAllCombinations() {
-    	return All_Combinations;
-    }
-    public void setAllCombinations(boolean all) {
-    	All_Combinations=all;
+        return allCombinations;
     }
     
+    public void setAllCombinations(boolean value) {
+        this.allCombinations = value;
+        if (m_Debug) {
+            System.out.println("[DEBUG] allCombinations set to: " + value);
+        }
+    }
+
     
 
     // Core methods
@@ -340,7 +344,7 @@ public class CNC extends AbstractClassifier
         
         result.setMinimumNumberInstances(1);
         
-        return result;
+        return result; 
     }
     
     @Override
@@ -813,12 +817,12 @@ public class CNC extends AbstractClassifier
         	m_THRESHOLD=getm_Threshold(extractor.computeFeatureMeasures(m_FilteredInstances));
         	
          }
-        
-        if (getAllCombinations()) {
+    
+        if (this.getAllCombinations()==true) {
         	switch (ConceptLearningStrategy) {
             case CONCEPT_LEARNING_ALL_ALL:
                 if (m_Debug) {
-                    System.out.println("=== ALL ATTRIBUTES - ALL VALUES MODE ACTIVE ===");
+                    System.out.println("=== ALL ATTRIBUTES - ALL VALUES - AllCombinations MODE ACTIVE ===");
                     System.out.println("Extraction using all attributes with all values");
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                 }
@@ -828,7 +832,7 @@ public class CNC extends AbstractClassifier
                 
             case CONCEPT_LEARNING_ALL_MAJORITY:
                 if (m_Debug) {
-                    System.out.println("=== ALL ATTRIBUTES - MAJORITY VALUE MODE ACTIVE ===");
+                    System.out.println("=== ALL ATTRIBUTES - MAJORITY VALUE - AllCombinations MODE ACTIVE ===");
                     System.out.println("Extraction using all attributes with majority values");
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                 }
@@ -840,7 +844,7 @@ public class CNC extends AbstractClassifier
                 
             case CONCEPT_LEARNING_PERTINENT_ALL:
                 if (m_Debug) {
-                    System.out.println("=== PERTINENT ATTRIBUTE - ALL VALUES MODE ACTIVE ==="); 
+                    System.out.println("=== PERTINENT ATTRIBUTE - ALL VALUES - AllCombinations MODE ACTIVE ==="); 
                     System.out.println("Extraction using only pertinent attribute with all values");
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                     extractor.printPertinentAttribute(m_FilteredInstances);
@@ -855,7 +859,7 @@ public class CNC extends AbstractClassifier
                 
             case CONCEPT_LEARNING_PERTINENT_MAJORITY:
                 if (m_Debug) {
-                    System.out.println("=== PERTINENT ATTRIBUTE - MAJORITY VALUE MODE ACTIVE ===");
+                    System.out.println("=== PERTINENT ATTRIBUTE - MAJORITY VALUE - AllCombinations MODE ACTIVE ===");
                     System.out.println("Extraction using only pertinent attribute with majority value");
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                     extractor.printPertinentAttribute(m_FilteredInstances);
@@ -870,7 +874,7 @@ public class CNC extends AbstractClassifier
                 
             case CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL:
                 if (m_Debug) {
-                    System.out.println("=== ABOVE THRESHOLD - ALL VALUES MODE ACTIVE ===");
+                    System.out.println("=== ABOVE THRESHOLD - ALL VALUES - AllCombinations MODE ACTIVE ===");
                     if(Auto_THRESHOLD) {
                         System.out.println("===Auto Threshold Mode Active=== ");
 
@@ -899,7 +903,7 @@ public class CNC extends AbstractClassifier
                 
             case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY:
                 if (m_Debug) {
-                    System.out.println("=== ABOVE THRESHOLD - MAJORITY VALUES MODE ACTIVE ===");
+                    System.out.println("=== ABOVE THRESHOLD - MAJORITY VALUES - AllCombinations MODE ACTIVE ===");
                     if(Auto_THRESHOLD) {
                         System.out.println("===Auto Threshold Mode Active=== ");
 
@@ -927,7 +931,7 @@ public class CNC extends AbstractClassifier
                 
             case CONCEPT_LEARNING_UNDER_THRESHOLD_ALL:
                 if (m_Debug) {
-                    System.out.println("=== UNDER THRESHOLD - ALL VALUES MODE ACTIVE ===");
+                    System.out.println("=== UNDER THRESHOLD - ALL VALUES - AllCombinations MODE ACTIVE ===");
                     if(Auto_THRESHOLD) {
                         System.out.println("===Auto Threshold Mode Active=== ");
 
@@ -955,7 +959,7 @@ public class CNC extends AbstractClassifier
                 
             case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY:
                 if (m_Debug) {
-                    System.out.println("=== UNDER THRESHOLD - MAJORITY VALUES MODE ACTIVE ===");
+                    System.out.println("=== UNDER THRESHOLD - MAJORITY VALUES - AllCombinations MODE ACTIVE ===");
                     if(Auto_THRESHOLD) {
                         System.out.println("===Auto Threshold Mode Active=== ");
 
@@ -981,7 +985,7 @@ public class CNC extends AbstractClassifier
                 break;
         }
         }
-        else {
+        else if(this.getAllCombinations()==false) {
         	switch (ConceptLearningStrategy) {
             case CONCEPT_LEARNING_ALL_ALL:
                 if (m_Debug) {
@@ -989,7 +993,7 @@ public class CNC extends AbstractClassifier
                     System.out.println("Extraction using all attributes with all values");
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
                 }
-                m_classifierNC = extractor.extractPertinentAttributeAllValuesAllCombinations(m_FilteredInstances);
+                m_classifierNC = extractor.extractAllAttributesAllValues(m_FilteredInstances);
                 if (m_Debug) {
                     System.out.println("All attributes used");
                     printRuleStatistics();
@@ -1016,7 +1020,7 @@ public class CNC extends AbstractClassifier
                     extractor.printPertinentAttribute(m_FilteredInstances);
 
                 }
-                m_classifierNC = extractor.extractPertinentAttributeAllValuesAllCombinations(m_FilteredInstances);
+                m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -1060,7 +1064,7 @@ public class CNC extends AbstractClassifier
                     extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
 
                 }
-                m_classifierNC = extractor.extractAttributeAboveThresholdAllValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
+                m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(m_FilteredInstances,m_THRESHOLD);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -1088,7 +1092,7 @@ public class CNC extends AbstractClassifier
                     extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
 
                 }
-                m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
+                m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -1115,7 +1119,7 @@ public class CNC extends AbstractClassifier
                     extractor.printAttributesUnderThreshold(m_FilteredInstances, m_THRESHOLD);
 
                 }
-                m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesAllCombinations
+                m_classifierNC = extractor.extractAttributeUnderThresholdAllValues
                 		(m_FilteredInstances,m_THRESHOLD);
                 if (m_Debug) {
                     printRuleStatistics();
