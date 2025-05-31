@@ -153,6 +153,58 @@ public class Classification_Rule  {
 	}
 	
 
+	/**
+	 * Returns the premises of the rule (attribute-value pairs)
+	 * @return ArrayList of Strings representing the premises in "attribute=value" format
+	 */
+	public ArrayList<String> getPremisses() {
+	    ArrayList<String> premises = new ArrayList<>();
+	    ArrayList<String> attrNames = this.getAttributeNames();
+	    
+	    for (int i = 0; i < this.Rule_Attr.size(); i++) {
+	        String value = this.Rule_Attr.get(i);
+	        if (isValidPremiseValue(value)) {
+	            String attrName = getAttributeName(attrNames, i);
+	            premises.add(formatPremise(attrName, value));
+	        }
+	    }
+	    
+	    return premises;
+	}
+
+	/**
+	 * Checks if a premise value should be included
+	 */
+	private boolean isValidPremiseValue(String value) {
+	    return value != null && !value.equals("-null-") && !value.trim().isEmpty();
+	}
+
+	/**
+	 * Gets the attribute name with fallback to default naming
+	 */
+	private String getAttributeName(ArrayList<String> attrNames, int index) {
+	    return (index < attrNames.size()) ? attrNames.get(index) : "attr" + index;
+	}
+
+	/**
+	 * Formats a single premise as "attribute=value"
+	 */
+	private String formatPremise(String attrName, String value) {
+	    return attrName + "=" + value;
+	}
+
+	/**
+	 * Returns the number of valid premises in the rule
+	 */
+	public int getPremissesCount() {
+	    int count = 0;
+	    for (String value : this.Rule_Attr) {
+	        if (isValidPremiseValue(value)) count++;
+	    }
+	    return count;
+	}
+	
+	
 	// Affichage Comma-separated values de la premisse de la regle. Si AfficheCM est vraie, on associe une classe majoritaire sinon sans classe
 	public String affich_csv_rule (boolean AfficheCM){
 			

@@ -2,6 +2,8 @@ package weka.classifiers.fca;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
@@ -61,46 +63,8 @@ public class _GaloisConnection {
         buildFormalContext();
     }
     
-    /**
-     * Build the formal context from the instances
-     */
-    private void buildFormalContext() {
-        // Build the initial object->attribute relations
-        for (int i = 0; i < m_Instances.numInstances(); i++) {
-            Set<String> attributeSet = new HashSet<>();
-            
-            // For each attribute (except class)
-            for (int j = 0; j < m_Instances.numAttributes(); j++) {
-                if (j == m_Instances.classIndex()) continue;
-                
-                Attribute attr = m_Instances.attribute(j);
-                String attrValue = m_Instances.instance(i).stringValue(attr);
-                
-                // Add attribute-value pair to the set
-                attributeSet.add(attr.name() + "=" + attrValue);
-            }
-            
-            // Add to the intent map
-            Set<Integer> objectSet = new HashSet<>();
-            objectSet.add(i);
-            intentMap.put(objectSet, attributeSet);
-            
-            // Add to the extent map
-            if (extentMap.containsKey(attributeSet)) {
-                extentMap.get(attributeSet).add(i);
-            } else {
-                Set<Integer> newSet = new HashSet<>();
-                newSet.add(i);
-                extentMap.put(attributeSet, newSet);
-            }
-        }
-        
-        if (m_Debug) {
-            System.out.println("Initial formal context built");
-            System.out.println("Intent map size: " + intentMap.size());
-            System.out.println("Extent map size: " + extentMap.size());
-        }
-    }
+   
+    
     
     /**
      * Get the intent (attributes) for a set of objects
@@ -142,8 +106,10 @@ public class _GaloisConnection {
         return intent;
     }
     
+    
+    
     /**
-     * Get the extent (objects) for a set of attributes
+     * Get the extent (objects) for a set of attributes (modified to ignore zero/null values)
      * 
      * @param attributes Set of attributes
      * @return Set of objects having all these attributes
@@ -158,73 +124,370 @@ public class _GaloisConnection {
             return allObjects;
         }
         
-        // Get the objects having all these attributes
         Set<Integer> extent = new HashSet<>();
         
         for (int i = 0; i < m_Instances.numInstances(); i++) {
-            extent.add(i);
-        }
-        
-        for (String attr : attributes) {
-            String[] parts = attr.split("=");
-            String attrName = parts[0];
-            String attrValue = parts[1];
+            boolean matchesAll = true;
             
-            // Find attribute index
-            int attrIdx = -1;
-            for (int j = 0; j < m_Instances.numAttributes(); j++) {
-                if (m_Instances.attribute(j).name().equals(attrName)) {
-                    attrIdx = j;
+            for (String attr : attributes) {
+                String[] parts = attr.split("=");
+                String attrName = parts[0];
+                String attrValue = parts[1];
+                
+                // Skip if value is zero/null (for binary datasets)
+                if (attrValue.equals("0") || attrValue.equalsIgnoreCase("null")) {
+                    continue;
+                }
+                
+                // Find attribute index
+                int attrIdx = -1;
+                for (int j = 0; j < m_Instances.numAttributes(); j++) {
+                    if (m_Instances.attribute(j).name().equals(attrName)) {
+                        attrIdx = j;
+                        break;
+                    }
+                }
+                
+                if (attrIdx == -1 || !m_Instances.instance(i).stringValue(attrIdx).equals(attrValue)) {
+                    matchesAll = false;
                     break;
                 }
             }
             
-            if (attrIdx == -1) continue;
-            
-            // Filter objects by this attribute value
-            Set<Integer> validObjects = new HashSet<>();
-            for (Integer objIdx : extent) {
-                if (m_Instances.instance(objIdx).stringValue(attrIdx).equals(attrValue)) {
-                    validObjects.add(objIdx);
-                }
+            if (matchesAll) {
+                extent.add(i);
             }
-            
-            extent = validObjects;
-            
-            if (extent.isEmpty()) break;
         }
         
         return extent;
     }
+
+    /**
+     * Build the formal context from the instances (modified to ignore zero/null values)
+     */
+    private void buildFormalContext() {
+        for (int i = 0; i < m_Instances.numInstances(); i++) {
+            Set<String> attributeSet = new HashSet<>();
+            
+            for (int j = 0; j < m_Instances.numAttributes(); j++) {
+                if (j == m_Instances.classIndex()) continue;
+                
+                Attribute attr = m_Instances.attribute(j);
+                String attrValue = m_Instances.instance(i).stringValue(attr);
+                
+                // Skip zero/null values for binary attributes
+                if (attr.isNominal() && (attrValue.equals("0") || attrValue.equalsIgnoreCase("null"))) {
+                    continue;
+                }
+                
+                attributeSet.add(attr.name() + "=" + attrValue);
+            }
+            
+            Set<Integer> objectSet = new HashSet<>();
+            objectSet.add(i);
+            intentMap.put(objectSet, attributeSet);
+            
+            if (extentMap.containsKey(attributeSet)) {
+                extentMap.get(attributeSet).add(i);
+            } else {
+                Set<Integer> newSet = new HashSet<>();
+                newSet.add(i);
+                extentMap.put(attributeSet, newSet);
+            }
+        }
+        
+        if (m_Debug) {
+            System.out.println("Initial formal context built (ignoring zero/null values)");
+            System.out.println("Intent map size: " + intentMap.size());
+            System.out.println("Extent map size: " + extentMap.size());
+            
+        }
+    }    
+    
     
     /**
      * Generate concepts using the Galois connection
      * 
      * @return List of formal concepts (pairs of object sets and attribute sets)
      */
+    
     public ArrayList<FormalConcept> generateConcepts() {
         ArrayList<FormalConcept> concepts = new ArrayList<>();
         
-        // Start with an empty set of objects
-        Set<Integer> startObjects = new HashSet<>();
+        // Generate all possible valid attribute combinations
+        List<Set<String>> attributeCombinations = generateAllValidCombinations();
         
-        // Get all attributes (the intent of empty set)
-        Set<String> startAttributes = getIntent(startObjects);
-        
-        // Initialize with the top concept
-        FormalConcept topConcept = new FormalConcept(startObjects, startAttributes);
-        concepts.add(topConcept);
-        
-        // Use the NextClosure algorithm to generate all concepts
-        generateConceptsRecursive(concepts, topConcept);
+        // Process each combination to find formal concepts
+        for (Set<String> intent : attributeCombinations) {
+            Set<Integer> extent = getExtent(intent);
+            Set<String> closedIntent = getIntent(extent);
+            
+            // Only keep if the intent is closed (equal to its closure)
+            if (intent.equals(closedIntent)) {
+                FormalConcept concept = new FormalConcept(extent, intent);
+                
+                // Check if this concept is already present
+                if (!containsConcept(concepts, concept)) {
+                    concepts.add(concept);
+                }
+            }
+        }
         
         if (m_Debug) {
             System.out.println("Generated " + concepts.size() + " formal concepts");
+            for (int i=0;i<concepts.size();i++) {
+                System.out.println("concept"+i);
+                System.out.println("extent"+concepts.get(i).getObjects());
+                System.out.println("intent"+concepts.get(i).getAttributes());
+
+
+            }
         }
         
         return concepts;
     }
+
+    private List<Set<String>> generateAllValidCombinations() {
+        List<Set<String>> combinations = new ArrayList<>();
+        
+        // First get all attributes with their possible values
+        Map<String, List<String>> attributeValues = new LinkedHashMap<>();
+        for (int j = 0; j < m_Instances.numAttributes(); j++) {
+            if (j == m_Instances.classIndex()) continue;
+            
+            Attribute attr = m_Instances.attribute(j);
+            List<String> values = new ArrayList<>();
+            for (int k = 0; k < attr.numValues(); k++) {
+                values.add(attr.name() + "=" + attr.value(k));
+            }
+            attributeValues.put(attr.name(), values);
+        }
+        
+        // Generate all possible non-empty subsets
+        List<String> attributes = new ArrayList<>(attributeValues.keySet());
+        generateCombinations(attributes, 0, attributeValues, new HashSet<>(), combinations);
+        
+        return combinations;
+    }
+
+    private void generateCombinations(List<String> attributes, int index, 
+                                    Map<String, List<String>> attributeValues,
+                                    Set<String> current, 
+                                    List<Set<String>> combinations) {
+        if (index >= attributes.size()) {
+            if (!current.isEmpty()) {
+                combinations.add(new HashSet<>(current));
+            }
+            return;
+        }
+        
+        // Option 1: Don't include this attribute
+        generateCombinations(attributes, index+1, attributeValues, current, combinations);
+        
+        // Option 2: Include one value for this attribute
+        String attrName = attributes.get(index);
+        for (String value : attributeValues.get(attrName)) {
+            Set<String> newCombination = new HashSet<>(current);
+            newCombination.add(value);
+            generateCombinations(attributes, index+1, attributeValues, newCombination, combinations);
+        }
+    }
+
+    private boolean containsConcept(ArrayList<FormalConcept> concepts, FormalConcept newConcept) {
+        for (FormalConcept concept : concepts) {
+            if (concept.getObjects().equals(newConcept.getObjects()) && 
+                concept.getAttributes().equals(newConcept.getAttributes())) {
+                return true;
+            }
+        }
+        return false;
+    }
     
+    
+    
+    /**
+     * Generate all formal concepts by computing Galois closure from all possible combinations
+     * of attributes and their values
+     * 
+     * @return List of formal concepts
+     */
+    public ArrayList<FormalConcept> generateConcepts2() {
+        ArrayList<FormalConcept> concepts = new ArrayList<>();
+        
+        // 1. Préparer la liste de tous les attributs avec leurs valeurs
+        List<Attribute> attributes = new ArrayList<>();
+        for (int j = 0; j < m_Instances.numAttributes(); j++) {
+            if (j != m_Instances.classIndex()) {
+                attributes.add(m_Instances.attribute(j));
+            }
+        }
+        
+        // 2. Trouver le nombre maximum de valeurs pour un attribut
+        int maxValues = 0;
+        for (Attribute attr : attributes) {
+            if (attr.numValues() > maxValues) {
+                maxValues = attr.numValues();
+            }
+        }
+        
+        // 3. Générer toutes les combinaisons possibles
+        int nbAttributes = attributes.size();
+        long totalCombinations = (long) Math.pow(maxValues + 1, nbAttributes);
+        
+        for (long i = 1; i < totalCombinations; i++) {
+            Set<String> intent = new HashSet<>();
+            long code = i;
+            
+            // Décoder la combinaison
+            for (int attrIndex = 0; attrIndex < nbAttributes; attrIndex++) {
+                Attribute attr = attributes.get(attrIndex);
+                int valueIndex = (int) (code % (maxValues + 1));
+                code = code / (maxValues + 1);
+                
+                if (valueIndex < attr.numValues()) {
+                    intent.add(attr.name() + "=" + attr.value(valueIndex));
+                }
+            }
+            
+            // Vérifier que l'intent est valide (pas de doublons d'attributs)
+            if (isValidIntent(intent)) {
+                // Calculer la fermeture de Galois
+                Set<Integer> extent = getExtent(intent);
+                Set<String> closedIntent = getIntent(extent);
+                
+                // Créer le concept si c'est une fermeture
+                if (intent.equals(closedIntent)) {
+                    FormalConcept concept = new FormalConcept(extent, closedIntent);
+                    
+                    // Vérifier si le concept existe déjà
+                    if (!containsConcept(concepts, concept)) {
+                        concepts.add(concept);
+                    }
+                }
+            }
+        }
+        if (m_Debug) {
+            System.out.println("Generated " + concepts.size() + " formal concepts");
+            for (int i=0;i<concepts.size();i++) {
+                System.out.println("concept"+i);
+                System.out.println("extent"+concepts.get(i).getObjects());
+                System.out.println("intent"+concepts.get(i).getAttributes());
+
+
+            }
+        }
+        return concepts;
+    
+   }
+    private boolean isValidIntent(Set<String> intent) {
+        Set<String> attributeNames = new HashSet<>();
+        for (String attrVal : intent) {
+            String attrName = attrVal.split("=")[0];
+            if (attributeNames.contains(attrName)) {
+                return false; // Attribut en double
+            }
+            attributeNames.add(attrName);
+        }
+        return true;
+    }
+
+ 
+    
+    
+    private List<Set<String>> generateValidAttributeCombinations(List<Attribute> attributes) {
+        List<Set<String>> combinations = new ArrayList<>();
+        generateCombinationsRecursive(attributes, 0, new HashSet<>(), combinations);
+        return combinations;
+    }
+
+    private void generateCombinationsRecursive(List<Attribute> attributes, int currentIndex, 
+                                             Set<String> currentCombination,
+                                             List<Set<String>> result) {
+        if (currentIndex >= attributes.size()) {
+            if (!currentCombination.isEmpty()) {
+                result.add(new HashSet<>(currentCombination));
+            }
+            return;
+        }
+        
+        Attribute currentAttr = attributes.get(currentIndex);
+        
+        // Option 1: Don't include this attribute
+        generateCombinationsRecursive(attributes, currentIndex + 1, 
+                                    currentCombination, result);
+        
+        // Option 2: Include one value for this attribute
+        for (int i = 0; i < currentAttr.numValues(); i++) {
+            Set<String> newCombination = new HashSet<>(currentCombination);
+            newCombination.add(currentAttr.name() + "=" + currentAttr.value(i));
+            generateCombinationsRecursive(attributes, currentIndex + 1,
+                                        newCombination, result);
+        }
+    }
+
+    private boolean conceptExists(ArrayList<FormalConcept> concepts, 
+                                Set<Integer> extent, Set<String> intent) {
+        for (FormalConcept concept : concepts) {
+            if (concept.getObjects().equals(extent) && 
+                concept.getAttributes().equals(intent)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    
+   
+    
+    /**
+     * Helper method to generate all valid combinations of attribute-value pairs
+     * where each attribute appears at most once
+     */
+    private List<Set<String>> generateValidCombinations(Map<String, Set<String>> attributesByGroup) {
+        List<Set<String>> result = new ArrayList<>();
+        List<String> attributeNames = new ArrayList<>(attributesByGroup.keySet());
+        
+        generateCombinationsRecursive(attributesByGroup, attributeNames, 0, new HashSet<>(), result);
+        
+        return result;
+    }
+
+    /**
+     * Recursive helper to generate attribute combinations
+     */
+    private void generateCombinationsRecursive(Map<String, Set<String>> attributesByGroup, 
+                                             List<String> attributeNames, 
+                                             int currentIndex, 
+                                             Set<String> currentCombination,
+                                             List<Set<String>> result) {
+        if (currentIndex >= attributeNames.size()) {
+            if (!currentCombination.isEmpty()) {
+                result.add(new HashSet<>(currentCombination));
+            }
+            return;
+        }
+        
+        String currentAttr = attributeNames.get(currentIndex);
+        
+        // Option 1: Don't include any value for this attribute
+        generateCombinationsRecursive(attributesByGroup, attributeNames, currentIndex + 1, 
+                                    currentCombination, result);
+        
+        // Option 2: Include one value for this attribute
+        for (String value : attributesByGroup.get(currentAttr)) {
+            Set<String> newCombination = new HashSet<>(currentCombination);
+            newCombination.add(currentAttr + "=" + value.split("=")[1]);
+            generateCombinationsRecursive(attributesByGroup, attributeNames, currentIndex + 1,
+                                        newCombination, result);
+        }
+    }
+
+    
+    
+       
+  
+    
+   
     /**
      * Recursive helper for concept generation
      * This is a simplified version of the NextClosure algorithm

@@ -1306,8 +1306,8 @@ public class CNC extends AbstractClassifier
     // Main function to run the classifier
     //
     public static void main(String[] args) {
-    	runClassifier(new CNC(), args);
-    	//test();
+    	//runClassifier(new CNC(), args);
+    	test();
     	
     }
     	
@@ -1323,7 +1323,8 @@ public class CNC extends AbstractClassifier
             System.out.println("Nombre d'attributs: " + data.numAttributes());
 
             // Test avec différentes stratégies
-            testStrategy(data, CNC.CONCEPT_LEARNING_PERTINENT_ALL, 0.2);
+            //testStrategy(data, CNC.CONCEPT_LEARNING_PERTINENT_ALL, 0.2);
+            testGaloisConn(data);
             
 
         } catch (Exception e) {
@@ -1331,6 +1332,16 @@ public class CNC extends AbstractClassifier
             e.printStackTrace();
           
         }
+    }
+    public static void testGaloisConn(Instances data) {  
+    	_GaloisConnection con= new _GaloisConnection(true);
+    	con.buildConnection(data);
+        System.out.println("=== Generate 2 ===");
+
+    	con.generateConcepts2();
+        System.out.println("=== Generate 1 ===");
+
+    	con.generateConcepts();
     }
    
     private static void testStrategy(Instances data, int strategy, double THRESHOLD) throws Exception {

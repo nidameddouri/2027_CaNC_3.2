@@ -3,6 +3,7 @@ package weka.classifiers.fca;
 import java.text.SimpleDateFormat;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -460,105 +461,131 @@ public class RuleExtractor {
      * @return Liste des règles de classification générées
      * @throws Exception en cas d'erreur
      */
-   public ArrayList<Classification_Rule> extractAllAttributesAllValuesAllCombinations(Instances inst) throws Exception {
-    ArrayList<Classification_Rule> rules = new ArrayList<>();
-    Set<String> seenClosures = new HashSet<>();
-    ArrayList<String> allConcepts = new ArrayList<>(); // Nouvelle liste pour stocker les concepts
+   
+    public ArrayList<Classification_Rule> extractAllAttributesAllValuesAllCombinations(Instances inst) throws Exception {
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<String> allConcepts = new ArrayList<>();
 
-    // 1. Préparer la liste des attributs (sans la classe)
-    ArrayList<Attribute> attributes = new ArrayList<>();
-    for (int i = 0; i < inst.numAttributes() - 1; i++) {
-        attributes.add(inst.attribute(i));
-    }
+        // 1. Préparer la liste des attributs (sans la classe)
+        ArrayList<Attribute> attributes = new ArrayList<>();
+        for (int i = 0; i < inst.numAttributes() - 1; i++) {
+            attributes.add(inst.attribute(i));
+        }
 
-    // 2. Générer toutes les combinaisons d'attributs de taille 1 à m
-    int m = attributes.size();
-    for (int k = 1; k <= m; k++) {
-        List<List<Attribute>> attrCombinations = generateAttributeCombinations(attributes, k);
+        // 2. Générer toutes les combinaisons d'attributs de taille 1 à m
+        int m = attributes.size();
+        for (int k = 1; k <= m; k++) {
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(attributes, k);
 
-        // 3. Pour chaque combinaison d'attributs
-        for (List<Attribute> attrCombination : attrCombinations) {
-            ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
-            Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, attrCombinationArrayList);
+            // 3. Pour chaque combinaison d'attributs
+            for (List<Attribute> attrCombination : attrCombinations) {
+                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
+                Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, attrCombinationArrayList);
 
-            // 5. Pour chaque groupe d'instances
-            for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
-                ArrayList<Integer> instanceSubset = entry.getValue();
-                ArrayList<String> closure = computeMultiAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
+                // 5. Pour chaque groupe d'instances
+                for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
+                    ArrayList<Integer> instanceSubset = entry.getValue();
+                    Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+                    ArrayList<String> closure = computeMultiAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
 
-                String closureKey = String.join(";", closure);
-                if (seenClosures.contains(closureKey)) continue;
-                seenClosures.add(closureKey);
+                    // Créer la règle
+                    int majorityClassIndex = findMajorityClass(inst, instanceSubset);
+                    Classification_Rule rule = new Classification_Rule(
+                        closure,
+                        majorityClassIndex,
+                        inst.classAttribute().value(majorityClassIndex)
+                    );
 
-                // Construction de la représentation du concept
-                StringBuilder conceptBuilder = new StringBuilder();
-                conceptBuilder.append("Concept ").append(allConcepts.size() + 1).append(": {");
-                
-                // Ajout des objets
-                conceptBuilder.append("Objects: [");
-                for (int i = 0; i < instanceSubset.size(); i++) {
-                    if (i > 0) conceptBuilder.append(", ");
-                    conceptBuilder.append("o").append(instanceSubset.get(i) + 1);
-                }
-                conceptBuilder.append("], ");
-                
-                // Ajout des attributs
-                conceptBuilder.append("Attributes: [");
-                boolean firstAttr = true;
-                for (int i = 0; i < closure.size(); i++) {
-                    if (!closure.get(i).equals("-null-")) {
-                        if (!firstAttr) conceptBuilder.append(", ");
-                        conceptBuilder.append(inst.attribute(i).name())
-                                     .append("=")
-                                     .append(closure.get(i));
-                        firstAttr = false;
+                    ArrayList<String> attributeNames = new ArrayList<>();
+                    for (Attribute attr : attributes) {
+                        attributeNames.add(attr.name());
+                    }
+                    rule.setAttributeNames(attributeNames);
+                    double weight = calculateRuleWeight(inst, rule);
+                    rule.setRule_Ponderation(weight);
+
+                    // Vérifier si on a déjà un concept avec ces objets
+                    if (bestConcepts.containsKey(instanceSet)) {
+                        // Garder celui qui a le plus d'attributs  
+                        Classification_Rule existingRule = bestConcepts.get(instanceSet);
+                        if (closure.size() > existingRule.getPremisses().size()) {
+                            bestConcepts.put(instanceSet, rule);
+                        }
+                    } else {
+                        bestConcepts.put(instanceSet, rule);
                     }
                 }
-                conceptBuilder.append("]}");
-                
-                // Ajout du concept à la liste
-                allConcepts.add(conceptBuilder.toString());
-
-                int majorityClassIndex = findMajorityClass(inst, instanceSubset);
-                Classification_Rule rule = new Classification_Rule(
-                    closure,
-                    majorityClassIndex,
-                    inst.classAttribute().value(majorityClassIndex)
-                );
-
-                ArrayList<String> attributeNames = new ArrayList<>();
-                for (Attribute attr : attributes) {
-                    attributeNames.add(attr.name());
-                }
-                rule.setAttributeNames(attributeNames);
-
-                double weight = calculateRuleWeight(inst, rule);
-                rule.setRule_Ponderation(weight);
-
-                if (m_Debug) {
-                    printGaloisClosure(instanceSubset, closure, inst);
-                }
-
-                rules.add(rule);
             }
         }
-    }
 
-    // Affichage de tous les concepts en mode debug
-    if (m_Debug && !allConcepts.isEmpty()) {
-        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
-        System.out.println("Nombre total de concepts: " + allConcepts.size());
-        System.out.println("--------------------------------------------");
-        
-        for (int i = 0; i < allConcepts.size(); i++) {
-            System.out.println((i + 1) + ". " + allConcepts.get(i));
+        // Construction de la liste finale des concepts et règles
+        int conceptNum = 1;
+        for (Map.Entry<Set<Integer>, Classification_Rule> entry : bestConcepts.entrySet()) {
+            Set<Integer> instanceSet = entry.getKey();
+            Classification_Rule rule = entry.getValue();
+            
+            // Construction de la représentation du concept
+            StringBuilder conceptBuilder = new StringBuilder();
+            conceptBuilder.append("Concept ").append(conceptNum++).append(": {\n");
+            
+            // Ajout des objets avec leur contenu complet
+            conceptBuilder.append("  Objects: [\n");
+            List<Integer> sortedInstances = new ArrayList<>(instanceSet);
+            Collections.sort(sortedInstances);
+            
+            for (int i = 0; i < sortedInstances.size(); i++) {
+                int objIndex = sortedInstances.get(i);
+                conceptBuilder.append("    o").append(objIndex + 1).append(": {");
+                
+                // Afficher tous les attributs de l'objet
+                for (int attrIdx = 0; attrIdx < inst.numAttributes(); attrIdx++) {
+                    if (attrIdx > 0) conceptBuilder.append(", ");
+                    Attribute attr = inst.attribute(attrIdx);
+                    String value = inst.instance(objIndex).stringValue(attrIdx);
+                    conceptBuilder.append(attr.name()).append("=").append(value);
+                }
+                conceptBuilder.append("}\n");
+            }
+            conceptBuilder.append("  ],\n");
+            
+            // Ajout des attributs du concept
+            conceptBuilder.append("  Attributes: [");
+            boolean firstAttr = true;
+            for (String attrValue : rule.getPremisses()) {
+                if (!attrValue.equals("-null-")) {
+                    if (!firstAttr) conceptBuilder.append(", ");
+                    conceptBuilder.append(attrValue);
+                    firstAttr = false;
+                }
+            }
+            conceptBuilder.append("]\n}");
+            
+            // Ajout du concept à la liste
+            allConcepts.add(conceptBuilder.toString());
+            rules.add(rule);
         }
-        
-        System.out.println("=== FIN DE LA LISTE DES CONCEPTS ===");
-    }
 
-    return rules;
-}
+        // Affichage de tous les concepts en mode debug
+        if (m_Debug && !allConcepts.isEmpty()) {
+            System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+            System.out.println("Nombre total de concepts: " + allConcepts.size());
+            System.out.println("--------------------------------------------");
+            
+            for (int i = 0; i < allConcepts.size(); i++) {
+                System.out.println((i + 1) + ". " + allConcepts.get(i));
+                if (i < allConcepts.size() - 1) {
+                    System.out.println("--------------------------------------------");
+                }
+            }
+            
+            System.out.println("=== FIN DE LA LISTE DES CONCEPTS ===");
+        }
+
+        return rules;
+    }
+    
+    
    /**
      * Extrait des règles en utilisant tous les attributs mais seulement la valeur majoritaire all attributes Maj value
      */
