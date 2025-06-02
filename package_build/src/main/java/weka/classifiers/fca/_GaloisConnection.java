@@ -1,10 +1,14 @@
 package weka.classifiers.fca;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.Map;
 import weka.core.Attribute;
@@ -204,444 +208,7 @@ public class _GaloisConnection {
         }
     }    
     
-    
-    /**
-     * Generate concepts using the Galois connection
-     * 
-     * @return List of formal concepts (pairs of object sets and attribute sets)
-     */
-    
-    public ArrayList<FormalConcept> generateConcepts() {
-        ArrayList<FormalConcept> concepts = new ArrayList<>();
-        
-        // Generate all possible valid attribute combinations
-        List<Set<String>> attributeCombinations = generateAllValidCombinations();
-        
-        // Process each combination to find formal concepts
-        for (Set<String> intent : attributeCombinations) {
-            Set<Integer> extent = getExtent(intent);
-            Set<String> closedIntent = getIntent(extent);
-            
-            // Only keep if the intent is closed (equal to its closure)
-            if (intent.equals(closedIntent)) {
-                FormalConcept concept = new FormalConcept(extent, intent);
-                
-                // Check if this concept is already present
-                if (!containsConcept(concepts, concept)) {
-                    concepts.add(concept);
-                }
-            }
-        }
-        
-        if (m_Debug) {
-            System.out.println("Generated " + concepts.size() + " formal concepts");
-            for (int i=0;i<concepts.size();i++) {
-                System.out.println("concept"+i);
-                System.out.println("extent"+concepts.get(i).getObjects());
-                System.out.println("intent"+concepts.get(i).getAttributes());
 
-
-            }
-        }
-        
-        return concepts;
-    }
-
-    private List<Set<String>> generateAllValidCombinations() {
-        List<Set<String>> combinations = new ArrayList<>();
-        
-        // First get all attributes with their possible values
-        Map<String, List<String>> attributeValues = new LinkedHashMap<>();
-        for (int j = 0; j < m_Instances.numAttributes(); j++) {
-            if (j == m_Instances.classIndex()) continue;
-            
-            Attribute attr = m_Instances.attribute(j);
-            List<String> values = new ArrayList<>();
-            for (int k = 0; k < attr.numValues(); k++) {
-                values.add(attr.name() + "=" + attr.value(k));
-            }
-            attributeValues.put(attr.name(), values);
-        }
-        
-        // Generate all possible non-empty subsets
-        List<String> attributes = new ArrayList<>(attributeValues.keySet());
-        generateCombinations(attributes, 0, attributeValues, new HashSet<>(), combinations);
-        
-        return combinations;
-    }
-
-    private void generateCombinations(List<String> attributes, int index, 
-                                    Map<String, List<String>> attributeValues,
-                                    Set<String> current, 
-                                    List<Set<String>> combinations) {
-        if (index >= attributes.size()) {
-            if (!current.isEmpty()) {
-                combinations.add(new HashSet<>(current));
-            }
-            return;
-        }
-        
-        // Option 1: Don't include this attribute
-        generateCombinations(attributes, index+1, attributeValues, current, combinations);
-        
-        // Option 2: Include one value for this attribute
-        String attrName = attributes.get(index);
-        for (String value : attributeValues.get(attrName)) {
-            Set<String> newCombination = new HashSet<>(current);
-            newCombination.add(value);
-            generateCombinations(attributes, index+1, attributeValues, newCombination, combinations);
-        }
-    }
-
-    private boolean containsConcept(ArrayList<FormalConcept> concepts, FormalConcept newConcept) {
-        for (FormalConcept concept : concepts) {
-            if (concept.getObjects().equals(newConcept.getObjects()) && 
-                concept.getAttributes().equals(newConcept.getAttributes())) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    
-    
-    /**
-     * Generate all formal concepts by computing Galois closure from all possible combinations
-     * of attributes and their values
-     * 
-     * @return List of formal concepts
-     */
-    public ArrayList<FormalConcept> generateConcepts2() {
-        ArrayList<FormalConcept> concepts = new ArrayList<>();
-        
-        // 1. Préparer la liste de tous les attributs avec leurs valeurs
-        List<Attribute> attributes = new ArrayList<>();
-        for (int j = 0; j < m_Instances.numAttributes(); j++) {
-            if (j != m_Instances.classIndex()) {
-                attributes.add(m_Instances.attribute(j));
-            }
-        }
-        
-        // 2. Trouver le nombre maximum de valeurs pour un attribut
-        int maxValues = 0;
-        for (Attribute attr : attributes) {
-            if (attr.numValues() > maxValues) {
-                maxValues = attr.numValues();
-            }
-        }
-        
-        // 3. Générer toutes les combinaisons possibles
-        int nbAttributes = attributes.size();
-        long totalCombinations = (long) Math.pow(maxValues + 1, nbAttributes);
-        
-        for (long i = 1; i < totalCombinations; i++) {
-            Set<String> intent = new HashSet<>();
-            long code = i;
-            
-            // Décoder la combinaison
-            for (int attrIndex = 0; attrIndex < nbAttributes; attrIndex++) {
-                Attribute attr = attributes.get(attrIndex);
-                int valueIndex = (int) (code % (maxValues + 1));
-                code = code / (maxValues + 1);
-                
-                if (valueIndex < attr.numValues()) {
-                    intent.add(attr.name() + "=" + attr.value(valueIndex));
-                }
-            }
-            
-            // Vérifier que l'intent est valide (pas de doublons d'attributs)
-            if (isValidIntent(intent)) {
-                // Calculer la fermeture de Galois
-                Set<Integer> extent = getExtent(intent);
-                Set<String> closedIntent = getIntent(extent);
-                
-                // Créer le concept si c'est une fermeture
-                if (intent.equals(closedIntent)) {
-                    FormalConcept concept = new FormalConcept(extent, closedIntent);
-                    
-                    // Vérifier si le concept existe déjà
-                    if (!containsConcept(concepts, concept)) {
-                        concepts.add(concept);
-                    }
-                }
-            }
-        }
-        if (m_Debug) {
-            System.out.println("Generated " + concepts.size() + " formal concepts");
-            for (int i=0;i<concepts.size();i++) {
-                System.out.println("concept"+i);
-                System.out.println("extent"+concepts.get(i).getObjects());
-                System.out.println("intent"+concepts.get(i).getAttributes());
-
-
-            }
-        }
-        return concepts;
-    
-   }
-    private boolean isValidIntent(Set<String> intent) {
-        Set<String> attributeNames = new HashSet<>();
-        for (String attrVal : intent) {
-            String attrName = attrVal.split("=")[0];
-            if (attributeNames.contains(attrName)) {
-                return false; // Attribut en double
-            }
-            attributeNames.add(attrName);
-        }
-        return true;
-    }
-
- 
-    
-    
-    private List<Set<String>> generateValidAttributeCombinations(List<Attribute> attributes) {
-        List<Set<String>> combinations = new ArrayList<>();
-        generateCombinationsRecursive(attributes, 0, new HashSet<>(), combinations);
-        return combinations;
-    }
-
-    private void generateCombinationsRecursive(List<Attribute> attributes, int currentIndex, 
-                                             Set<String> currentCombination,
-                                             List<Set<String>> result) {
-        if (currentIndex >= attributes.size()) {
-            if (!currentCombination.isEmpty()) {
-                result.add(new HashSet<>(currentCombination));
-            }
-            return;
-        }
-        
-        Attribute currentAttr = attributes.get(currentIndex);
-        
-        // Option 1: Don't include this attribute
-        generateCombinationsRecursive(attributes, currentIndex + 1, 
-                                    currentCombination, result);
-        
-        // Option 2: Include one value for this attribute
-        for (int i = 0; i < currentAttr.numValues(); i++) {
-            Set<String> newCombination = new HashSet<>(currentCombination);
-            newCombination.add(currentAttr.name() + "=" + currentAttr.value(i));
-            generateCombinationsRecursive(attributes, currentIndex + 1,
-                                        newCombination, result);
-        }
-    }
-
-    private boolean conceptExists(ArrayList<FormalConcept> concepts, 
-                                Set<Integer> extent, Set<String> intent) {
-        for (FormalConcept concept : concepts) {
-            if (concept.getObjects().equals(extent) && 
-                concept.getAttributes().equals(intent)) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    
-   
-    
-    /**
-     * Helper method to generate all valid combinations of attribute-value pairs
-     * where each attribute appears at most once
-     */
-    private List<Set<String>> generateValidCombinations(Map<String, Set<String>> attributesByGroup) {
-        List<Set<String>> result = new ArrayList<>();
-        List<String> attributeNames = new ArrayList<>(attributesByGroup.keySet());
-        
-        generateCombinationsRecursive(attributesByGroup, attributeNames, 0, new HashSet<>(), result);
-        
-        return result;
-    }
-
-    /**
-     * Recursive helper to generate attribute combinations
-     */
-    private void generateCombinationsRecursive(Map<String, Set<String>> attributesByGroup, 
-                                             List<String> attributeNames, 
-                                             int currentIndex, 
-                                             Set<String> currentCombination,
-                                             List<Set<String>> result) {
-        if (currentIndex >= attributeNames.size()) {
-            if (!currentCombination.isEmpty()) {
-                result.add(new HashSet<>(currentCombination));
-            }
-            return;
-        }
-        
-        String currentAttr = attributeNames.get(currentIndex);
-        
-        // Option 1: Don't include any value for this attribute
-        generateCombinationsRecursive(attributesByGroup, attributeNames, currentIndex + 1, 
-                                    currentCombination, result);
-        
-        // Option 2: Include one value for this attribute
-        for (String value : attributesByGroup.get(currentAttr)) {
-            Set<String> newCombination = new HashSet<>(currentCombination);
-            newCombination.add(currentAttr + "=" + value.split("=")[1]);
-            generateCombinationsRecursive(attributesByGroup, attributeNames, currentIndex + 1,
-                                        newCombination, result);
-        }
-    }
-
-    
-    
-       
-  
-    
-   
-    /**
-     * Recursive helper for concept generation
-     * This is a simplified version of the NextClosure algorithm
-     * 
-     * @param concepts List to store the generated concepts
-     * @param currentConcept The current concept to expand from
-     */
-    private void generateConceptsRecursive(ArrayList<FormalConcept> concepts, FormalConcept currentConcept) {
-        // Try adding each object and see if we get a new concept
-        for (int i = 0; i < m_Instances.numInstances(); i++) {
-            if (currentConcept.getObjects().contains(i)) continue;
-            
-            // Create new object set with added object
-            Set<Integer> newObjects = new HashSet<>(currentConcept.getObjects());
-            newObjects.add(i);
-            
-            // Apply Galois connection
-            Set<String> newAttributes = getIntent(newObjects);
-            Set<Integer> closedObjects = getExtent(newAttributes);
-            
-            // Create new concept
-            FormalConcept newConcept = new FormalConcept(closedObjects, newAttributes);
-            
-            // Check if this concept is already in the list
-            boolean exists = false;
-            for (FormalConcept concept : concepts) {
-                if (concept.equals(newConcept)) {
-                    exists = true;
-                    break;
-                }
-            }
-            
-            if (!exists) {
-                concepts.add(newConcept);
-                generateConceptsRecursive(concepts, newConcept);
-            }
-        }
-    }
-    
-    /**
-     * Generate classification rules from formal concepts
-     * 
-     * @return List of classification rules
-     */
-    public ArrayList<Classification_Rule> generateRules() {
-        ArrayList<Classification_Rule> rules = new ArrayList<>();
-        
-        // Generate concepts
-        ArrayList<FormalConcept> concepts = generateConcepts();
-        
-        // For each concept, create a rule
-        for (FormalConcept concept : concepts) {
-            
-            // Skip concepts with empty extent (no objects)
-            if (concept.getObjects().isEmpty()) continue;
-            
-            // Find majority class for this concept
-            int majorityClass = findMajorityClass(concept.getObjects());
-            
-            // Convert attribute set to ArrayList<String> format used by Classification_Rule
-            ArrayList<String> attributes = convertAttributesToRuleFormat(concept.getAttributes());
-            
-            // Create rule
-            Classification_Rule rule = new Classification_Rule(
-                attributes,
-                majorityClass,
-                m_Instances.attribute(m_Instances.classIndex()).value(majorityClass)
-            );
-            
-            // Calculate rule weight
-            double weight = calculateRuleWeight(rule);
-            rule.setRule_Ponderation(weight);
-            
-            rules.add(rule);
-        }
-        
-        if (m_Debug) {
-            System.out.println("Generated " + rules.size() + " classification rules from concepts");
-        }
-        
-        return rules;
-    }
-    
-    /**
-     * Generate rules using a specific Galois connection strategy
-     * 
-     * @param strategy The Galois connection strategy to use
-     * @return List of classification rules
-     * @throws Exception if rule generation fails
-     */
-    public ArrayList<Classification_Rule> generateRulesWithStrategy(int strategy) throws Exception {
-        if (m_Debug) {
-            System.out.println("Generating rules with Galois strategy: " + strategy);
-        }
-        
-        switch (strategy) {
-            case GALOIS_PERTINENT_MAJORITY:
-                return generateRulesPertinentMajority();
-            case GALOIS_PERTINENT_ALL:
-                return generateRulesPertinentAll();
-            case GALOIS_ALL_MAJORITY:
-                return generateRulesAllMajority();
-            case GALOIS_ALL_ALL:
-                return generateRulesAllAll();
-            default:
-                throw new IllegalArgumentException("Unknown Galois strategy: " + strategy);
-        }
-    }
-    
-    /**
-     * Generate rules using pertinent attribute and majority value
-     * 
-     * @return List of classification rules
-     * @throws Exception if rule generation fails
-     */
-    private ArrayList<Classification_Rule> generateRulesPertinentMajority() throws Exception {
-        // TO FIX
-        return generateRules();
-    }
-    
-    /**
-     * Generate rules using pertinent attribute and all values
-     * 
-     * @return List of classification rules
-     * @throws Exception if rule generation fails
-     */
-    private ArrayList<Classification_Rule> generateRulesPertinentAll() throws Exception {
-        // TO FIX
-        return generateRules();
-    }
-    
-    /**
-     * Generate rules using all attributes and majority values
-     * 
-     * @return List of classification rules
-     * @throws Exception if rule generation fails
-     */
-    private ArrayList<Classification_Rule> generateRulesAllMajority() throws Exception {
-        // TO FIX
-        return generateRules();
-    }
-    
-    /**
-     * Generate rules using all attributes and all values
-     * 
-     * @return List of classification rules
-     * @throws Exception if rule generation fails
-     */
-    private ArrayList<Classification_Rule> generateRulesAllAll() throws Exception {
-        // This uses all attributes and all their values
-        // to generate rules - full concept lattice
-        return generateRules();
-    }
-    
     /**
      * Find the majority class for a set of objects
      * 
@@ -766,4 +333,530 @@ public class _GaloisConnection {
             return "Concept: [Objects: " + objects.size() + ", Attributes: " + attributes.size() + "]";
         }
     }
+    
+    /**
+     * Génère les concepts formels à partir des instances et attributs
+     */
+    ArrayList<Classification_Rule> generateConcepts(Instances inst, 
+                                                         ArrayList<Attribute> attributes,
+                                                         ArrayList<String> allConcepts) throws Exception {
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        int m = attributes.size();
+        for (int k = 1; k <= m; k++) {
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(attributes, k);
+
+            for (List<Attribute> attrCombination : attrCombinations) {
+                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
+                Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, attrCombinationArrayList);
+
+                for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
+                    ArrayList<Integer> instanceSubset = entry.getValue();
+                    
+                    if (instanceSubset.size() <= 1) {
+                        continue;
+                    }
+                    
+                    Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+                    ArrayList<String> closure = computeAttributeClosure(inst, instanceSubset);
+
+                    Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                    updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+                }
+            }
+        }
+
+        // Construire la liste finale
+        buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+        
+        return rules;
+    }
+    
+    // Méthode pour calculer la fermeture des attributs 
+    private ArrayList<String> computeAttributeClosure(Instances inst, ArrayList<Integer> instances) {
+        ArrayList<String> attributes = new ArrayList<>();
+        
+        if (instances.isEmpty()) {
+            for (int i = 0; i < inst.numAttributes() - 1; i++) {
+                attributes.add("-null-");
+            }
+            return attributes;
+        }
+        
+        // Pour chaque attribut, vérifier si toutes les instances ont la même valeur
+        for (int i = 0; i < inst.numAttributes() - 1; i++) {
+            String firstValue = inst.instance(instances.get(0)).stringValue(i);
+            boolean allSame = true;
+            
+            for (int j = 1; j < instances.size(); j++) {
+                if (!inst.instance(instances.get(j)).stringValue(i).equals(firstValue)) {
+                    allSame = false;
+                    break;
+                }
+            }
+            
+            if (allSame) {
+                attributes.add(firstValue);
+            } else {
+                attributes.add("-null-");
+            }
+        }
+        
+        return attributes;
+    }
+
+    
+    private List<List<Attribute>> generateAttributeCombinations(ArrayList<Attribute> attributes, int k) {
+	    List<List<Attribute>> combinations = new ArrayList<>();
+	    generateCombinationsHelper(attributes, k, 0, new ArrayList<>(), combinations);
+	    return combinations;
+	}
+
+    private void generateCombinationsHelper(List<Attribute> attributes, int k, int start, 
+            List<Attribute> current, List<List<Attribute>> result) {
+        if (current.size() == k) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+        
+        for (int i = start; i < attributes.size(); i++) {
+            current.add(attributes.get(i));
+            generateCombinationsHelper(attributes, k, i + 1, current, result);
+            current.remove(current.size() - 1);
+        }
+    }
+
+ 
+
+    
+    private Map<String, ArrayList<Integer>> groupInstancesByAttributeValues(Instances inst, 
+            ArrayList<Attribute> attributes) {
+        
+        Map<String, ArrayList<Integer>> groups = new HashMap<>();
+        
+        for (int i = 0; i < inst.numInstances(); i++) {
+            StringBuilder keyBuilder = new StringBuilder();
+            
+            for (Attribute attr : attributes) {
+                keyBuilder.append(inst.instance(i).stringValue(attr))
+                         .append(";");
+            }
+            
+            String key = keyBuilder.toString();
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(i);
+        }
+        
+        return groups;
+    }
+    
+    /**
+     * Crée une règle de classification
+     */
+    private Classification_Rule createClassificationRule(Instances inst, 
+                                                      ArrayList<Integer> instanceSubset,
+                                                      ArrayList<String> closure,
+                                                      ArrayList<Attribute> attributes) throws Exception {
+        int majorityClassIndex = findMajorityClass(inst, instanceSubset);
+        Classification_Rule rule = new Classification_Rule(
+            closure,
+            majorityClassIndex,
+            inst.classAttribute().value(majorityClassIndex)
+        );
+
+        ArrayList<String> attributeNames = new ArrayList<>();
+        for (Attribute attr : attributes) {
+            attributeNames.add(attr.name());
+        }
+        rule.setAttributeNames(attributeNames);
+        rule.setRule_Ponderation(calculateRuleWeight(inst, rule));
+        
+        return rule;
+    }
+    
+    /**
+     * Calcule la pondération d'une règle (pourcentage d'instances couvertes)
+     * @throws Exception 
+     */
+    private double calculateRuleWeight(Instances inst, Classification_Rule rule) throws Exception {
+        double weight = 0;
+        Classify_Instance classifier = new Classify_Instance();
+        
+        for (int i = 0; i < inst.numInstances(); i++) {
+            if (classifier.TestClassifInstance_nom(inst.instance(i), rule) != false) {
+                weight++;
+            }
+        }
+        
+        return weight / inst.numInstances();
+    }
+    /**
+     * Trouve la classe majoritaire pour un ensemble d'instances
+     */
+    private int findMajorityClass(Instances inst, ArrayList<Integer> instances) {
+        int[] classCounts = new int[inst.numClasses()];
+        
+        for (int i : instances) {
+            int classIndex = (int) inst.instance(i).classValue();
+            classCounts[classIndex]++;
+        }
+        
+        int majorityClassIndex = 0;
+        for (int i = 0; i < classCounts.length; i++) {
+            if (classCounts[i] > classCounts[majorityClassIndex]) {
+                majorityClassIndex = i;
+            }
+        }
+        
+        return majorityClassIndex;
+    }
+
+    /**
+     * Met à jour les meilleurs concepts
+     */
+    private void updateBestConcepts(Map<Set<Integer>, Classification_Rule> bestConcepts,
+                                 Set<Integer> instanceSet,
+                                 Classification_Rule rule,
+                                 ArrayList<String> closure) {
+        if (bestConcepts.containsKey(instanceSet)) {
+            Classification_Rule existingRule = bestConcepts.get(instanceSet);
+            if (countValidAttributes(closure) > countValidAttributes(existingRule.getPremisses())) {
+                bestConcepts.put(instanceSet, rule);
+            }
+        } else {
+            bestConcepts.put(instanceSet, rule);
+        }
+    }
+
+    /**
+     * Construit la liste finale des concepts
+     */
+    private void buildFinalConceptsList(Instances inst,
+                                     Map<Set<Integer>, Classification_Rule> bestConcepts,
+                                     ArrayList<String> allConcepts,
+                                     ArrayList<Classification_Rule> rules) {
+        int conceptNum = 1;
+        for (Map.Entry<Set<Integer>, Classification_Rule> entry : bestConcepts.entrySet()) {
+            Set<Integer> instanceSet = entry.getKey();
+            if (instanceSet.size() <= 1) {
+                continue;
+            }
+            
+            Classification_Rule rule = entry.getValue();
+            String conceptStr = buildConceptString(inst, conceptNum++, instanceSet, rule);
+            allConcepts.add(conceptStr);
+            rules.add(rule);
+        }
+    }
+    /**
+     * Construit la représentation textuelle d'un concept
+     */
+    private String buildConceptString(Instances inst, int conceptNum, 
+                                   Set<Integer> instanceSet, Classification_Rule rule) {
+        StringBuilder conceptBuilder = new StringBuilder();
+        conceptBuilder.append("Concept ").append(conceptNum).append(": {\n");
+        
+        // Ajout des objets
+        conceptBuilder.append("  Objects: [\n");
+        List<Integer> sortedInstances = new ArrayList<>(instanceSet);
+        Collections.sort(sortedInstances);
+        
+        for (int i = 0; i < sortedInstances.size(); i++) {
+            int objIndex = sortedInstances.get(i);
+            conceptBuilder.append("    o").append(objIndex + 1).append(": {");
+            
+            for (int attrIdx = 0; attrIdx < inst.numAttributes(); attrIdx++) {
+                if (attrIdx > 0) conceptBuilder.append(", ");
+                Attribute attr = inst.attribute(attrIdx);
+                String value = inst.instance(objIndex).stringValue(attrIdx);
+                conceptBuilder.append(attr.name()).append("=").append(value);
+            }
+            conceptBuilder.append("}\n");
+        }
+        conceptBuilder.append("  ],\n");
+        
+        // Ajout des attributs
+        conceptBuilder.append("  Attributes: [");
+        boolean firstAttr = true;
+        for (String attrValue : rule.getPremisses()) {
+            if (!(attrValue.equals("-null-") || attrValue.equals("0") || attrValue.equals("0.0"))) {
+                if (!firstAttr) conceptBuilder.append(", ");
+                conceptBuilder.append(attrValue);
+                firstAttr = false;
+            }
+        }
+        conceptBuilder.append("]\n}");
+        
+        return conceptBuilder.toString();
+    }
+
+    /**
+     * Affiche les concepts générés
+     */
+    public void printConcepts(ArrayList<String> allConcepts, Instances inst) {
+        if (m_Debug && !allConcepts.isEmpty()) {
+            System.out.println("\n=== GENERATED CONCEPTS LIST ===");
+            System.out.println("Total number of concepts: " + allConcepts.size());
+            System.out.println("--------------------------------------------");
+            
+            for (int i = 0; i < allConcepts.size(); i++) {
+                System.out.println((i + 1) + ". " + allConcepts.get(i));
+                if (i < allConcepts.size() - 1) {
+                    System.out.println("--------------------------------------------");
+                }
+            }
+            
+            System.out.println("=== CONCEPTS LIST END===");
+            
+            afficheConceptLevels(allConcepts, inst);
+        }
+    }
+        /**
+         * Affiche les concepts groupés par niveau (nombre d'attributs)
+         * @param allConcepts La liste complète des concepts à organiser par niveau
+      
+         * @param inst Les instances WEKA pour obtenir les noms des objets
+         */
+    private void afficheConceptLevels(ArrayList<String> allConcepts, Instances inst) {
+            // Map pour organiser les concepts par niveau (nombre d'attributs)
+            Map<Integer, List<String>> conceptsByLevel = new TreeMap<>();
+            
+            // Pattern pour extraire les objets et attributs des concepts
+            Pattern objectPattern = Pattern.compile("Objects: \\[\\n(.*?)\\n  \\],", Pattern.DOTALL);
+            Pattern attrPattern = Pattern.compile("Attributes: \\[(.*?)\\]");
+            
+            for (String concept : allConcepts) {
+                // Extraire les objets
+                Matcher objectMatcher = objectPattern.matcher(concept);
+                List<String> objects = new ArrayList<>();
+                if (objectMatcher.find()) {
+                    String[] objLines = objectMatcher.group(1).split("\\n");
+                    for (String line : objLines) {
+                        objects.add(line.trim().replaceAll("o(\\d+):.*", "$1"));
+                    }
+                }
+                
+                // Extraire les attributs
+                Matcher attrMatcher = attrPattern.matcher(concept);
+                List<String> attributes = new ArrayList<>();
+                if (attrMatcher.find()) {
+                    String[] attrs = attrMatcher.group(1).split(",");
+                    for (String attr : attrs) {
+                        String trimmed = attr.trim();
+                        if (!trimmed.isEmpty() && !trimmed.equals("-null-") 
+                            && !trimmed.equals("0") && !trimmed.equals("0.0")) {
+                            attributes.add(trimmed);
+                        }
+                    }
+                }
+                
+                // Créer la représentation concise
+                String conciseConcept = String.format("{[%s],[%s]}", 
+                    String.join(",", objects), 
+                    String.join(",", attributes));
+                
+                // Ajouter au niveau correspondant
+                int level = attributes.size();
+                conceptsByLevel.computeIfAbsent(level, k -> new ArrayList<>()).add(conciseConcept);
+            }
+            
+            // Afficher les concepts par niveau
+            System.out.println("\n=== CONCEPTS PER LEVEL ===");
+            for (Map.Entry<Integer, List<String>> entry : conceptsByLevel.entrySet()) {
+                System.out.printf("\n--- LEVEL %d (%d concepts) ---\n", 
+                                 entry.getKey(), entry.getValue().size());
+                
+                // Afficher 5 concepts par ligne pour une meilleure lisibilité
+                int count = 0;
+                for (String concept : entry.getValue()) {
+                    System.out.print(concept + "  ");
+                    if (++count % 5 == 0) System.out.println();
+                }
+                if (count % 5 != 0) System.out.println();
+            }
+            System.out.println("=== END ===");
+        }
+        
+    /**
+     * Compte le nombre d'attributs valides dans une fermeture
+     */
+    private int countValidAttributes(ArrayList<String> closure) {
+        int count = 0;
+        for (String value : closure) {
+            if (!(value.equals("-null-") || value.equals("0") || value.equals("0.0"))) {
+                count++;
+            }
+        }
+        return count;
+    }
+      
+
+
+    /**
+     * Génère les concepts formels à partir des valeurs majoritaires des attributs
+     */
+    public ArrayList<Classification_Rule> generateConceptsFromMajorityValues(Instances inst, 
+                                                                            ArrayList<Attribute> attributes,
+                                                                            Map<Attribute, String> majorityValues,
+                                                                            ArrayList<String> allConcepts) throws Exception {
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        // Générer toutes les combinaisons d'attributs de taille 1 à m
+        int m = attributes.size();
+        for (int k = 1; k <= m; k++) {
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(attributes, k);
+
+            for (List<Attribute> attrCombination : attrCombinations) {
+                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
+                
+                // Trouver les instances ayant les valeurs majoritaires pour ces attributs
+                ArrayList<Integer> majorityInstances = findInstancesWithMajorityValues(inst, 
+                    attrCombinationArrayList, majorityValues);
+
+                if (majorityInstances.isEmpty()) continue;
+
+                Set<Integer> instanceSet = new HashSet<>(majorityInstances);
+                
+                // Calculer la fermeture pour ces attributs
+                ArrayList<String> closure = computeMultiAttributeClosure(inst, 
+                    majorityInstances, attrCombinationArrayList);
+
+                // Créer la règle de classification
+                Classification_Rule rule = createMajorityValueRule(inst, majorityInstances, 
+                    closure, attributes, attrCombinationArrayList, majorityValues);
+
+                // Mettre à jour les meilleurs concepts
+                updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+            }
+        }
+
+        // Construire la liste finale des concepts
+        buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+
+        return rules;
+    }
+
+    
+    
+    /**
+     * Crée une règle à partir des valeurs majoritaires
+     */
+    private Classification_Rule createMajorityValueRule(Instances inst, 
+                                                      ArrayList<Integer> majorityInstances,
+                                                      ArrayList<String> closure,
+                                                      ArrayList<Attribute> allAttributes,
+                                                      ArrayList<Attribute> combinationAttributes,
+                                                      Map<Attribute, String> majorityValues) throws Exception {
+        // Trouver la classe majoritaire
+        int majorityClassIndex = findMajorityClass(inst, majorityInstances);
+
+        // Créer la règle
+        Classification_Rule rule = new Classification_Rule(
+            closure,
+            majorityClassIndex,
+            inst.classAttribute().value(majorityClassIndex)
+        );
+
+        // Ajouter les noms d'attributs
+        ArrayList<String> attributeNames = new ArrayList<>();
+        for (Attribute attr : allAttributes) {
+            attributeNames.add(attr.name());
+        }
+        rule.setAttributeNames(attributeNames);
+
+        // Calculer le poids
+        double weight = calculateRuleWeight(inst, rule);
+        rule.setRule_Ponderation(weight);
+
+        return rule;
+    }
+
+    /**
+     * Trouve les instances ayant les valeurs majoritaires pour une combinaison d'attributs
+     */
+    private ArrayList<Integer> findInstancesWithMajorityValues(Instances inst, 
+                                                             ArrayList<Attribute> attributes,
+                                                             Map<Attribute, String> majorityValues) {
+        ArrayList<Integer> instances = new ArrayList<>();
+
+        for (int i = 0; i < inst.numInstances(); i++) {
+            boolean allMajority = true;
+            for (Attribute attr : attributes) {
+                String currentValue = inst.instance(i).stringValue(attr);
+                if (!currentValue.equals(majorityValues.get(attr))) {
+                    allMajority = false;
+                    break;
+                }
+            }
+            if (allMajority) {
+                instances.add(i);
+            }
+        }
+
+        return instances;
+    }
+
+    /**
+     * Calcule la fermeture pour plusieurs attributs avec valeurs majoritaires
+     */
+    private ArrayList<String> computeMultiAttributeClosure(Instances inst, 
+                                                         ArrayList<Integer> instances,
+                                                         ArrayList<Attribute> attributes) {
+        ArrayList<String> closure = new ArrayList<>();
+        
+        // Pour chaque attribut dans la combinaison, ajouter sa valeur majoritaire
+        // Pour les autres attributs, mettre "-null-"
+        for (int i = 0; i < inst.numAttributes() - 1; i++) {
+            Attribute currentAttr = inst.attribute(i);
+            if (attributes.contains(currentAttr)) {
+                // Trouver la valeur majoritaire pour cet attribut
+                String majorityValue = findMajorityValue(inst, i);
+                closure.add(majorityValue);
+            } else {
+                closure.add("-null-");
+            }
+        }
+        
+        return closure;
+    }
+
+    /**
+     * Trouve la valeur majoritaire pour un attribut
+     */
+    private String findMajorityValue(Instances inst, int attrIndex) {
+        Map<String, Integer> valueCounts = new HashMap<>();
+        
+        for (int i = 0; i < inst.numInstances(); i++) {
+            String value = inst.instance(i).stringValue(attrIndex);
+            valueCounts.put(value, valueCounts.getOrDefault(value, 0) + 1);
+        }
+        
+        String majorityValue = null;
+        int maxCount = -1;
+        
+        for (Map.Entry<String, Integer> entry : valueCounts.entrySet()) {
+            if (entry.getValue() > maxCount) {
+                maxCount = entry.getValue();
+                majorityValue = entry.getKey();
+            }
+        }
+        
+        return majorityValue;
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 }

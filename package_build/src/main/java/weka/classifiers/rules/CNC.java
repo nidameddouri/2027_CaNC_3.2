@@ -850,7 +850,7 @@ public class CNC extends AbstractClassifier
                     extractor.printPertinentAttribute(m_FilteredInstances);
 
                 }
-                m_classifierNC = extractor.extractPertinentAttributeAllValuesAllCombinations(m_FilteredInstances);
+                m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -977,7 +977,7 @@ public class CNC extends AbstractClassifier
                     extractor.printAttributesUnderThreshold(m_FilteredInstances, m_THRESHOLD);
 
                 }
-                m_classifierNC = extractor.extractAttributeUnderThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);
+                m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
@@ -1306,8 +1306,8 @@ public class CNC extends AbstractClassifier
     // Main function to run the classifier
     //
     public static void main(String[] args) {
-    	//runClassifier(new CNC(), args);
-    	test();
+    	runClassifier(new CNC(), args);
+    	//test();
     	
     }
     	
@@ -1324,7 +1324,6 @@ public class CNC extends AbstractClassifier
 
             // Test avec différentes stratégies
             //testStrategy(data, CNC.CONCEPT_LEARNING_PERTINENT_ALL, 0.2);
-            testGaloisConn(data);
             
 
         } catch (Exception e) {
@@ -1333,17 +1332,7 @@ public class CNC extends AbstractClassifier
           
         }
     }
-    public static void testGaloisConn(Instances data) {  
-    	_GaloisConnection con= new _GaloisConnection(true);
-    	con.buildConnection(data);
-        System.out.println("=== Generate 2 ===");
 
-    	con.generateConcepts2();
-        System.out.println("=== Generate 1 ===");
-
-    	con.generateConcepts();
-    }
-   
     private static void testStrategy(Instances data, int strategy, double THRESHOLD) throws Exception {
         // Initialisation du classifieur
         CNC classifier = new CNC();
