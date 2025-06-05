@@ -33,6 +33,8 @@ public class _GaloisConnection {
     
     public static final int POLICY_FIRST = 1;
     public static final int POLICY_LAST = 2;
+    
+    private List<FormalConcept> conceptList;
     // The formal context
     private Instances m_Instances;
     
@@ -40,6 +42,14 @@ public class _GaloisConnection {
     private Map<Set<Integer>, Set<String>> intentMap;  // Object set -> Attribute set
     private Map<Set<String>, Set<Integer>> extentMap;  // Attribute set -> Object set
     
+    
+    public void setConceptList(List<FormalConcept> list){
+    	this.conceptList=list;
+    }
+    
+    public List<FormalConcept> getConceptList( ){
+    	return this.conceptList;
+    }
     /**
      * Constructor
      * 
@@ -49,7 +59,8 @@ public class _GaloisConnection {
         this.m_Debug = debug;
         this.intentMap = new HashMap<>();
         this.extentMap = new HashMap<>();
-    }
+        this.conceptList= new ArrayList<>();
+        }
     
     /**
      * Build the Galois connection from the given instances
@@ -410,14 +421,11 @@ public class _GaloisConnection {
         }
 
         // Construire la liste finale
-        List<FormalConcept> conceptsList = buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
+           
         if (debug) {
-        	String con= getConceptsAsString(conceptsList,inst);
-        	System.out.println("TEST AFFICH::::::::::");
-        	System.out.println(con);
-        	afficheConceptLevels(conceptsList);
+            printConcepts(this.getConceptList(), inst);
         }
-        
         return rules;
     }
     
@@ -492,9 +500,10 @@ public class _GaloisConnection {
         }
 
         // Construire la liste finale (même méthode que generateConceptsAllCombinations)
-        List<FormalConcept> conceptsList = buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+     // Construire la liste finale
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
         if (debug) {
-            printConcepts(conceptsList, inst);
+            printConcepts(this.getConceptList(), inst);
         }
         
         return rules;
@@ -559,11 +568,13 @@ public class _GaloisConnection {
             inst.classAttribute().value(majorityClassIndex)
         );
 
+     
         ArrayList<String> attributeNames = new ArrayList<>();
         for (Attribute attr : attributes) {
             attributeNames.add(attr.name());
         }
         rule.setAttributeNames(attributeNames);
+
         rule.setRule_Ponderation(calculateRuleWeight(inst, rule));
         
         return rule;
@@ -791,6 +802,51 @@ public class _GaloisConnection {
     
     
     /**
+     * Retourne les concepts groupés par niveau (nombre d'attributs) sous forme de chaîne.
+     * @param allConcepts La liste complète des concepts
+     * @return Chaîne représentant les concepts groupés par taille d'intention
+     */
+    public String getConceptLevelsAsString(List<FormalConcept> allConcepts) {
+        Map<Integer, List<String>> conceptsByLevel = new TreeMap<>();
+        StringBuilder sb = new StringBuilder();
+
+        for (FormalConcept concept : allConcepts) {
+            int level = concept.getAttributes().size();
+
+            String objStr = concept.getObjects().stream()
+                .map(i -> "O" + i)
+                .collect(Collectors.joining(","));
+
+            String attrStr = concept.getAttributes().stream()
+                .collect(Collectors.joining(","));
+
+            String concise = String.format("{[%s],[%s]}", objStr, attrStr);
+
+            conceptsByLevel
+                .computeIfAbsent(level, k -> new ArrayList<>())
+                .add(concise);
+        }
+
+        sb.append("\n=== CONCEPTS BY INTENTION SET SIZE ===\n");
+        for (Map.Entry<Integer, List<String>> entry : conceptsByLevel.entrySet()) {
+            sb.append(String.format("\n--- SIZE %d (%d concepts) ---\n",
+                    entry.getKey(), entry.getValue().size()));
+
+            int count = 0;
+            for (String concept : entry.getValue()) {
+                sb.append(concept).append("  ");
+                if (++count % 5 == 0) sb.append("\n");
+            }
+            if (count % 5 != 0) sb.append("\n");
+        }
+        sb.append("=== END ===\n");
+
+        return sb.toString();
+    }
+
+    
+    
+    /**
      * Compte le nombre d'attributs valides dans une fermeture
      */
     private int countValidAttributes(ArrayList<String> closure) {
@@ -845,11 +901,11 @@ public class _GaloisConnection {
             }
         }
 
-        // Construire la liste finale des concepts
-        List<FormalConcept> conceptsList =  buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
-
+        // Construire la liste finale
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
+           
         if (debug) {
-        	printConcepts(conceptsList,inst);
+            printConcepts(this.getConceptList(), inst);
         }
         return rules;
     }
@@ -1002,9 +1058,10 @@ public class _GaloisConnection {
 	        }
 
 	        // 7. Construire le résultat final
-	        List<FormalConcept> concepts =buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+	        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
+	           
 	        if (debug) {
-	            printConcepts(concepts, inst);
+	            printConcepts(this.getConceptList(), inst);
 	        }
 	        
 	        return rules;
@@ -1045,20 +1102,22 @@ public class _GaloisConnection {
     private FormalConcept buildConcept(Set<Integer> instanceSet, Classification_Rule rule) {
         Set<String> labeledAttributes = new HashSet<>();
 
-        for (int i = 0; i < rule.getPremisses().size(); i++) {
+        int size = Math.min(rule.getPremisses().size(), rule.getAttributeNames().size());
+        for (int i = 0; i < size; i++) {
             String attrValue = rule.getPremisses().get(i);
 
             if (!(attrValue.equals("-null-") || attrValue.equals("0") || attrValue.equals("0.0"))) {
                 String attrName = rule.getAttributeNames().get(i);
 
-                // Si attrValue contient déjà "=", ne le doubler pas
                 if (attrValue.contains("=")) {
-                    labeledAttributes.add(attrValue); // attrValue est déjà du type "attribute=value"
+                    labeledAttributes.add(attrValue);
                 } else {
                     labeledAttributes.add(attrName + "=" + attrValue);
                 }
             }
         }
+
+          
 
         return new FormalConcept(instanceSet, labeledAttributes);
     }

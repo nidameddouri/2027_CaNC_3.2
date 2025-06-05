@@ -3,6 +3,7 @@ package weka.classifiers.rules;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Vector;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -12,6 +13,7 @@ import java.util.Date;
 import weka.attributeSelection.*;
 import weka.classifiers.*;
 import weka.classifiers.fca.*;
+import weka.classifiers.fca._GaloisConnection.FormalConcept;
 import weka.core.*;
 import weka.core.Capabilities.Capability;
 import weka.core.Debug.Random;
@@ -67,6 +69,9 @@ public class CNC extends AbstractClassifier
     //All Combinations constants
 
     public static final boolean ALL_COMBINATIONS = true;
+    
+    //Concepts list
+    String conceptsListStr;
     
     // Tag arrays for GUI options
     public static final Tag[] TAGS_THRESHOLD_TIMING = {
@@ -1157,9 +1162,12 @@ public class CNC extends AbstractClassifier
         	
         }
 
+        List<FormalConcept> concepts=extractor.m_GaloisConnection.getConceptList();
+        System.out.println("CNC:: concepts list");
+        //this.conceptsListStr=extractor.m_GaloisConnection.getConceptsAsString(concepts, m_FilteredInstances);
         
+        this.conceptsListStr=extractor.m_GaloisConnection.getConceptLevelsAsString(concepts);
 
-        
     }
     
   
@@ -1232,6 +1240,7 @@ public class CNC extends AbstractClassifier
         sb.append("=== CNC Classifier Output ===\n");
         sb.append("Generated at: ").append(currentTime).append("\n\n");
         
+        
         // Configuration du classifieur
         sb.append("=== Configuration ===\n");
         sb.append(String.format("%-25s: %s\n", "Concept Learning Strategy", getConceptLearningStrategyName()));
@@ -1249,6 +1258,11 @@ public class CNC extends AbstractClassifier
         
 
         sb.append("\n");
+        
+        sb.append("=== Concepts ===\n");
+        sb.append(conceptsListStr).append("\n\n");
+        
+
         
         // Statistiques de performance
         if (m_classifierNC != null && !m_classifierNC.isEmpty()) {

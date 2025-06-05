@@ -20,8 +20,8 @@ public class RuleExtractor {
     private int Policy_Selection;
     private InfoGainAttributeEval m_InfoGainAttributeEval;
     private GainRatioAttributeEval m_GainRatioAttributeEval;
-	private _GaloisConnection m_GaloisConnection;
-	private String conceptsStr ;
+	public _GaloisConnection m_GaloisConnection;
+	
     // Constantes
     public static final int FEAT_ENTROPY = 1;
     public static final int FEAT_INFOGAIN = 2;
@@ -667,6 +667,60 @@ public class RuleExtractor {
         // Ligne de fin
         System.out.println(repeat("-", totalWidth));
     }
+    
+    /**
+     * Méthode pour afficher les fermetures au format ({o1, o2, o3}, {a1, a2})
+     */
+    public void printGaloisClosure(ArrayList<Integer> objects, ArrayList<String> attributes, Instances inst) {
+        if (!m_Debug) return;
+
+        System.out.println("\n--- COMPUTING GALOIS CONNEXION ---");
+        
+        // 1. Affichage des objets (instances)
+        System.out.println("\nObjects (instances) :");
+        for (Integer objIdx : objects) {
+            System.out.print("  o" + (objIdx + 1) + " : ");
+            for (int i = 0; i < inst.numAttributes(); i++) {
+                if (i > 0) System.out.print(", ");
+                System.out.print(inst.attribute(i).name() + "=" + 
+                               inst.instance(objIdx).stringValue(i));
+            }
+            System.out.println();
+        }
+        
+        // 2. Affichage des attributs de la fermeture
+        System.out.println("\nConnexion Attributes: ");
+        boolean hasAttributes = false;
+        for (int i = 0; i < attributes.size(); i++) {
+            if (!attributes.get(i).equals("-null-")) {
+                System.out.println("  - " + inst.attribute(i).name() + " = " + attributes.get(i));
+                hasAttributes = true;
+            }
+        }
+        
+        if (!hasAttributes) {
+            System.out.println("  (No specific attributes)");
+        }
+        
+        // 3. Résumé formel
+        System.out.println("\nConcepts :");
+        System.out.print("Connexion({o" + (objects.get(0) + 1));
+        for (int i = 1; i < objects.size(); i++) {
+            System.out.print(", o" + (objects.get(i) + 1));
+        }
+        System.out.print("}) = {");
+        
+        boolean firstAttr = true;
+        for (int i = 0; i < attributes.size(); i++) {
+            if (!attributes.get(i).equals("-null-")) {
+                if (!firstAttr) System.out.print(", ");
+                System.out.print(inst.attribute(i).name() + "=" + attributes.get(i));
+                firstAttr = false;
+            }
+        }
+        System.out.println("}");
+    }
+
     
     
     // Méthodes d'affichage pour le debug
