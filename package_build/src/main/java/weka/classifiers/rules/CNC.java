@@ -815,7 +815,7 @@ public class CNC extends AbstractClassifier
         }
         else if ( m_ThresholdTiming == THRESHOLD_AFTER_DISCRETIZATION) {
         	m_THRESHOLD=getm_Threshold(extractor.computeFeatureMeasures(m_FilteredInstances));
-        	
+
          }
     
         if (this.getAllCombinations()==true) {
@@ -1238,7 +1238,7 @@ public class CNC extends AbstractClassifier
         sb.append(String.format("%-25s: %s\n", "Feature Measure", featureMeasureToString(FeatureMeasureMethod)));
         sb.append(String.format("%-25s: %s\n", "Threshold ",autoThresholdToString()));
         sb.append(String.format("%-25s: %s\n", "Threshold Calculation",m_ThresholdTimingToString()));
-        sb.append(String.format("%-25s: %.4f\n", "THRESHOLD", m_THRESHOLD));  // Affichage du seuil avec 4 décimales
+        sb.append(String.format("%-25s: %.4f\n", "Threshold", m_THRESHOLD));  // Affichage du seuil avec 4 décimales
         sb.append(String.format("%-25s: %s\n", "Policy Selection", getPolicySelectionName()));
         sb.append(String.format("%-25s: %s\n", "Aggregation Strategy", getAggregationStrategyName()));
         sb.append(String.format("%-25s: %.4f\n", "Pularity Threshold", m_PluralityThreshold));  // Affichage du seuil avec 4 décimales

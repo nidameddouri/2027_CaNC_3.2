@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.Map;
 import weka.core.Attribute;
+import weka.core.Instance;
 import weka.core.Instances;
 
 
@@ -29,6 +30,9 @@ public class _GaloisConnection {
     public static final int GALOIS_ALL_MAJORITY = 3;        // All Attributes & Majority Value
     public static final int GALOIS_ALL_ALL = 4;             // All Attributes & All Values
     
+    
+    public static final int POLICY_FIRST = 1;
+    public static final int POLICY_LAST = 2;
     // The formal context
     private Instances m_Instances;
     
@@ -209,30 +213,7 @@ public class _GaloisConnection {
     }    
     
 
-    /**
-     * Find the majority class for a set of objects
-     * 
-     * @param objects Set of object indices
-     * @return Index of the majority class
-     */
-    private int findMajorityClass(Set<Integer> objects) {
-        int[] classCounts = new int[m_Instances.numClasses()];
-        
-        for (Integer objIdx : objects) {
-            int classIdx = (int) m_Instances.instance(objIdx).classValue();
-            classCounts[classIdx]++;
-        }
-        
-        int majorityClassIdx = 0;
-        for (int i = 0; i < classCounts.length; i++) {
-            if (classCounts[i] > classCounts[majorityClassIdx]) {
-                majorityClassIdx = i;
-            }
-        }
-        
-        return majorityClassIdx;
-    }
-    
+
     /**
      * Convert a set of attribute=value pairs to the format used by Classification_Rule
      * 
@@ -268,32 +249,7 @@ public class _GaloisConnection {
         return result;
     }
     
-    /**
-     * Calculate the weight (coverage ratio) of a rule
-     * 
-     * @param rule The rule to evaluate
-     * @return The weight value
-     */
-    private double calculateRuleWeight(Classification_Rule rule) {
-        double weight = 0;
-        
-        try {
-            Classify_Instance classifier = new Classify_Instance();
-            
-            for (int i = 0; i < m_Instances.numInstances(); i++) {
-                if (classifier.TestClassifInstance_nom(m_Instances.instance(i), rule)) {
-                    weight++;
-                }
-            }
-        } catch (Exception e) {
-            if (m_Debug) {
-                System.err.println("Error calculating rule weight: " + e.getMessage());
-            }
-            return 0;
-        }
-        
-        return weight / m_Instances.numInstances();
-    }
+    
     
     /**
      * Class representing a formal concept (pair of object set and attribute set)
@@ -301,6 +257,10 @@ public class _GaloisConnection {
     public class FormalConcept {
         private Set<Integer> objects;
         private Set<String> attributes;
+        
+        public FormalConcept() {
+        	
+        }
         
         public FormalConcept(Set<Integer> objects, Set<String> attributes) {
             this.objects = objects;
@@ -330,18 +290,100 @@ public class _GaloisConnection {
         
         @Override
         public String toString() {
-            return "Concept: [Objects: " + objects.size() + ", Attributes: " + attributes.size() + "]";
+            StringBuilder sb = new StringBuilder();
+            
+            sb.append("{");
+            sb.append(
+                objects.stream()
+                       .map(obj -> "O" + obj)  
+                       .collect(Collectors.joining(",", "[", "]")) // Format [O3,O4,O9]
+            );
+            
+            // Formatage des attributs (sans modification)
+            sb.append(",");
+            sb.append(attributes.toString().replace(" ", ""));
+            
+            sb.append("}");
+            return sb.toString();
         }
+    }
+    
+
+    /**
+     * Vérifie si un dataset est binaire (tous les attributs ont des valeurs 0/1 ou false/true)
+     * @param inst Le dataset Weka à vérifier
+     * @return true si le dataset est binaire, false sinon
+     */
+    public static boolean isBinaryDataset(Instances inst) {
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            Attribute attr = inst.attribute(i);
+            
+            // Ignorer l'attribut classe si nécessaire
+            if (i == inst.classIndex()) {
+                continue;
+            }
+            
+            // Vérifier le type d'attribut
+            if (attr.isNumeric()) {
+                // Pour les attributs numériques, vérifier les valeurs 0/1
+                if (!isBinaryNumericAttribute(inst, i)) {
+                    return false;
+                }
+            } else if (attr.isNominal()) {
+                // Pour les attributs nominaux, vérifier les valeurs false/true ou 0/1
+                if (!isBinaryNominalAttribute(attr)) {
+                    return false;
+                }
+            } else {
+                // Autres types (date, string...) ne sont pas binaires
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Vérifie si un attribut numérique ne contient que 0 et 1
+     */
+    private static boolean isBinaryNumericAttribute(Instances inst, int attrIndex) {
+        for (int i = 0; i < inst.numInstances(); i++) {
+            double value = inst.instance(i).value(attrIndex);
+            if (value != 0.0 && value != 1.0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Vérifie si un attribut nominal a exactement 2 valeurs (false/true ou 0/1)
+     */
+    private static boolean isBinaryNominalAttribute(Attribute attr) {
+        if (attr.numValues() != 2) {
+            return false;
+        }
+        
+        // Vérifie si les valeurs sont false/true ou 0/1
+        String val1 = attr.value(0).toLowerCase();
+        String val2 = attr.value(1).toLowerCase();
+        
+        return (val1.equals("false") && val2.equals("true")) ||
+               (val1.equals("true") && val2.equals("false")) ||
+               (val1.equals("0") && val2.equals("1")) ||
+               (val1.equals("1") && val2.equals("0"));
     }
     
     /**
      * Génère les concepts formels à partir des instances et attributs
      */
-    ArrayList<Classification_Rule> generateConcepts(Instances inst, 
+    ArrayList<Classification_Rule> generateConceptsAllCombinations(Instances inst, 
                                                          ArrayList<Attribute> attributes,
-                                                         ArrayList<String> allConcepts) throws Exception {
+                                                         ArrayList<String> allConcepts,
+                                                         boolean debug) throws Exception {
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
+        
+        System.out.println("generateConcepts:: Data set binary: "+isBinaryDataset(inst));
 
         int m = attributes.size();
         for (int k = 1; k <= m; k++) {
@@ -368,7 +410,13 @@ public class _GaloisConnection {
         }
 
         // Construire la liste finale
-        buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+        List<FormalConcept> conceptsList = buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+        if (debug) {
+        	String con= getConceptsAsString(conceptsList,inst);
+        	System.out.println("TEST AFFICH::::::::::");
+        	System.out.println(con);
+        	afficheConceptLevels(conceptsList);
+        }
         
         return rules;
     }
@@ -406,6 +454,53 @@ public class _GaloisConnection {
         return attributes;
     }
 
+    
+    /**
+     * Génère les concepts formels en considérant tous les attributs individuellement (sans combinaisons)
+     * tout en réutilisant la même structure que generateConceptsAllCombinations
+     */
+    public ArrayList<Classification_Rule> generateConcepts(Instances inst, 
+                                                         ArrayList<Attribute> attributes,
+                                                         ArrayList<String> allConcepts,
+                                                         boolean debug) throws Exception {
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        System.out.println("generateConcepts:: Data set binary: "+isBinaryDataset(inst));
+
+        // Version simplifiée qui ne génère pas de combinaisons
+        for (Attribute attr : attributes) {
+            ArrayList<Attribute> singleAttrList = new ArrayList<>();
+            singleAttrList.add(attr);
+
+            // Grouper les instances par valeurs de cet attribut unique
+            Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, singleAttrList);
+
+            for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
+                ArrayList<Integer> instanceSubset = entry.getValue();
+                
+                if (instanceSubset.size() <= 1) {
+                    continue;
+                }
+                
+                Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+                ArrayList<String> closure = computeAttributeClosure(inst, instanceSubset);
+
+                Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+            }
+        }
+
+        // Construire la liste finale (même méthode que generateConceptsAllCombinations)
+        List<FormalConcept> conceptsList = buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+        if (debug) {
+            printConcepts(conceptsList, inst);
+        }
+        
+        return rules;
+    }
+    
+    
     
     private List<List<Attribute>> generateAttributeCombinations(ArrayList<Attribute> attributes, int k) {
 	    List<List<Attribute>> combinations = new ArrayList<>();
@@ -531,11 +626,11 @@ public class _GaloisConnection {
     /**
      * Construit la liste finale des concepts
      */
-    private void buildFinalConceptsList(Instances inst,
+    private List<FormalConcept> buildFinalConceptsList(Instances inst,
                                      Map<Set<Integer>, Classification_Rule> bestConcepts,
                                      ArrayList<String> allConcepts,
                                      ArrayList<Classification_Rule> rules) {
-        int conceptNum = 1;
+        List<FormalConcept> concepts =new ArrayList<>();
         for (Map.Entry<Set<Integer>, Classification_Rule> entry : bestConcepts.entrySet()) {
             Set<Integer> instanceSet = entry.getKey();
             if (instanceSet.size() <= 1) {
@@ -543,140 +638,158 @@ public class _GaloisConnection {
             }
             
             Classification_Rule rule = entry.getValue();
-            String conceptStr = buildConceptString(inst, conceptNum++, instanceSet, rule);
+            FormalConcept concept=buildConcept(instanceSet, rule);
+            //pour l'export de concepts
+            String conceptStr= concept.toString();
+            concepts.add(concept);
+            
+            
             allConcepts.add(conceptStr);
             rules.add(rule);
         }
+        
+        String conceptsString=  JsonExporter.toJson(concepts);
+
+        String path="C://Users//asus//Desktop//generated_concepts.json";
+        JsonExporter.saveToFile(conceptsString, path);
+		return concepts;
     }
+  
+   
     /**
-     * Construit la représentation textuelle d'un concept
+     * Retourne une chaîne de caractères représentant la liste de concepts formattée.
      */
-    private String buildConceptString(Instances inst, int conceptNum, 
-                                   Set<Integer> instanceSet, Classification_Rule rule) {
-        StringBuilder conceptBuilder = new StringBuilder();
-        conceptBuilder.append("Concept ").append(conceptNum).append(": {\n");
-        
-        // Ajout des objets
-        conceptBuilder.append("  Objects: [\n");
-        List<Integer> sortedInstances = new ArrayList<>(instanceSet);
-        Collections.sort(sortedInstances);
-        
-        for (int i = 0; i < sortedInstances.size(); i++) {
-            int objIndex = sortedInstances.get(i);
-            conceptBuilder.append("    o").append(objIndex + 1).append(": {");
-            
-            for (int attrIdx = 0; attrIdx < inst.numAttributes(); attrIdx++) {
-                if (attrIdx > 0) conceptBuilder.append(", ");
-                Attribute attr = inst.attribute(attrIdx);
-                String value = inst.instance(objIndex).stringValue(attrIdx);
-                conceptBuilder.append(attr.name()).append("=").append(value);
+    public String getConceptsAsString(List<FormalConcept> concepts, Instances inst) {
+        StringBuilder sb = new StringBuilder();
+        int count = 1;
+
+        for (FormalConcept concept : concepts) {
+            sb.append("--------------------------------------------\n\n");
+
+            sb.append(count).append(". Concept:\n");
+
+            sb.append("Objects (instances):\n");
+            for (Integer objIndex : concept.getObjects()) {
+                Instance instance = inst.instance(objIndex);
+                sb.append("  o").append(objIndex + 1).append(" : ");
+                List<String> attrValues = new ArrayList<>();
+
+                for (int i = 0; i < inst.numAttributes(); i++) {
+                    Attribute attr = inst.attribute(i);
+                    String value = instance.toString(attr);
+                    attrValues.add(attr.name() + "=" + value);
+                }
+
+                sb.append(String.join(", ", attrValues)).append("\n");
             }
-            conceptBuilder.append("}\n");
-        }
-        conceptBuilder.append("  ],\n");
-        
-        // Ajout des attributs
-        conceptBuilder.append("  Attributes: [");
-        boolean firstAttr = true;
-        for (String attrValue : rule.getPremisses()) {
-            if (!(attrValue.equals("-null-") || attrValue.equals("0") || attrValue.equals("0.0"))) {
-                if (!firstAttr) conceptBuilder.append(", ");
-                conceptBuilder.append(attrValue);
-                firstAttr = false;
+
+            sb.append("\nConnexion Attributes:\n");
+            for (String attr : concept.getAttributes()) {
+                sb.append("  - ").append(attr).append("\n");
             }
+
+            sb.append("\n");
+            count++;
         }
-        conceptBuilder.append("]\n}");
-        
-        return conceptBuilder.toString();
+
+        sb.append("--------------------------------------------\n");
+        return sb.toString();
     }
 
+    
     /**
-     * Affiche les concepts générés
+     * Affiche les concepts générés à partir d'une liste d'objets FormalConcept
      */
-    public void printConcepts(ArrayList<String> allConcepts, Instances inst) {
-        if (m_Debug && !allConcepts.isEmpty()) {
+    public void printConcepts(List<FormalConcept> allConcepts, Instances inst) {
+        if (m_Debug && allConcepts != null && !allConcepts.isEmpty()) {
             System.out.println("\n=== GENERATED CONCEPTS LIST ===");
             System.out.println("Total number of concepts: " + allConcepts.size());
-            System.out.println("--------------------------------------------");
             
             for (int i = 0; i < allConcepts.size(); i++) {
-                System.out.println((i + 1) + ". " + allConcepts.get(i));
+                FormalConcept concept = allConcepts.get(i);
+                System.out.println("\n" + (i + 1) + ". Concept:");
+                
+                // Affichage des instances
+                System.out.println("Objects (instances):");
+                concept.getObjects().stream()
+                      .sorted()
+                      .forEach(idx -> printInstance(inst, idx));
+                
+                // Affichage des attributs
+                System.out.println("\nConnexion Attributes:");
+                concept.getAttributes().stream()
+                      .sorted()
+                      .forEach(attr -> System.out.println("  - " + attr));
+                
                 if (i < allConcepts.size() - 1) {
-                    System.out.println("--------------------------------------------");
+                    System.out.println("\n--------------------------------------------");
                 }
             }
-            
-            System.out.println("=== CONCEPTS LIST END===");
-            
-            afficheConceptLevels(allConcepts, inst);
+            System.out.println("\n=== CONCEPTS LIST END ===");
         }
+        afficheConceptLevels(allConcepts);
     }
-        /**
-         * Affiche les concepts groupés par niveau (nombre d'attributs)
-         * @param allConcepts La liste complète des concepts à organiser par niveau
-      
-         * @param inst Les instances WEKA pour obtenir les noms des objets
-         */
-    private void afficheConceptLevels(ArrayList<String> allConcepts, Instances inst) {
-            // Map pour organiser les concepts par niveau (nombre d'attributs)
-            Map<Integer, List<String>> conceptsByLevel = new TreeMap<>();
-            
-            // Pattern pour extraire les objets et attributs des concepts
-            Pattern objectPattern = Pattern.compile("Objects: \\[\\n(.*?)\\n  \\],", Pattern.DOTALL);
-            Pattern attrPattern = Pattern.compile("Attributes: \\[(.*?)\\]");
-            
-            for (String concept : allConcepts) {
-                // Extraire les objets
-                Matcher objectMatcher = objectPattern.matcher(concept);
-                List<String> objects = new ArrayList<>();
-                if (objectMatcher.find()) {
-                    String[] objLines = objectMatcher.group(1).split("\\n");
-                    for (String line : objLines) {
-                        objects.add(line.trim().replaceAll("o(\\d+):.*", "$1"));
-                    }
-                }
-                
-                // Extraire les attributs
-                Matcher attrMatcher = attrPattern.matcher(concept);
-                List<String> attributes = new ArrayList<>();
-                if (attrMatcher.find()) {
-                    String[] attrs = attrMatcher.group(1).split(",");
-                    for (String attr : attrs) {
-                        String trimmed = attr.trim();
-                        if (!trimmed.isEmpty() && !trimmed.equals("-null-") 
-                            && !trimmed.equals("0") && !trimmed.equals("0.0")) {
-                            attributes.add(trimmed);
-                        }
-                    }
-                }
-                
-                // Créer la représentation concise
-                String conciseConcept = String.format("{[%s],[%s]}", 
-                    String.join(",", objects), 
-                    String.join(",", attributes));
-                
-                // Ajouter au niveau correspondant
-                int level = attributes.size();
-                conceptsByLevel.computeIfAbsent(level, k -> new ArrayList<>()).add(conciseConcept);
+
+    private void printInstance(Instances inst, int index) {
+        Instance instance = inst.instance(index);
+        StringBuilder sb = new StringBuilder("  o" + (index+1) + " : ");
+        for (int j = 0; j < inst.numAttributes(); j++) {
+            Attribute attr = inst.attribute(j);
+            sb.append(attr.name()).append("=");
+            if (attr.isNominal()) {
+                sb.append(instance.stringValue(j));
+            } else {
+                sb.append(instance.value(j));
             }
-            
-            // Afficher les concepts par niveau
-            System.out.println("\n=== CONCEPTS PER LEVEL ===");
-            for (Map.Entry<Integer, List<String>> entry : conceptsByLevel.entrySet()) {
-                System.out.printf("\n--- LEVEL %d (%d concepts) ---\n", 
-                                 entry.getKey(), entry.getValue().size());
-                
-                // Afficher 5 concepts par ligne pour une meilleure lisibilité
-                int count = 0;
-                for (String concept : entry.getValue()) {
-                    System.out.print(concept + "  ");
-                    if (++count % 5 == 0) System.out.println();
-                }
-                if (count % 5 != 0) System.out.println();
-            }
-            System.out.println("=== END ===");
+            if (j < inst.numAttributes() - 1) sb.append(", ");
         }
-        
+        System.out.println(sb.toString());
+    }
+    
+    /**
+     * Affiche les concepts groupés par niveau (nombre d'attributs)
+     * @param allConcepts La liste complète des concepts
+     */
+    public void afficheConceptLevels(List<FormalConcept> allConcepts) {
+        // Map pour organiser les concepts par niveau (nombre d'attributs)
+        Map<Integer, List<String>> conceptsByLevel = new TreeMap<>();
+
+        for (FormalConcept concept : allConcepts) {
+            int level = concept.getAttributes().size();
+
+            // Création de la représentation concise
+            String objStr = concept.getObjects().stream()
+                .map(i -> "O" + i)
+                .collect(Collectors.joining(","));
+
+            String attrStr = concept.getAttributes().stream()
+                .collect(Collectors.joining(","));
+
+            String concise = String.format("{[%s],[%s]}", objStr, attrStr);
+
+            conceptsByLevel
+                .computeIfAbsent(level, k -> new ArrayList<>())
+                .add(concise);
+        }
+
+        // Affichage
+        System.out.println("\n=== CONCEPTS BY INTENTION SET SIZE ===");
+        for (Map.Entry<Integer, List<String>> entry : conceptsByLevel.entrySet()) {
+            System.out.printf("\n--- SIZE %d (%d concepts) ---\n", 
+                              entry.getKey(), entry.getValue().size());
+
+            int count = 0;
+            for (String concept : entry.getValue()) {
+                System.out.print(concept + "  ");
+                if (++count % 5 == 0) System.out.println();
+            }
+            if (count % 5 != 0) System.out.println();
+        }
+        System.out.println("=== END ===");
+    }
+
+    
+    
     /**
      * Compte le nombre d'attributs valides dans une fermeture
      */
@@ -695,10 +808,11 @@ public class _GaloisConnection {
     /**
      * Génère les concepts formels à partir des valeurs majoritaires des attributs
      */
-    public ArrayList<Classification_Rule> generateConceptsFromMajorityValues(Instances inst, 
+    public ArrayList<Classification_Rule> generateConceptsFromMajorityValuesAllCombinations(Instances inst, 
                                                                             ArrayList<Attribute> attributes,
                                                                             Map<Attribute, String> majorityValues,
-                                                                            ArrayList<String> allConcepts) throws Exception {
+                                                                            ArrayList<String> allConcepts,
+                                                                            boolean debug) throws Exception {
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
 
@@ -732,8 +846,11 @@ public class _GaloisConnection {
         }
 
         // Construire la liste finale des concepts
-        buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+        List<FormalConcept> conceptsList =  buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
 
+        if (debug) {
+        	printConcepts(conceptsList,inst);
+        }
         return rules;
     }
 
@@ -821,42 +938,130 @@ public class _GaloisConnection {
         return closure;
     }
 
+	    /**
+	     * Trouve la valeur majoritaire pour un attribut
+	     */
+	    private String findMajorityValue(Instances inst, int attrIndex) {
+	        Map<String, Integer> valueCounts = new HashMap<>();
+	        
+	        for (int i = 0; i < inst.numInstances(); i++) {
+	            String value = inst.instance(i).stringValue(attrIndex);
+	            valueCounts.put(value, valueCounts.getOrDefault(value, 0) + 1);
+	        }
+	        
+	        String majorityValue = null;
+	        int maxCount = -1;
+	        
+	        for (Map.Entry<String, Integer> entry : valueCounts.entrySet()) {
+	            if (entry.getValue() > maxCount) {
+	                maxCount = entry.getValue();
+	                majorityValue = entry.getKey();
+	            }
+	        }
+	        
+	        return majorityValue;
+	    }
+	    
+	    
+	    /**
+	     * Génère des règles pour chaque attribut avec sa valeur majoritaire
+	     */
+	    public ArrayList<Classification_Rule> generateConceptsFromMajorityValues(Instances inst, 
+	                                                                         ArrayList<Attribute> attributes,
+	                                                                         ArrayList<String> allConcepts,
+	                                                                         int Policy_Selection,
+	                                                                         boolean debug) throws Exception {
+	        ArrayList<Classification_Rule> rules = new ArrayList<>();
+	        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+
+	        // 1. Pour chaque attribut individuellement
+	        for (Attribute attr : attributes) {
+	            // 2. Trouver la valeur majoritaire de cet attribut
+	            int majorityIdx = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
+	            String majorityValue = attr.value(majorityIdx);
+
+	            // 3. Trouver les instances ayant cette valeur majoritaire
+	            ArrayList<Integer> matchingInstances = new ArrayList<>();
+	            for (int i = 0; i < inst.numInstances(); i++) {
+	                if (inst.instance(i).stringValue(attr).equals(majorityValue)) {
+	                    matchingInstances.add(i);
+	                }
+	            }
+
+	            if (matchingInstances.size() > 1) { // Seuil minimal d'instances
+	                // 4. Calculer la fermeture pour ces instances
+	                ArrayList<String> closure = computeAttributeClosure(inst, matchingInstances);
+
+	                // 5. Créer une règle spécifique à cet attribut
+	                Classification_Rule rule = createClassificationRule(inst, matchingInstances, closure, attributes);
+	                
+	                // 6. Mettre à jour les meilleurs concepts
+	                Set<Integer> instanceSet = new HashSet<>(matchingInstances);
+	                updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+	            }
+	        }
+
+	        // 7. Construire le résultat final
+	        List<FormalConcept> concepts =buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+	        if (debug) {
+	            printConcepts(concepts, inst);
+	        }
+	        
+	        return rules;
+	    }
+	    
+	    
+
     /**
-     * Trouve la valeur majoritaire pour un attribut
+     * Trouve l'index de la valeur majoritaire d'un attribut
+     * @param inst Dataset complet
+     * @param attrIdx Index de l'attribut à analyser
+     * @return Index de la valeur majoritaire (selon Policy_Selection en cas d'égalité)
      */
-    private String findMajorityValue(Instances inst, int attrIndex) {
-        Map<String, Integer> valueCounts = new HashMap<>();
+    private int findMajorityValueIndex(Instances inst, int attrIdx,int Policy_Selection) {
+        Attribute attribute = inst.attribute(attrIdx);
+        int[] valueCounts = new int[attribute.numValues()];
         
+        // Compter les occurrences de chaque valeur
         for (int i = 0; i < inst.numInstances(); i++) {
-            String value = inst.instance(i).stringValue(attrIndex);
-            valueCounts.put(value, valueCounts.getOrDefault(value, 0) + 1);
+            int valueIdx = (int) inst.instance(i).value(attrIdx);
+            valueCounts[valueIdx]++;
         }
         
-        String majorityValue = null;
-        int maxCount = -1;
-        
-        for (Map.Entry<String, Integer> entry : valueCounts.entrySet()) {
-            if (entry.getValue() > maxCount) {
-                maxCount = entry.getValue();
-                majorityValue = entry.getKey();
+        // Trouver la valeur majoritaire
+        int majorityValueIdx = 0;
+        for (int i = 0; i < valueCounts.length; i++) {
+            if (valueCounts[i] > valueCounts[majorityValueIdx]) {
+                majorityValueIdx = i;
+            } else if (valueCounts[i] == valueCounts[majorityValueIdx] && Policy_Selection == POLICY_LAST) {
+                majorityValueIdx = i;
             }
         }
         
-        return majorityValue;
+        return majorityValueIdx;
     }
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    private FormalConcept buildConcept(Set<Integer> instanceSet, Classification_Rule rule) {
+        Set<String> labeledAttributes = new HashSet<>();
+
+        for (int i = 0; i < rule.getPremisses().size(); i++) {
+            String attrValue = rule.getPremisses().get(i);
+
+            if (!(attrValue.equals("-null-") || attrValue.equals("0") || attrValue.equals("0.0"))) {
+                String attrName = rule.getAttributeNames().get(i);
+
+                // Si attrValue contient déjà "=", ne le doubler pas
+                if (attrValue.contains("=")) {
+                    labeledAttributes.add(attrValue); // attrValue est déjà du type "attribute=value"
+                } else {
+                    labeledAttributes.add(attrName + "=" + attrValue);
+                }
+            }
+        }
+
+        return new FormalConcept(instanceSet, labeledAttributes);
+    }
+
     
 }
