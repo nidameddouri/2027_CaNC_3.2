@@ -1,0 +1,323 @@
+package weka.classifiers.fca;
+import weka.core.*;
+
+import java.util.ArrayList;
+
+public class Classification_Rule  {
+	
+	public ArrayList <String> Rule_Attr; // La liste des VALEURS d'attributs
+	public double Rule_indClassMaj; // indice de la classe majoritaire.
+	public String Rule_ClassMaj; // Classe majoritaire.
+	public double Rule_Ponderation;	// La valeur de la ponderation.
+	private ArrayList<String> attributeNames; // Noms des attributs pour l'affichage
+
+	public Classification_Rule () {
+		this.Rule_Attr 			= new ArrayList <String>();
+		this.Rule_indClassMaj 	= (double) -1.0;
+		this.Rule_ClassMaj 		= "";
+		this.Rule_Ponderation 	= (double) -1.0;
+		this.attributeNames     = new ArrayList<String>();
+	}
+	
+	// Un constructeur a partir de la liste des attributs, indice et classe majoritaire.	
+	public Classification_Rule(ArrayList<String> attributes, double ind_CM, String CM){
+		this.Rule_Attr 			= new ArrayList <String>(); //Noms des attributs
+		this.Rule_indClassMaj 	= (double) ind_CM;
+		this.Rule_ClassMaj 		= CM;
+		this.attributeNames     = new ArrayList<String>();
+		
+		for(int i=0; i< attributes.size();i++)	
+			 this.Rule_Attr.add(attributes.get(i));
+		
+	}
+	
+	
+	
+	/**
+	 * Crée une règle de classification à partir d'instances correspondantes
+	 * @param inst Dataset complet
+	 * @param instanceIndices Indices des instances correspondantes
+	 * @param attributes Liste des valeurs d'attributs pour la règle
+	 * @param poids
+	 * @return La règle générée avec pondération
+	 */
+	public static  Classification_Rule createRule(Instances inst, 
+	                                     ArrayList<Integer> instanceIndices,
+	                                     ArrayList<String> attributes
+										) throws Exception {
+	    
+	    // 1. Trouver la classe majoritaire
+	    int[] classCounts = new int[inst.numClasses()];
+	    for (int idx : instanceIndices) {
+	        classCounts[(int)inst.instance(idx).classValue()]++;
+	    }
+	    
+	    int majorityClass = 0;
+	    for (int c = 1; c < classCounts.length; c++) {
+	        if (classCounts[c] > classCounts[majorityClass]) {
+	            majorityClass = c;
+	        }
+	    }
+	    
+	    double weight = (double)instanceIndices.size() / inst.numInstances();
+	    
+	    // 2. Créer la règle
+	    Classification_Rule rule = new Classification_Rule(
+	        attributes,
+	        majorityClass,
+	        inst.classAttribute().value(majorityClass),
+	        weight
+	    );
+	    
+	    // 3. Ajouter les noms d'attributs pour l'affichage
+	    ArrayList<String> attributeNames = new ArrayList<>();
+	    for (int i = 0; i < inst.numAttributes() - 1; i++) {
+	        attributeNames.add(inst.attribute(i).name());
+	    }
+	    rule.setAttributeNames(attributeNames);
+	    
+	    return rule;
+	}
+	
+	
+	// Un constructeur a partir de la liste des attribut, indice et classe majoritaire et ponderation.	
+	public Classification_Rule(ArrayList<String> attributes, double ind_CM, String CM, double ponderation){
+		this.Rule_Attr 			= new ArrayList <String>();
+		this.Rule_indClassMaj	= (double) ind_CM;
+		this.Rule_ClassMaj 		= CM;
+		this.Rule_Ponderation 	= ponderation;
+		this.attributeNames     = new ArrayList<String>();
+		
+		for(int i=0; i< attributes.size();i++)		
+			this.Rule_Attr.add(attributes.get(i));		
+	}
+	
+	/**
+	 * Version sécurisée qui vérifie toutes les règles pour trouver le max
+	 */
+	public static int getMaxNumClass(ArrayList<Classification_Rule> rules) {
+	    int maxClass = -1;
+	    for (Classification_Rule rule : rules) {
+	        if (rule.getRule_indClassMaj() > maxClass) {
+	            maxClass = (int)rule.getRule_indClassMaj();
+	        }
+	    }
+	    return maxClass + 1; // conversion 0-based → count
+	}
+ 
+	
+	// Copier la regle this dans une autre en retour
+	public Classification_Rule copieRules ()	{
+		Classification_Rule ob 	= new Classification_Rule ();
+		ob.Rule_Attr 			= this.getRule_Attr();
+		ob.Rule_indClassMaj 	= this.getRule_indClassMaj();
+		ob.Rule_ClassMaj 		= this.getRule_ClassMaj();
+		ob.Rule_Ponderation 	= this.getRule_Ponderation();
+		ob.attributeNames       = this.getAttributeNames();
+	    return ob;		
+	}
+
+	// Affichage nominal de la regle.
+	public String affich_nom_rule(boolean AfficheCM) {
+		StringBuilder chaine = new StringBuilder("IF ");
+		boolean first = true;
+	
+		for (int i = 0; i < this.Rule_Attr.size(); i++) {
+			String attr = this.Rule_Attr.get(i);
+			if (attr != null && !attr.equals("-null-")) {
+				if (!first) {
+					chaine.append(" ^ ");
+				}
+				
+				// Ajout du nom de l'attribut avant sa valeur
+				String attrName = (i < this.attributeNames.size()) ? this.attributeNames.get(i) : "attr" + i;
+
+
+				chaine.append(attrName).append("=").append(attr);
+				first = false;
+			}
+
+		}
+		if (AfficheCM) {
+			chaine.append(" THEN ").append(this.getRule_ClassMaj())
+				  .append("\tClass Index: ").append(this.getRule_indClassMaj());
+		} else if (!first) {
+			// If we displayed some attributes but not AfficheCM
+			chaine.append(" THEN ").append(this.getRule_ClassMaj());
+		}
+	
+		chaine.append("\t Weight (coverage): ")
+			  .append(Utils.roundDouble(this.getRule_Ponderation(), 3));
+	
+		return chaine.toString();
+	}
+	
+
+	/**
+	 * Returns the premises of the rule (attribute-value pairs)
+	 * @return ArrayList of Strings representing the premises in "attribute=value" format
+	 */
+	public ArrayList<String> getPremisses() {
+	    ArrayList<String> premises = new ArrayList<>();
+	    ArrayList<String> attrNames = this.getAttributeNames();
+	    
+	    for (int i = 0; i < this.Rule_Attr.size(); i++) {
+	        String value = this.Rule_Attr.get(i);
+	        if (isValidPremiseValue(value)) {
+	            String attrName = getAttributeName(attrNames, i);
+	            premises.add(formatPremise(attrName, value));
+	        }
+	    }
+	    
+	    return premises;
+	}
+
+	/**
+	 * Checks if a premise value should be included
+	 */
+	private boolean isValidPremiseValue(String value) {
+	    return value != null && !value.equals("-null-") && !value.trim().isEmpty();
+	}
+
+	/**
+	 * Gets the attribute name with fallback to default naming
+	 */
+	private String getAttributeName(ArrayList<String> attrNames, int index) {
+	    return (index < attrNames.size()) ? attrNames.get(index) : "attr" + index;
+	}
+
+	/**
+	 * Formats a single premise as "attribute=value"
+	 */
+	private String formatPremise(String attrName, String value) {
+	    return attrName + "=" + value;
+	}
+
+	/**
+	 * Returns the number of valid premises in the rule
+	 */
+	public int getPremissesCount() {
+	    int count = 0;
+	    for (String value : this.Rule_Attr) {
+	        if (isValidPremiseValue(value)) count++;
+	    }
+	    return count;
+	}
+	
+	
+	// Affichage Comma-separated values de la premisse de la regle. Si AfficheCM est vraie, on associe une classe majoritaire sinon sans classe
+	public String affich_csv_rule (boolean AfficheCM){
+			
+		String chaine = new String ("\t");
+		for (int j=0; j< this.Rule_Attr.size(); j++)
+			if(j!=this.Rule_Attr.size()-1)
+     	   		chaine = chaine+this.Rule_Attr.get(j)+",";
+			else
+				chaine = chaine+this.Rule_Attr.get(j);
+
+	     if (AfficheCM)
+		        chaine = chaine + ", " + this.getRule_ClassMaj();
+	     chaine = chaine + "," + Utils.roundDouble(this.getRule_Ponderation(),3); 
+	        
+		return chaine;
+	}
+
+	// Affichage Comma-separated values de la premisse de la regle. Si AfficheCM est vraie, on associe une classe majoritaire sinon sans classe
+	public String affich_text_rule (ArrayList <String> attributesList, boolean AfficheCM){
+			
+		String chaine = new String (" ");
+		for (int j=0; j< this.Rule_Attr.size(); j++)
+			if(Rule_Attr.get(j).equals("-null-")==false && Rule_Attr.get(j).equals("'All'")==false)
+				if(j!=this.Rule_Attr.size()-1)
+     	   			chaine = chaine+attributesList.get(j)+"="+this.Rule_Attr.get(j)+" , ";
+				else
+					chaine = chaine+attributesList.get(j)+"="+this.Rule_Attr.get(j);
+
+	     if (AfficheCM)
+		        chaine = chaine + " |==> " +attributesList.get(attributesList.size()-1)+"="+ this.getRule_ClassMaj();
+	     chaine = chaine + " | " + Utils.roundDouble(this.getRule_Ponderation(),3); 
+	        
+		return chaine;
+	}
+	
+	// Affichage nominal de la pr�misse de la r�gle.
+	public String affich_nom_rules_ForDiversity (){
+		String chaine=new String ("");
+		for (int j=0; j< this.Rule_Attr.size()-1; j++)
+     	   	chaine = chaine+this.Rule_Attr.get(j)+",";        	
+		chaine = chaine+this.Rule_Attr.get(this.Rule_Attr.size()-1);
+		return chaine;
+	}
+	
+	// Comparer cette regle a une autre y compris la partie conclusion
+	 public boolean isEqual (Classification_Rule rl){
+		 for (int i=0 ; i< rl.getRule_Attr().size(); i++)
+			 if ( ! this.Rule_Attr.get(i).equals(rl.getRule_Attr().get(i)))
+				 return false;
+		 
+		 if ( this.Rule_indClassMaj != rl.getRule_indClassMaj())
+			 return false;
+		 
+		 return true ;
+		 }
+
+	// Comparer cette regle a une autre sans la partie conclusion
+	 public boolean isEqualwithoutCL (Classification_Rule rl){
+		 for (int i=0 ; i< rl.getRule_Attr().size(); i++)
+			 if ( ! this.Rule_Attr.get(i).equals(rl.getRule_Attr().get(i)))
+				 return false;
+		 return  true ;	 
+ 	
+      }
+	
+	
+	public void setRule_Ponderation(double Rule_Ponderatio) {
+		this.Rule_Ponderation = Rule_Ponderatio;
+		}
+
+	public void setRule_indClassMaj( double Rule_indClassMa){		
+		this.Rule_indClassMaj = Rule_indClassMa;
+		}
+
+	public void setRule_ClassMaj( String Rule_ClassMa){		
+		this.Rule_ClassMaj = Rule_ClassMa;
+		}
+	
+	public void setRule_Attr(ArrayList<String> tab){
+		this.Rule_Attr =new ArrayList <String>();
+		for(int i=0; i< tab.size();i++)
+			     this.Rule_Attr.add(tab.get(i));
+		}
+
+	// Définir les noms des attributs
+	public void setAttributeNames(ArrayList<String> names) {
+		this.attributeNames = new ArrayList<String>();
+		for(int i=0; i < names.size(); i++) {
+			this.attributeNames.add(names.get(i));
+		}
+	}
+	
+	// Récupérer les noms des attributs
+	public ArrayList<String> getAttributeNames() {
+		return attributeNames;
+	}
+
+	public double getRule_Ponderation() 	{
+		return Rule_Ponderation;
+		}
+
+	public ArrayList<String> getRule_Attr() {
+		return Rule_Attr;
+		}
+	
+	public  double getRule_indClassMaj(){
+		return this.Rule_indClassMaj;
+		}
+	
+	public  String getRule_ClassMaj()	{
+		return this.Rule_ClassMaj;
+		}
+
+	
+	
+	}

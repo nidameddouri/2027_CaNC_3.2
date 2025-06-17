@@ -1,0 +1,45 @@
+# ========== SYSTEM FILES ==========
+.DS_Store
+**/.DS_Store
+**/Thumbs.db
+
+# ========== IDE FILES ==========
+**/.vscode/
+**/.idea/
+*.iml
+
+# ========== MAVEN ==========
+**/target/
+**/.mvn/
+**/pom.xml.tag
+**/pom.xml.releaseBackup
+**/pom.xml.versionsBackup
+**/release.properties
+**/dependency-reduced-pom.xml
+**/buildNumber.properties
+
+# ========== JAVA BUILD FILES ==========
+**/*.class
+**/*.war
+**/*.ear
+
+# ========== LOGS & TEMP ==========
+*.log
+*.tmp
+*.swp
+*~
+
+# ========== BUILD DIRS ==========
+**/build/
+**/out/
+
+# ========== OS METADATA ==========
+**/.AppleDouble
+**/.LSOverride
+**/._*
+
+# ========== PACKAGE LOCKS ==========
+**/package-lock.json
+**/npm-debug.log
+
+/bin/
