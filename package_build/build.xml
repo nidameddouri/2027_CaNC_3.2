@@ -9,7 +9,7 @@
   </target>
   
   <target name="compile" depends="init">
-      <javac srcdir="${src}" destdir="${build}" includeantruntime="false" debug="on" source="17" target="17">
+  	<javac srcdir="${src}" destdir="${build}" includeantruntime="false" debug="on" source="17" target="17" encoding="UTF-8">
       <classpath>
         <pathelement location="weka.jar"/>
       </classpath>

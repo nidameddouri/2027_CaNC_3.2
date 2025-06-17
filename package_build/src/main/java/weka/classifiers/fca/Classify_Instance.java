@@ -4,6 +4,7 @@ import weka.core.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
 
 
 public class Classify_Instance 
@@ -36,7 +37,7 @@ public class Classify_Instance
 
 	    // Vérification détaillée de chaque condition
 	    for (int i = 0; i < inst.numAttributes() - 1; i++) {
-	        String ruleValue = regle.Rule_Attr.get(i);
+	        String ruleValue = regle.getPremisses().get(i);
 	        String instanceValue = inst.isMissing(i) ? "?" : inst.stringValue(i);
 	        boolean conditionMet = ruleValue.equals("-null-") || ruleValue.equals(instanceValue);
 
@@ -54,7 +55,7 @@ public class Classify_Instance
 
 	    // Résultat final
 	    if (allConditionsMet) {
-	        ind_class = regle.Rule_indClassMaj;
+	        ind_class = regle.getRule_indClassMaj();
 	        debugMsg.append(String.format("\nRESULT: Rule applied → Class '%s' (Index: %d)%n",
 	            inst.classAttribute().value((int)ind_class),
 	            (int)ind_class
@@ -109,8 +110,8 @@ public class Classify_Instance
 		        Classification_Rule rule = ensemble_regles.get(i);
 		        
 		        if (TestClassifInstance_nom(inst, rule)) {
-		            int classe = (int) rule.Rule_indClassMaj;
-		            double poids = rule.Rule_Ponderation;
+		            int classe = (int) rule.getRule_indClassMaj();
+		            double poids = rule.getRule_Ponderation();
 		            tab_ponderation[classe] += poids;
 		            ruleCount++;
 		            // Enregistrement des règles déclenchées pour debug
@@ -120,7 +121,7 @@ public class Classify_Instance
 		                    "%2d. %-60s | Class: %-10s \n",
 		                    ruleCount,
 		                    rule.affich_nom_rule(true),
-		                    rule.Rule_ClassMaj
+		                    rule.getRule_ClassMaj()
 		                    ));
 		            }
 		        }
@@ -216,7 +217,7 @@ public class Classify_Instance
 		    for (int i = 0; i < ensemble_regles.size(); i++) {
 		        Classification_Rule rule = ensemble_regles.get(i);
 		        if (TestClassifInstance_nom(inst, rule)) {
-		            int classe = (int) rule.Rule_indClassMaj;
+		            int classe = (int) rule.getRule_indClassMaj();
 		            tab_vote[classe]++;
 		            ruleCount++;
 		            
@@ -225,7 +226,7 @@ public class Classify_Instance
 		                    "%2d. %-25s | Classe: %-4s%n",
 		                    ruleCount,
 		                    rule.affich_nom_rule(false).replaceAll("\tIndex.*Score: :", "").trim(),
-		                    rule.Rule_ClassMaj
+		                    rule.getRule_ClassMaj()
 		                ));
 		            }
 		        }
@@ -306,7 +307,7 @@ public class Classify_Instance
 			if (TestClassifInstance_nom(inst , ensemble_regles.get(i))) //Si une regle classifie cette instance nominale
 			{
 				etat_classement=true;
-				tmp_ind_class = (int) ensemble_regles.get(i).Rule_indClassMaj; 
+				tmp_ind_class = (int) ensemble_regles.get(i).getRule_indClassMaj(); 
 				tab_vote[tmp_ind_class] ++;
 	            ruleCount++;
 	            rule=ensemble_regles.get(i);
@@ -315,7 +316,7 @@ public class Classify_Instance
 	                    "%2d. %-25s | Classe: %-4s%n",
 	                    ruleCount,
 	                    rule.affich_nom_rule(false).replaceAll("\tIndex.*Score: :", "").trim(),
-	                    rule.Rule_ClassMaj
+	                    rule.getRule_ClassMaj()
 	                ));
 	            }
 			}
@@ -430,7 +431,7 @@ public class Classify_Instance
 			if (TestClassifInstance_nom(inst,ensemble_regles.get(i))) //Si une regle classifie cette instance nominale
 			{
 				etat_classement=true;
-				tmp_ind_class = (int) ensemble_regles.get(i).Rule_indClassMaj; 
+				tmp_ind_class = (int) ensemble_regles.get(i).getRule_indClassMaj(); 
 				tab_vote[tmp_ind_class] ++; 
 				ruleCount++;
 	            rule=ensemble_regles.get(i);
@@ -439,7 +440,7 @@ public class Classify_Instance
 	                    "%2d. %-25s | Classe: %-4s%n",
 	                    ruleCount,
 	                    rule.affich_nom_rule(false).replaceAll("\tIndex.*Score: :", "").trim(),
-	                    rule.Rule_ClassMaj
+	                    rule.getRule_ClassMaj()
 	                ));
 	            }
 			}
@@ -571,7 +572,7 @@ public class Classify_Instance
                     "%2d. %-60s | Class: %-10s \n",
                     ruleCount,
                     rule.affich_nom_rule(true),
-                    rule.Rule_ClassMaj
+                    rule.getRule_ClassMaj()
                     ));
             }
         }
@@ -579,7 +580,7 @@ public class Classify_Instance
 			if (ensemble_regles.get(i).getRule_Ponderation()>= conv_LowPondVoter && TestClassifInstance_nom(inst,ensemble_regles.get(i))) 
 			{
 				etat_classement=true;
-				tmp_ind_class = (int) ensemble_regles.get(i).Rule_indClassMaj; 
+				tmp_ind_class = (int) ensemble_regles.get(i).getRule_indClassMaj(); 
 				tab_vote[tmp_ind_class] ++; 
                 tab_weight[tmp_ind_class] += rule.getRule_Ponderation(); // Accumulate weights
 
@@ -633,8 +634,8 @@ public class Classify_Instance
 	                System.out.printf("%2d. %-25s | Classe: %-4s | Score: %.3f%n",
 	                    i+1,
 	                    rule.affich_nom_rule(false).replaceAll("\tIndice.*Score: :", "").trim(),
-	                    rule.Rule_ClassMaj,
-	                    rule.Rule_Ponderation);
+	                    rule.getRule_ClassMaj(),
+	                    rule.getRule_Ponderation());
 	            }
 	        }
 
@@ -724,7 +725,7 @@ public class Classify_Instance
 			if (TestClassifInstance_nom(inst , ensemble_regles.get((int) ens_reg_sorted[i][0]))) //Si une regle classifie cette instance nominale
 			{
 				etat_classement=true;
-				tmp_ind_class = (int) ensemble_regles.get((int) ens_reg_sorted[i][0]).Rule_indClassMaj; 
+				tmp_ind_class = (int) ensemble_regles.get((int) ens_reg_sorted[i][0]).getRule_indClassMaj(); 
 				tab_vote[tmp_ind_class] ++; 
 				ruleCount++;
 	            rule=ensemble_regles.get(i);
@@ -733,7 +734,7 @@ public class Classify_Instance
 	                    "%2d. %-25s | Classe: %-4s%n",
 	                    ruleCount,
 	                    rule.affich_nom_rule(false).replaceAll("\tIndex.*Score: :", "").trim(),
-	                    rule.Rule_ClassMaj
+	                    rule.getRule_ClassMaj()
 	                ));
 	            }
 			}
@@ -813,39 +814,69 @@ public class Classify_Instance
 	}
 	
 	/**
-	 * Parcourir les attributs nominaux de 'inst' et les comparer a ceux de 'regle'.
-	 * Le but est de voir si 'regle' est applicable pour predire la classe de 'inst'
-	 * Ignorer le dernier attribut qui represente la classe (inst.numAttributes()-1)
-	 * Verifer que le i ieme attribut de la regle est different de '-null-' 
- 	 * aussi different de la i eme attribut de l'instance nominale a classifier
-	 * @param regle: La regle de classification
-	 * @param inst: l'istance a classifier
-	 * @return True ou False
+	 * Vérifie si la règle s'applique à une instance nominale.
+	 * Ne compare que les attributs présents dans la règle (règles partielles autorisées).
+	 *
+	 * @param regle La règle de classification (chaîne "att=val" dans Rule_Attr)
+	 * @param inst  L’instance à classifier
+	 * @return true si la règle est applicable, false sinon
 	 */
-	public boolean TestClassifInstance_nom(Instance inst, Classification_Rule regle) throws Exception {
-	    // Vérification de cohérence
-	    if (regle.Rule_Attr.size() != inst.numAttributes() - 1) {
-	        throw new Exception("Rule/Instance attribute count mismatch");
-	    }
-
-	    for (int i = 0; i < inst.numAttributes() - 1; i++) {
-	        String ruleValue = regle.Rule_Attr.get(i);
+	/**
+	 * Teste si une instance satisfait toutes les prémisses d'une règle
+	 * @param inst L'instance à tester
+	 * @param rule La règle à vérifier
+	 * @return true si l'instance satisfait la règle, false sinon
+	 */
+	public boolean TestClassifInstance_nom(Instance inst, Classification_Rule rule) {
+	    // Récupère les attributs de la règle sous forme de Map
+	    Map<String, String> ruleAttributes = rule.getAttributeValues();
+	    
+	    for (Map.Entry<String, String> entry : ruleAttributes.entrySet()) {
+	        String attrName = entry.getKey();
+	        String ruleValue = entry.getValue();
 	        
-	        if (ruleValue.equals("-null-")) {
+	        // Ignore les valeurs nulles/invalides
+	        if (ruleValue == null || ruleValue.equals("-null-") || ruleValue.equals("0")) {
 	            continue;
 	        }
-
-	        // Gestion des valeurs manquantes dans l'instance
-	        if (inst.isMissing(i)) {
+	        
+	        // Trouve l'attribut dans le dataset
+	        Attribute attr = inst.dataset().attribute(attrName);
+	        if (attr == null) {
+	            return false; // Attribut non trouvé
+	        }
+	        
+	        int attrIndex = attr.index();
+	        
+	        // Gestion des valeurs manquantes
+	        if (inst.isMissing(attrIndex)) {
 	            return false;
 	        }
-
-	        // Comparaison robuste
-	        String instanceValue = inst.stringValue(i);
-	        if (!ruleValue.equals(instanceValue)) {
-	            return false;
+	        
+	        // Comparaison des valeurs selon le type d'attribut
+	        if (attr.isNominal() || attr.isString()) {
+	            // Pour les attributs nominaux/chaine
+	            String instanceValue = inst.stringValue(attrIndex);
+	            if (!ruleValue.equals(instanceValue)) {
+	                return false;
+	            }
+	        } else {
+	            // Pour les attributs numériques
+	            double instanceValue = inst.value(attrIndex);
+	            double ruleDoubleValue;
+	            try {
+	                ruleDoubleValue = Double.parseDouble(ruleValue);
+	            } catch (NumberFormatException e) {
+	                return false; // Format invalide
+	            }
+	            
+	            if (instanceValue != ruleDoubleValue) {
+	                return false;
+	            }
 	        }
 	    }
+	    
 	    return true;
 	}
-	}
+}
+	

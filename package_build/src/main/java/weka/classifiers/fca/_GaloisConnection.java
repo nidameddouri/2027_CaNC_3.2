@@ -3,9 +3,11 @@ package weka.classifiers.fca;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -226,40 +228,41 @@ public class _GaloisConnection {
 
 
     /**
-     * Convert a set of attribute=value pairs to the format used by Classification_Rule
-     * 
-     * @param attributeSet Set of "attribute=value" strings
-     * @return ArrayList of values in the order of attributes in the dataset
+     * Construit un tableau aligné sur les attributs du dataset :
+     * - si l’attribut binaire est présent dans le concept → "att=val"
+     * - sinon → "-null-"
+     *
+     * @param binAttrNames   liste des noms d’attributs binaires (ex. outlook=sunny)
+     * @param inst           dataset Weka
      */
-    private ArrayList<String> convertAttributesToRuleFormat(Set<String> attributeSet) {
+    private ArrayList<String> convertAttributesToRuleFormat(ArrayList<String> binAttrNames,
+                                                            Instances inst) {
         ArrayList<String> result = new ArrayList<>();
-        
-        // Initialize with null values
-        for (int i = 0; i < m_Instances.numAttributes() - 1; i++) {
+
+        // 1) initialiser à -null-
+        for (int i = 0; i < inst.numAttributes() - 1; i++) {   // -1 pour la classe
             result.add("-null-");
         }
-        
-        // Fill in values from the attribute set
-        for (String attrVal : attributeSet) {
-            String[] parts = attrVal.split("=");
-            String attrName = parts[0];
-            String value = parts[1];
-            
-            // Find attribute index
-            for (int i = 0; i < m_Instances.numAttributes(); i++) {
-                if (i == m_Instances.classIndex()) continue;
-                
-                if (m_Instances.attribute(i).name().equals(attrName)) {
-                    int idx = (i < m_Instances.classIndex()) ? i : i - 1;
-                    result.set(idx, value);
-                    break;
-                }
-            }
+
+        // 2) pour chaque attribut binaire réellement présent dans la règle / concept
+        for (String fullName : binAttrNames) {                 // fullName = "outlook=sunny"
+            // trouver l’index exact de cet attribut dans le dataset
+            Attribute attr = inst.attribute(fullName);
+            if (attr == null) continue;                        // sécurité
+
+            int pos = attr.index();
+            if (pos == inst.classIndex()) continue;            // on saute la classe
+
+            // position « compacte » (sans la classe)
+            int compactPos = (pos < inst.classIndex()) ? pos : pos - 1;
+
+            // on place la paire entière "outlook=sunny"
+            result.set(compactPos, fullName);
         }
-        
+
         return result;
     }
-    
+
     
     
     /**
@@ -352,6 +355,31 @@ public class _GaloisConnection {
         }
         return true;
     }
+    
+    private ArrayList<Attribute> filterBinaryAttributes(ArrayList<Attribute> attributes, Instances inst) {
+        ArrayList<Attribute> filtered = new ArrayList<>();
+
+        for (Attribute attr : attributes) {
+            boolean hasPositiveValue = false;
+
+            for (int i = 0; i < inst.numInstances(); i++) {
+                double val = inst.instance(i).value(attr);
+                String valStr = attr.isNominal() ? inst.instance(i).stringValue(attr) : String.valueOf(val);
+
+                if (!valStr.equals("0") && !valStr.equals("0.0") && !valStr.equalsIgnoreCase("false")) {
+                    hasPositiveValue = true;
+                    break;
+                }
+            }
+
+            if (hasPositiveValue) {
+                filtered.add(attr);
+            }
+        }
+
+        return filtered;
+    }
+
 
     /**
      * Vérifie si un attribut numérique ne contient que 0 et 1
@@ -395,10 +423,12 @@ public class _GaloisConnection {
         ArrayList<Classification_Rule> rules = new ArrayList<>();
         
         System.out.println("generateConcepts:: Data set binary: "+isBinaryDataset(inst));
+        //afficheAttributsEtValeurs(inst);
 
+        
         int m = attributes.size();
         for (int k = 1; k <= m; k++) {
-            List<List<Attribute>> attrCombinations = generateAttributeCombinations(attributes, k);
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst,attributes, k,debug);
 
             for (List<Attribute> attrCombination : attrCombinations) {
                 ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
@@ -412,10 +442,16 @@ public class _GaloisConnection {
                     }
                     
                     Set<Integer> instanceSet = new HashSet<>(instanceSubset);
-                    ArrayList<String> closure = computeAttributeClosure(inst, instanceSubset);
+                    Map<String,String> closure = computeAttributeClosure(inst, instanceSubset,attrCombinationArrayList);
+                 // Parcours de tous les attributs
+                    for (Map.Entry<String, String> c : closure.entrySet()) {
+                        System.out.println(c.getKey() + ": " + c.getValue());
+                    }
+                    if (closure.size()!=0) {
+                        Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                        updateBestConcepts(bestConcepts, instanceSet, rule, closure);
 
-                    Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
-                    updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+                    }
                 }
             }
         }
@@ -429,39 +465,60 @@ public class _GaloisConnection {
         return rules;
     }
     
-    // Méthode pour calculer la fermeture des attributs 
-    private ArrayList<String> computeAttributeClosure(Instances inst, ArrayList<Integer> instances) {
-        ArrayList<String> attributes = new ArrayList<>();
-        
-        if (instances.isEmpty()) {
-            for (int i = 0; i < inst.numAttributes() - 1; i++) {
-                attributes.add("-null-");
-            }
-            return attributes;
-        }
-        
-        // Pour chaque attribut, vérifier si toutes les instances ont la même valeur
-        for (int i = 0; i < inst.numAttributes() - 1; i++) {
-            String firstValue = inst.instance(instances.get(0)).stringValue(i);
-            boolean allSame = true;
-            
-            for (int j = 1; j < instances.size(); j++) {
-                if (!inst.instance(instances.get(j)).stringValue(i).equals(firstValue)) {
-                    allSame = false;
-                    break;
-                }
-            }
-            
-            if (allSame) {
-                attributes.add(firstValue);
-            } else {
-                attributes.add("-null-");
-            }
-        }
-        
-        return attributes;
-    }
+    
+    /**
+     * Calcule la fermeture des attributs et retourne une Map<NomAttribut, Valeur>
+     * Pour les datasets binaires, n'inclut que les attributs avec valeur 1
+     */
+    private Map<String, String> computeAttributeClosure(Instances inst, 
+                                                      ArrayList<Integer> instances, 
+                                                      List<Attribute> selectedAttributes) {
+        Map<String, String> closureMap = new LinkedHashMap<>();
 
+        if (instances.isEmpty()) {
+            for (Attribute attr : selectedAttributes) {
+                closureMap.put(attr.name(), "-null-");
+            }
+            return closureMap;
+        }
+
+        if (!isBinaryDataset(inst)) {
+            // Cas général pour datasets non binaires
+            for (Attribute attr : selectedAttributes) {
+                String firstValue = inst.instance(instances.get(0)).stringValue(attr);
+                boolean allSame = true;
+
+                for (int j = 1; j < instances.size(); j++) {
+                    if (!inst.instance(instances.get(j)).stringValue(attr).equals(firstValue)) {
+                        allSame = false;
+                        break;
+                    }
+                }
+
+                closureMap.put(attr.name(), allSame ? firstValue : "-null-");
+            }
+        } else {
+            // Cas spécial pour datasets binaires - on ignore les 0
+            for (Attribute attr : selectedAttributes) {
+                boolean allOne = true;
+
+                for (int i : instances) {
+                    if (inst.instance(i).value(attr) != 1.0) {
+                        allOne = false;
+                        break;
+                    }
+                }
+
+                // On n'ajoute que les attributs avec valeur 1
+                if (allOne) {
+                    closureMap.put(attr.name(), "1");
+                }
+                // Les attributs avec 0 ne sont pas ajoutés du tout
+            }
+        }
+
+        return closureMap;
+    }
     
     /**
      * Génère les concepts formels en considérant tous les attributs individuellement (sans combinaisons)
@@ -492,7 +549,7 @@ public class _GaloisConnection {
                 }
                 
                 Set<Integer> instanceSet = new HashSet<>(instanceSubset);
-                ArrayList<String> closure = computeAttributeClosure(inst, instanceSubset);
+                Map<String,String> closure = computeAttributeClosure(inst, instanceSubset,attributes);
 
                 Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
                 updateBestConcepts(bestConcepts, instanceSet, rule, closure);
@@ -511,11 +568,38 @@ public class _GaloisConnection {
     
     
     
-    private List<List<Attribute>> generateAttributeCombinations(ArrayList<Attribute> attributes, int k) {
+    /*private List<List<Attribute>> generateAttributeCombinations(ArrayList<Attribute> attributes, int k) {
 	    List<List<Attribute>> combinations = new ArrayList<>();
 	    generateCombinationsHelper(attributes, k, 0, new ArrayList<>(), combinations);
 	    return combinations;
-	}
+	}*/
+   
+    
+    private List<List<Attribute>> generateAttributeCombinations(Instances inst, ArrayList<Attribute> attributes, int k, boolean debug) {
+        List<List<Attribute>> combinations = new ArrayList<>();
+
+        // Si binaire, filtrer les attributs qui peuvent avoir 0, 0.0 ou false
+        List<Attribute> filteredAttributes=attributes;
+        if (isBinaryDataset(inst)) {
+        	filteredAttributes = filterBinaryAttributes(attributes, inst);
+        }
+
+        generateCombinationsHelper(filteredAttributes, k, 0, new ArrayList<>(), combinations);
+
+        if (debug) {
+            System.out.println("=== ATTRIBUTE COMBINATIONS (k = " + k + ") ===");
+            for (List<Attribute> combo : combinations) {
+                String comboStr = combo.stream()
+                    .map(Attribute::name)
+                    .collect(Collectors.joining(", "));
+                System.out.println(" - [" + comboStr + "]");
+            }
+            System.out.println("=== END COMBINATIONS ===");
+        }
+
+        return combinations;
+    }
+
 
     private void generateCombinationsHelper(List<Attribute> attributes, int k, int start, 
             List<Attribute> current, List<List<Attribute>> result) {
@@ -554,32 +638,32 @@ public class _GaloisConnection {
         return groups;
     }
     
-    /**
-     * Crée une règle de classification
-     */
-    private Classification_Rule createClassificationRule(Instances inst, 
-                                                      ArrayList<Integer> instanceSubset,
-                                                      ArrayList<String> closure,
-                                                      ArrayList<Attribute> attributes) throws Exception {
-        int majorityClassIndex = findMajorityClass(inst, instanceSubset);
-        Classification_Rule rule = new Classification_Rule(
-            closure,
-            majorityClassIndex,
-            inst.classAttribute().value(majorityClassIndex)
-        );
+ 
+		  /**
+		 * Crée une règle de classification à partir d'une fermeture (ensemble d'attributs binaires),
+		 * du sous-ensemble d'instances, et du dataset.
+		 */
+		private Classification_Rule createClassificationRule(Instances inst, 
+		                                                   ArrayList<Integer> instanceSubset,
+		                                                   Map<String,String> closure,
+		                                                   ArrayList<Attribute> attributes) throws Exception {
+		  
+		    int majorityClassIndex = findMajorityClass(inst, instanceSubset);
+		    
+ 		    Classification_Rule rule = new Classification_Rule(
+		    		closure,
+		        majorityClassIndex,
+		        inst.classAttribute().value(majorityClassIndex)
+		    );
+		    
 
-     
-        ArrayList<String> attributeNames = new ArrayList<>();
-        for (Attribute attr : attributes) {
-            attributeNames.add(attr.name());
-        }
-        rule.setAttributeNames(attributeNames);
+		    double weight = calculateRuleWeight(inst, rule);
+		    rule.setRule_Ponderation(weight);
 
-        rule.setRule_Ponderation(calculateRuleWeight(inst, rule));
-        
-        return rule;
-    }
-    
+		    
+		    
+		    return rule;
+		}
     /**
      * Calcule la pondération d'une règle (pourcentage d'instances couvertes)
      * @throws Exception 
@@ -616,32 +700,42 @@ public class _GaloisConnection {
         
         return majorityClassIndex;
     }
-
-    /**
-     * Met à jour les meilleurs concepts
-     */
+    
     private void updateBestConcepts(Map<Set<Integer>, Classification_Rule> bestConcepts,
-                                 Set<Integer> instanceSet,
-                                 Classification_Rule rule,
-                                 ArrayList<String> closure) {
-        if (bestConcepts.containsKey(instanceSet)) {
-            Classification_Rule existingRule = bestConcepts.get(instanceSet);
-            if (countValidAttributes(closure) > countValidAttributes(existingRule.getPremisses())) {
-                bestConcepts.put(instanceSet, rule);
-            }
-        } else {
-            bestConcepts.put(instanceSet, rule);
-        }
-    }
+            Set<Integer> instanceSet,
+            Classification_Rule rule,
+		    Map<String, String> closure) {
+		if (bestConcepts.containsKey(instanceSet)) {
+		Classification_Rule existingRule = bestConcepts.get(instanceSet);
+		Map<String, String> existingClosure = existingRule.getAttributeValues();
+		
+		// Comparaison du nombre d'attributs spécifiques
+		int newSpecific = countValidAttributes(closure);
+		int existingSpecific = countValidAttributes(existingClosure);
+		
+		// Si nouvelle règle a plus d'attributs spécifiques OU
+		// même nombre mais meilleure pondération
+		if (newSpecific > existingSpecific || 
+		(newSpecific == existingSpecific && 
+		rule.getRule_Ponderation() > existingRule.getRule_Ponderation())) {
+		bestConcepts.put(instanceSet, rule);
+		}
+		} else {
+		bestConcepts.put(instanceSet, rule);
+		}
+		}
+		    
 
     /**
-     * Construit la liste finale des concepts
+     * Construit la liste finale des concepts en évitant les doublons de règles
      */
     private List<FormalConcept> buildFinalConceptsList(Instances inst,
                                      Map<Set<Integer>, Classification_Rule> bestConcepts,
                                      ArrayList<String> allConcepts,
                                      ArrayList<Classification_Rule> rules) {
-        List<FormalConcept> concepts =new ArrayList<>();
+        List<FormalConcept> concepts = new ArrayList<>();
+        Set<String> existingRules = new HashSet<>(); // Pour suivre les règles déjà ajoutées
+        
         for (Map.Entry<Set<Integer>, Classification_Rule> entry : bestConcepts.entrySet()) {
             Set<Integer> instanceSet = entry.getKey();
             if (instanceSet.size() <= 1) {
@@ -649,21 +743,46 @@ public class _GaloisConnection {
             }
             
             Classification_Rule rule = entry.getValue();
-            FormalConcept concept=buildConcept(instanceSet, rule);
-            //pour l'export de concepts
-            String conceptStr= concept.toString();
-            concepts.add(concept);
+            String ruleSignature = generateRuleSignature(rule); // Signature unique de la règle
             
-            
-            allConcepts.add(conceptStr);
-            rules.add(rule);
+            // Vérifie si la règle existe déjà
+            if (!existingRules.contains(ruleSignature)) {
+                existingRules.add(ruleSignature);
+                
+                FormalConcept concept = buildConcept(instanceSet, rule);
+                String conceptStr = concept.toString();
+                
+                concepts.add(concept);
+                allConcepts.add(conceptStr);
+                rules.add(rule);
+            }
         }
         
-        String conceptsString=  JsonExporter.toJson(concepts);
-
-        String path="C://Users//asus//Desktop//generated_concepts.json";
+        // Export JSON
+        String conceptsString = JsonExporter.toJson(concepts);
+        String path = "C://Users//asus//Desktop//generated_concepts.json";
         JsonExporter.saveToFile(conceptsString, path);
-		return concepts;
+        
+        return concepts;
+    }
+
+    /**
+     * Génère une signature unique pour une règle (comparaison de contenu)
+     */
+    private String generateRuleSignature(Classification_Rule rule) {
+        StringBuilder signature = new StringBuilder();
+        
+        // Ajoute les prémisses triées
+        List<String> premisses = new ArrayList<>(rule.getPremisses());
+        Collections.sort(premisses);
+        for (String prem : premisses) {
+            signature.append(prem).append(";");
+        }
+        
+        // Ajoute la conclusion
+        signature.append("THEN:").append(rule.getRule_ClassMaj());
+        
+        return signature.toString();
     }
   
    
@@ -843,23 +962,48 @@ public class _GaloisConnection {
 
         return sb.toString();
     }
+    public void afficheAttributsEtValeurs(Instances inst) {
+        System.out.println("=== ATTRIBUTS ET LEURS VALEURS ===");
+
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            Attribute attr = inst.attribute(i);
+            System.out.print("- " + attr.name() + " : ");
+
+            Set<String> valeurs = new TreeSet<>();
+
+            for (int j = 0; j < inst.numInstances(); j++) {
+                Instance instance = inst.instance(j);
+                if (attr.isNumeric()) {
+                    double val = instance.value(attr);
+                    valeurs.add(String.valueOf(val));
+                } else if (attr.isNominal()) {
+                    valeurs.add(instance.stringValue(attr));
+                }
+            }
+
+            System.out.println(valeurs);
+        }
+
+        System.out.println("=== FIN AFFICHAGE ===");
+    }
 
     
     
+  
     /**
      * Compte le nombre d'attributs valides dans une fermeture
+     * @param closureMap Map des attributs (nom -> valeur)
+     * @return Nombre d'attributs valides (non nuls)
      */
-    private int countValidAttributes(ArrayList<String> closure) {
+    private int countValidAttributes(Map<String, String> closureMap) {
         int count = 0;
-        for (String value : closure) {
+        for (String value : closureMap.values()) {
             if (!(value.equals("-null-") || value.equals("0") || value.equals("0.0"))) {
                 count++;
             }
         }
         return count;
     }
-      
-
 
     /**
      * Génère les concepts formels à partir des valeurs majoritaires des attributs
@@ -875,7 +1019,7 @@ public class _GaloisConnection {
         // Générer toutes les combinaisons d'attributs de taille 1 à m
         int m = attributes.size();
         for (int k = 1; k <= m; k++) {
-            List<List<Attribute>> attrCombinations = generateAttributeCombinations(attributes, k);
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
 
             for (List<Attribute> attrCombination : attrCombinations) {
                 ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
@@ -889,13 +1033,10 @@ public class _GaloisConnection {
                 Set<Integer> instanceSet = new HashSet<>(majorityInstances);
                 
                 // Calculer la fermeture pour ces attributs
-                ArrayList<String> closure = computeMultiAttributeClosure(inst, 
-                    majorityInstances, attrCombinationArrayList);
+                Map<String,String> closure = computeAttributeClosure(inst, majorityInstances, attributes);
 
                 // Créer la règle de classification
-                Classification_Rule rule = createMajorityValueRule(inst, majorityInstances, 
-                    closure, attributes, attrCombinationArrayList, majorityValues);
-
+                Classification_Rule rule = createClassificationRule(inst, majorityInstances, closure, attributes);
                 // Mettre à jour les meilleurs concepts
                 updateBestConcepts(bestConcepts, instanceSet, rule, closure);
             }
@@ -912,38 +1053,7 @@ public class _GaloisConnection {
 
     
     
-    /**
-     * Crée une règle à partir des valeurs majoritaires
-     */
-    private Classification_Rule createMajorityValueRule(Instances inst, 
-                                                      ArrayList<Integer> majorityInstances,
-                                                      ArrayList<String> closure,
-                                                      ArrayList<Attribute> allAttributes,
-                                                      ArrayList<Attribute> combinationAttributes,
-                                                      Map<Attribute, String> majorityValues) throws Exception {
-        // Trouver la classe majoritaire
-        int majorityClassIndex = findMajorityClass(inst, majorityInstances);
-
-        // Créer la règle
-        Classification_Rule rule = new Classification_Rule(
-            closure,
-            majorityClassIndex,
-            inst.classAttribute().value(majorityClassIndex)
-        );
-
-        // Ajouter les noms d'attributs
-        ArrayList<String> attributeNames = new ArrayList<>();
-        for (Attribute attr : allAttributes) {
-            attributeNames.add(attr.name());
-        }
-        rule.setAttributeNames(attributeNames);
-
-        // Calculer le poids
-        double weight = calculateRuleWeight(inst, rule);
-        rule.setRule_Ponderation(weight);
-
-        return rule;
-    }
+   
 
     /**
      * Trouve les instances ayant les valeurs majoritaires pour une combinaison d'attributs
@@ -997,7 +1107,7 @@ public class _GaloisConnection {
 	    /**
 	     * Trouve la valeur majoritaire pour un attribut
 	     */
-	    private String findMajorityValue(Instances inst, int attrIndex) {
+	private String findMajorityValue(Instances inst, int attrIndex) {
 	        Map<String, Integer> valueCounts = new HashMap<>();
 	        
 	        for (int i = 0; i < inst.numInstances(); i++) {
@@ -1022,7 +1132,7 @@ public class _GaloisConnection {
 	    /**
 	     * Génère des règles pour chaque attribut avec sa valeur majoritaire
 	     */
-	    public ArrayList<Classification_Rule> generateConceptsFromMajorityValues(Instances inst, 
+	public ArrayList<Classification_Rule> generateConceptsFromMajorityValues(Instances inst, 
 	                                                                         ArrayList<Attribute> attributes,
 	                                                                         ArrayList<String> allConcepts,
 	                                                                         int Policy_Selection,
@@ -1046,7 +1156,7 @@ public class _GaloisConnection {
 
 	            if (matchingInstances.size() > 1) { // Seuil minimal d'instances
 	                // 4. Calculer la fermeture pour ces instances
-	                ArrayList<String> closure = computeAttributeClosure(inst, matchingInstances);
+	                Map<String,String> closure = computeAttributeClosure(inst, matchingInstances,attributes);
 
 	                // 5. Créer une règle spécifique à cet attribut
 	                Classification_Rule rule = createClassificationRule(inst, matchingInstances, closure, attributes);
@@ -1102,19 +1212,16 @@ public class _GaloisConnection {
     private FormalConcept buildConcept(Set<Integer> instanceSet, Classification_Rule rule) {
         Set<String> labeledAttributes = new HashSet<>();
 
-        int size = Math.min(rule.getPremisses().size(), rule.getAttributeNames().size());
+        int size = rule.getPremisses().size();
         for (int i = 0; i < size; i++) {
             String attrValue = rule.getPremisses().get(i);
 
             if (!(attrValue.equals("-null-") || attrValue.equals("0") || attrValue.equals("0.0"))) {
-                String attrName = rule.getAttributeNames().get(i);
 
-                if (attrValue.contains("=")) {
+                
                     labeledAttributes.add(attrValue);
-                } else {
-                    labeledAttributes.add(attrName + "=" + attrValue);
                 }
-            }
+            
         }
 
           

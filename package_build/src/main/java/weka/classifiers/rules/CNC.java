@@ -1256,7 +1256,7 @@ public class CNC extends AbstractClassifier
 
         
         
-
+ 
         sb.append("\n");
         
         sb.append("=== Concepts ===\n");
@@ -1274,7 +1274,7 @@ public class CNC extends AbstractClassifier
             // Détail des règles
             sb.append("=== Generated Rules ===\n");
             for (int i = 0; i < m_classifierNC.size(); i++) {
-                sb.append(String.format("\nRule %d:\n", i + 1));
+                sb.append(String.format("\nRule %d:  ", i + 1));
                 sb.append(m_classifierNC.get(i).affich_nom_rule(true));
                 sb.append("\n");
             }
@@ -1290,18 +1290,7 @@ public class CNC extends AbstractClassifier
             sb.append("Log console available\n");
             sb.append("Last execution: ").append(currentTime).append("\n");
         }
-        double m_ErrorRate = -1;
-        try {
-            m_ErrorRate = evaluateErrorRate(this.m_FilteredInstances);
-        } catch (Exception e) {
-        	if (m_Debug) {
-                System.out.println("Error in error rate calculation: " + e.getMessage());
-
-        	}
-        }
-        if (m_ErrorRate >= 0) {
-            sb.append(String.format("%-25s: %.2f%%\n", "Error Rate", m_ErrorRate * 100));
-        }
+        
         return sb.toString();
     }
 

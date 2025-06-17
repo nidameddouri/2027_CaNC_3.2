@@ -379,13 +379,14 @@ public class RuleExtractor {
         // Calculer les mesures pour chaque attribut
         double[] featureMeasures = computeFeatureMeasures(inst);
         Attribute bestAttribute = this.selectBestAttribute(inst, featureMeasures);
-
+        ArrayList<Attribute> bestAttributeList= new ArrayList<>();
+        bestAttributeList.add(bestAttribute);
         
-        //if(m_Debug) {
-           // printFeatureMeasures(inst, featureMeasures);
-        //}
-        BestValueClosureStrategy strategy = new BestValueClosureStrategy(m_Debug, Policy_Selection, this);
-        return strategy.extractRules(inst, bestAttribute, featureMeasures);
+        
+        ArrayList<String> allConcepts = new ArrayList<>();
+
+	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsFromMajorityValues(inst, bestAttributeList, allConcepts,this.Policy_Selection, m_Debug);
+        return rules;
 
 
     }
