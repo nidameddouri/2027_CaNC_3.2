@@ -113,26 +113,7 @@ public class Classification_Rule {
     }
   
 	
-	/**
-	 * Checks if a premise value should be included
-	 */
-	private boolean isValidPremiseValue(String value) {
-	    return value != null && !value.equals("-null-") && !value.trim().isEmpty();
-	}
-
-	/**
-	 * Gets the attribute name with fallback to default naming
-	 */
-	private String getAttributeName(ArrayList<String> attrNames, int index) {
-	    return (index < attrNames.size()) ? attrNames.get(index) : "attr" + index;
-	}
-
-	/**
-	 * Formats a single premise as "attribute=value"
-	 */
-	private String formatPremise(String attrName, String value) {
-	    return attrName + "=" + value;
-	}
+	
 
 	/**
 	 * Returns the number of valid premises in the rule

@@ -8,8 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
 import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,11 +37,7 @@ public class _GaloisConnection {
     
     private List<FormalConcept> conceptList;
     // The formal context
-    private Instances m_Instances;
     
-    // Maps for the Galois connections
-    private Map<Set<Integer>, Set<String>> intentMap;  // Object set -> Attribute set
-    private Map<Set<String>, Set<Integer>> extentMap;  // Attribute set -> Object set
     
     
     public void setConceptList(List<FormalConcept> list){
@@ -59,212 +54,12 @@ public class _GaloisConnection {
      */
     public _GaloisConnection(boolean debug) {
         this.m_Debug = debug;
-        this.intentMap = new HashMap<>();
-        this.extentMap = new HashMap<>();
+       
         this.conceptList= new ArrayList<>();
         }
     
-    /**
-     * Build the Galois connection from the given instances
-     * 
-     * @param instances The training instances
-     */
-    public void buildConnection(Instances instances) {
-        this.m_Instances = instances;
-        
-        if (m_Debug) {
-            System.out.println("Building Galois connection from " + instances.numInstances() + " instances");
-        }
-        
-        // Initialize maps
-        this.intentMap.clear();
-        this.extentMap.clear();
-        
-        // Build the formal context
-        buildFormalContext();
-    }
-    
-   
-    
-    
-    /**
-     * Get the intent (attributes) for a set of objects
-     * 
-     * @param objects Set of object indices
-     * @return Set of common attributes
-     */
-    public Set<String> getIntent(Set<Integer> objects) {
-        if (objects.isEmpty()) {
-            // Empty set of objects has all attributes
-            Set<String> allAttributes = new HashSet<>();
-            for (int j = 0; j < m_Instances.numAttributes(); j++) {
-                if (j == m_Instances.classIndex()) continue;
-                
-                Attribute attr = m_Instances.attribute(j);
-                for (int k = 0; k < attr.numValues(); k++) {
-                    allAttributes.add(attr.name() + "=" + attr.value(k));
-                }
-            }
-            return allAttributes;
-        }
-        
-        // Get the common attributes of all objects
-        Set<String> intent = null;
-        
-        for (Integer objIdx : objects) {
-            Set<Integer> singleObj = new HashSet<>();
-            singleObj.add(objIdx);
-            
-            Set<String> objAttrs = intentMap.get(singleObj);
-            
-            if (intent == null) {
-                intent = new HashSet<>(objAttrs);
-            } else {
-                intent.retainAll(objAttrs);
-            }
-        }
-        
-        return intent;
-    }
-    
-    
-    
-    /**
-     * Get the extent (objects) for a set of attributes (modified to ignore zero/null values)
-     * 
-     * @param attributes Set of attributes
-     * @return Set of objects having all these attributes
-     */
-    public Set<Integer> getExtent(Set<String> attributes) {
-        if (attributes.isEmpty()) {
-            // Empty set of attributes has all objects
-            Set<Integer> allObjects = new HashSet<>();
-            for (int i = 0; i < m_Instances.numInstances(); i++) {
-                allObjects.add(i);
-            }
-            return allObjects;
-        }
-        
-        Set<Integer> extent = new HashSet<>();
-        
-        for (int i = 0; i < m_Instances.numInstances(); i++) {
-            boolean matchesAll = true;
-            
-            for (String attr : attributes) {
-                String[] parts = attr.split("=");
-                String attrName = parts[0];
-                String attrValue = parts[1];
-                
-                // Skip if value is zero/null (for binary datasets)
-                if (attrValue.equals("0") || attrValue.equalsIgnoreCase("null")) {
-                    continue;
-                }
-                
-                // Find attribute index
-                int attrIdx = -1;
-                for (int j = 0; j < m_Instances.numAttributes(); j++) {
-                    if (m_Instances.attribute(j).name().equals(attrName)) {
-                        attrIdx = j;
-                        break;
-                    }
-                }
-                
-                if (attrIdx == -1 || !m_Instances.instance(i).stringValue(attrIdx).equals(attrValue)) {
-                    matchesAll = false;
-                    break;
-                }
-            }
-            
-            if (matchesAll) {
-                extent.add(i);
-            }
-        }
-        
-        return extent;
-    }
-
-    /**
-     * Build the formal context from the instances (modified to ignore zero/null values)
-     */
-    private void buildFormalContext() {
-        for (int i = 0; i < m_Instances.numInstances(); i++) {
-            Set<String> attributeSet = new HashSet<>();
-            
-            for (int j = 0; j < m_Instances.numAttributes(); j++) {
-                if (j == m_Instances.classIndex()) continue;
-                
-                Attribute attr = m_Instances.attribute(j);
-                String attrValue = m_Instances.instance(i).stringValue(attr);
-                
-                // Skip zero/null values for binary attributes
-                if (attr.isNominal() && (attrValue.equals("0") || attrValue.equalsIgnoreCase("null"))) {
-                    continue;
-                }
-                
-                attributeSet.add(attr.name() + "=" + attrValue);
-            }
-            
-            Set<Integer> objectSet = new HashSet<>();
-            objectSet.add(i);
-            intentMap.put(objectSet, attributeSet);
-            
-            if (extentMap.containsKey(attributeSet)) {
-                extentMap.get(attributeSet).add(i);
-            } else {
-                Set<Integer> newSet = new HashSet<>();
-                newSet.add(i);
-                extentMap.put(attributeSet, newSet);
-            }
-        }
-        
-        if (m_Debug) {
-            System.out.println("Initial formal context built (ignoring zero/null values)");
-            System.out.println("Intent map size: " + intentMap.size());
-            System.out.println("Extent map size: " + extentMap.size());
-            
-        }
-    }    
     
 
-
-    /**
-     * Construit un tableau aligné sur les attributs du dataset :
-     * - si l’attribut binaire est présent dans le concept → "att=val"
-     * - sinon → "-null-"
-     *
-     * @param binAttrNames   liste des noms d’attributs binaires (ex. outlook=sunny)
-     * @param inst           dataset Weka
-     */
-    private ArrayList<String> convertAttributesToRuleFormat(ArrayList<String> binAttrNames,
-                                                            Instances inst) {
-        ArrayList<String> result = new ArrayList<>();
-
-        // 1) initialiser à -null-
-        for (int i = 0; i < inst.numAttributes() - 1; i++) {   // -1 pour la classe
-            result.add("-null-");
-        }
-
-        // 2) pour chaque attribut binaire réellement présent dans la règle / concept
-        for (String fullName : binAttrNames) {                 // fullName = "outlook=sunny"
-            // trouver l’index exact de cet attribut dans le dataset
-            Attribute attr = inst.attribute(fullName);
-            if (attr == null) continue;                        // sécurité
-
-            int pos = attr.index();
-            if (pos == inst.classIndex()) continue;            // on saute la classe
-
-            // position « compacte » (sans la classe)
-            int compactPos = (pos < inst.classIndex()) ? pos : pos - 1;
-
-            // on place la paire entière "outlook=sunny"
-            result.set(compactPos, fullName);
-        }
-
-        return result;
-    }
-
-    
-    
     /**
      * Class representing a formal concept (pair of object set and attribute set)
      */
@@ -422,7 +217,6 @@ public class _GaloisConnection {
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
         
-        System.out.println("generateConcepts:: Data set binary: "+isBinaryDataset(inst));
         //afficheAttributsEtValeurs(inst);
 
         
@@ -443,10 +237,8 @@ public class _GaloisConnection {
                     
                     Set<Integer> instanceSet = new HashSet<>(instanceSubset);
                     Map<String,String> closure = computeAttributeClosure(inst, instanceSubset,attrCombinationArrayList);
-                 // Parcours de tous les attributs
-                    for (Map.Entry<String, String> c : closure.entrySet()) {
-                        System.out.println(c.getKey() + ": " + c.getValue());
-                    }
+                    // Parcours de tous les attributs
+                    
                     if (closure.size()!=0) {
                         Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
                         updateBestConcepts(bestConcepts, instanceSet, rule, closure);
@@ -567,13 +359,7 @@ public class _GaloisConnection {
     }
     
     
-    
-    /*private List<List<Attribute>> generateAttributeCombinations(ArrayList<Attribute> attributes, int k) {
-	    List<List<Attribute>> combinations = new ArrayList<>();
-	    generateCombinationsHelper(attributes, k, 0, new ArrayList<>(), combinations);
-	    return combinations;
-	}*/
-   
+  
     
     private List<List<Attribute>> generateAttributeCombinations(Instances inst, ArrayList<Attribute> attributes, int k, boolean debug) {
         List<List<Attribute>> combinations = new ArrayList<>();
@@ -759,9 +545,9 @@ public class _GaloisConnection {
         }
         
         // Export JSON
-        String conceptsString = JsonExporter.toJson(concepts);
-        String path = "C://Users//asus//Desktop//generated_concepts.json";
-        JsonExporter.saveToFile(conceptsString, path);
+        //String conceptsString = JsonExporter.toJson(concepts);
+        //String path = "C://Users//asus//Desktop//generated_concepts.json";
+        //JsonExporter.saveToFile(conceptsString, path);
         
         return concepts;
     }
@@ -963,7 +749,7 @@ public class _GaloisConnection {
         return sb.toString();
     }
     public void afficheAttributsEtValeurs(Instances inst) {
-        System.out.println("=== ATTRIBUTS ET LEURS VALEURS ===");
+        System.out.println("=== ATTRIBUTES AND THEIR VALEURS ===");
 
         for (int i = 0; i < inst.numAttributes(); i++) {
             Attribute attr = inst.attribute(i);
@@ -984,7 +770,7 @@ public class _GaloisConnection {
             System.out.println(valeurs);
         }
 
-        System.out.println("=== FIN AFFICHAGE ===");
+        System.out.println("=== END ===");
     }
 
     
@@ -1080,55 +866,7 @@ public class _GaloisConnection {
         return instances;
     }
 
-    /**
-     * Calcule la fermeture pour plusieurs attributs avec valeurs majoritaires
-     */
-    private ArrayList<String> computeMultiAttributeClosure(Instances inst, 
-                                                         ArrayList<Integer> instances,
-                                                         ArrayList<Attribute> attributes) {
-        ArrayList<String> closure = new ArrayList<>();
-        
-        // Pour chaque attribut dans la combinaison, ajouter sa valeur majoritaire
-        // Pour les autres attributs, mettre "-null-"
-        for (int i = 0; i < inst.numAttributes() - 1; i++) {
-            Attribute currentAttr = inst.attribute(i);
-            if (attributes.contains(currentAttr)) {
-                // Trouver la valeur majoritaire pour cet attribut
-                String majorityValue = findMajorityValue(inst, i);
-                closure.add(majorityValue);
-            } else {
-                closure.add("-null-");
-            }
-        }
-        
-        return closure;
-    }
 
-	    /**
-	     * Trouve la valeur majoritaire pour un attribut
-	     */
-	private String findMajorityValue(Instances inst, int attrIndex) {
-	        Map<String, Integer> valueCounts = new HashMap<>();
-	        
-	        for (int i = 0; i < inst.numInstances(); i++) {
-	            String value = inst.instance(i).stringValue(attrIndex);
-	            valueCounts.put(value, valueCounts.getOrDefault(value, 0) + 1);
-	        }
-	        
-	        String majorityValue = null;
-	        int maxCount = -1;
-	        
-	        for (Map.Entry<String, Integer> entry : valueCounts.entrySet()) {
-	            if (entry.getValue() > maxCount) {
-	                maxCount = entry.getValue();
-	                majorityValue = entry.getKey();
-	            }
-	        }
-	        
-	        return majorityValue;
-	    }
-	    
-	    
 	    /**
 	     * Génère des règles pour chaque attribut avec sa valeur majoritaire
 	     */

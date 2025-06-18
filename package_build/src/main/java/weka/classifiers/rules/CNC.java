@@ -16,10 +16,8 @@ import weka.classifiers.fca.*;
 import weka.classifiers.fca._GaloisConnection.FormalConcept;
 import weka.core.*;
 import weka.core.Capabilities.Capability;
-import weka.core.Debug.Random;
 import weka.core.TechnicalInformation.Field;
 import weka.core.TechnicalInformation.Type;
-import weka.core.converters.ConverterUtils.DataSource;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.ReplaceMissingValues;
 
@@ -777,8 +775,7 @@ public class CNC extends AbstractClassifier
 
     
     public void buildClassifier(Instances data) throws Exception {
-<<<<<<< HEAD
-=======
+
     	for (int i = 0; i < data.numInstances(); i++) {
     	    Instance inst = data.instance(i);
     	    for (int j = 0; j < inst.numAttributes(); j++) {
@@ -797,7 +794,6 @@ public class CNC extends AbstractClassifier
     	    }
 
 
->>>>>>> 4d2b101 (added missing value verification)
         // Vérification des capacités et prétraitement des données
         getCapabilities().testWithFail(data);
         
@@ -1184,8 +1180,6 @@ public class CNC extends AbstractClassifier
         }
 
         List<FormalConcept> concepts=extractor.m_GaloisConnection.getConceptList();
-        System.out.println("CNC:: concepts list");
-        //this.conceptsListStr=extractor.m_GaloisConnection.getConceptsAsString(concepts, m_FilteredInstances);
         
         this.conceptsListStr=extractor.m_GaloisConnection.getConceptLevelsAsString(concepts);
 
@@ -1223,21 +1217,6 @@ public class CNC extends AbstractClassifier
         }
         
     }
-
-    private double evaluateErrorRate(Instances data) throws Exception {
-    	double m_ErrorRate;
-        Evaluation eval = new Evaluation(data);
-        eval.evaluateModel(this, data);
-        m_ErrorRate = eval.errorRate();
-        
-        // Vous pouvez aussi capturer d'autres métriques
-        if (m_Debug) {
-            System.out.println(eval.toSummaryString());
-        }
-        return m_ErrorRate;
-    }
-    
-    
 
     private boolean isInExperimentMode() {
         // Vérifie la pile d'appels pour détecter le contexte d'expérimentation
@@ -1335,69 +1314,7 @@ public class CNC extends AbstractClassifier
     	
     }
     	
-    public static void test() {    	
-        try {
-            // Chemin vers un jeu de données inclus avec Weka si le vôtre ne fonctionne pas
-        	String dataPath="C:\\Users\\asus\\Desktop\\weather.nominal.arff";
-        	Instances data = DataSource.read(dataPath);
-            data.setClassIndex(data.numAttributes() - 1);
-
-            System.out.println("=== TEST AVEC DONNEES Weather ===");
-            System.out.println("Nombre d'instances: " + data.numInstances());
-            System.out.println("Nombre d'attributs: " + data.numAttributes());
-
-            // Test avec différentes stratégies
-            //testStrategy(data, CNC.CONCEPT_LEARNING_PERTINENT_ALL, 0.2);
-            
-
-        } catch (Exception e) {
-            System.err.println("Erreur lors du test: ");
-            e.printStackTrace();
-          
-        }
-    }
-
-    private static void testStrategy(Instances data, int strategy, double THRESHOLD) throws Exception {
-        // Initialisation du classifieur
-        CNC classifier = new CNC();
-        
-        // Configuration
-        classifier.setConceptLearningStrategy(strategy);
-        if (strategy == CNC.CONCEPT_LEARNING_PERTINENT_MAJORITY) { 
-            classifier.setThreshold(THRESHOLD);
-        }
-        classifier.setFeatureMeasure(new SelectedTag(FEAT_INFOGAIN, TAGS_FeatureMeasure));
-        classifier.setDebug(true);  // Activer le mode debug
-        
-        // Construction du modèle
-        System.out.println("\nConstruction du modèle...");
-        classifier.buildClassifier(data);
-        
-        // Evaluation
-        System.out.println("\nModel Evaluation:");
-        Evaluation eval = new Evaluation(data);
-        eval.crossValidateModel(classifier, data, 10, new Random(1));  // 10-fold CV
-        
-        // Affichage des résultats
-        System.out.println("\n=== RESULTS ===");
-        System.out.println("Strategy: " + classifier.getConceptLearningStrategyName() + 
-                          (strategy == CNC.CONCEPT_LEARNING_PERTINENT_MAJORITY ? " (N=" + THRESHOLD + ")" : ""));
-        System.out.println("Précision: " + eval.pctCorrect() + "%");
-        System.out.println("Nombre de règles générées: " + CNC.m_classifierNC.size());
-        //System.out.println("Temps de construction: " + eval.getCPUTime() + "s");
-        
-        // Affichage de quelques règles (debug)
-        if (classifier.m_Debug && CNC.m_classifierNC.size() > 0) {
-            System.out.println("\nExemple de règles générées:");
-            for (int i = 0; i < Math.min(3, CNC.m_classifierNC.size()); i++) {
-                System.out.println("Règle " + (i+1) + ": " + 
-                    CNC.m_classifierNC.get(i).affich_nom_rule(true));
-            }
-        }
-    }
-
     
-
 	@Override
 	public String toSource(String className) throws Exception {
 		// TODO Auto-generated method stub

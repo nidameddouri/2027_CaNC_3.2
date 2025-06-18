@@ -723,35 +723,7 @@ public class RuleExtractor {
     }
 
     
-    
-    // Méthodes d'affichage pour le debug
-    // On affiche un joli ASCII art de coq au début pour s'y retrouver dans les logs (merci Nida pour l'idee du coq, c'était un canard à la base)
-    private void printDebugHeader(Instances inst) {
-        System.out.println("      ,~.\n" +
-                           "   ,-'__ `-,\n" +
-                           "  {,-'  `. }              ,')\n" +
-                           " ,( a )   `-.__         ,','),~,\n" +
-                           "<=.) (         `-.__,==' ' ' '}\n" +
-                           "  (   )                      /\n" +
-                           "   `-\\   ,                  )\n" +
-                           "       |  \\        `~.      /\n" +
-                           "       \\   `._        \\    /\n" +
-                           "        \\     `._____,'   /\n" +
-                           "         `-.            ,'\n" +
-                           "            `-.      ,-'\n" +
-                           "               `~~~~'\n" +
-                           "               //_||\n" +
-                           "            __//--'/`\n" +
-                           "          ,--'/`  '\n" +
-                           "             '\n");
-        System.out.println("\n--- Computing Galois Connexion ---\n");
-       // System.out.println("Liste des attributs d'entrée:\n");
-        //printDatasetTable(inst);
-        //System.out.println("\n\n");
-    }
-    
- 
-    
+   
     
     /**
      * Selectionne les attributs qui dépassent le seuil donné en paramètres
