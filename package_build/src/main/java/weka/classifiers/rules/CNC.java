@@ -777,6 +777,27 @@ public class CNC extends AbstractClassifier
 
     
     public void buildClassifier(Instances data) throws Exception {
+<<<<<<< HEAD
+=======
+    	for (int i = 0; i < data.numInstances(); i++) {
+    	    Instance inst = data.instance(i);
+    	    for (int j = 0; j < inst.numAttributes(); j++) {
+    	    	if (inst.attribute(j).isNominal() || inst.attribute(j).isString() || inst.attribute(j).isDate()) {
+    	            if ( inst.stringValue(j).equals("?")) {
+    	            	if(m_Debug) {
+    	            		System.out.println("Missing value detected at instance " + i + ", attribute " + j);
+    	            	}
+    	            	
+    	            	// Affichage du panneau d’alerte
+    	               
+    	                throw new Exception("Cannot build CNC classifier: dataset contains missing values.");
+    	            }
+    	    }
+    	    }
+    	    }
+
+
+>>>>>>> 4d2b101 (added missing value verification)
         // Vérification des capacités et prétraitement des données
         getCapabilities().testWithFail(data);
         
