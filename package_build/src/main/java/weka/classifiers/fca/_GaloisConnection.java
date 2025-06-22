@@ -257,60 +257,73 @@ public class _GaloisConnection {
         return rules;
     }
     
-    
-    /**
-     * Calcule la fermeture des attributs et retourne une Map<NomAttribut, Valeur>
-     * Pour les datasets binaires, n'inclut que les attributs avec valeur 1
-     */
     private Map<String, String> computeAttributeClosure(Instances inst, 
-                                                      ArrayList<Integer> instances, 
-                                                      List<Attribute> selectedAttributes) {
-        Map<String, String> closureMap = new LinkedHashMap<>();
+            ArrayList<Integer> instances, 
+            List<Attribute> selectedAttributes) {
+Map<String, String> closureMap = new LinkedHashMap<>();
 
-        if (instances.isEmpty()) {
-            for (Attribute attr : selectedAttributes) {
-                closureMap.put(attr.name(), "-null-");
-            }
-            return closureMap;
-        }
+if (instances.isEmpty()) {
+return closureMap; // fermeture vide
+}
 
-        if (!isBinaryDataset(inst)) {
-            // Cas général pour datasets non binaires
-            for (Attribute attr : selectedAttributes) {
-                String firstValue = inst.instance(instances.get(0)).stringValue(attr);
-                boolean allSame = true;
+if (!isBinaryDataset(inst)) {
+// Cas général pour datasets non binaires
+for (Attribute attr : selectedAttributes) {
+String firstValue = null;
+boolean allSame = true;
 
-                for (int j = 1; j < instances.size(); j++) {
-                    if (!inst.instance(instances.get(j)).stringValue(attr).equals(firstValue)) {
-                        allSame = false;
-                        break;
-                    }
-                }
+for (int idx = 0; idx < instances.size(); idx++) {
+Instance instance = inst.instance(instances.get(idx));
 
-                closureMap.put(attr.name(), allSame ? firstValue : "-null-");
-            }
-        } else {
-            // Cas spécial pour datasets binaires - on ignore les 0
-            for (Attribute attr : selectedAttributes) {
-                boolean allOne = true;
+if (instance.isMissing(attr)) {
+allSame = false;
+break;
+}
 
-                for (int i : instances) {
-                    if (inst.instance(i).value(attr) != 1.0) {
-                        allOne = false;
-                        break;
-                    }
-                }
+String val = instance.stringValue(attr);
+if (val == null || val.equals("?")) {
+allSame = false;
+break;
+}
 
-                // On n'ajoute que les attributs avec valeur 1
-                if (allOne) {
-                    closureMap.put(attr.name(), "1");
-                }
-                // Les attributs avec 0 ne sont pas ajoutés du tout
-            }
-        }
+if (idx == 0) {
+firstValue = val;
+} else if (!val.equals(firstValue)) {
+allSame = false;
+break;
+}
+}
 
-        return closureMap;
-    }
+if (allSame && firstValue != null) {
+closureMap.put(attr.name(), firstValue);
+}
+// Sinon : on ne met rien (pas de -null-)
+}
+} else {
+// Cas binaire : on inclut uniquement les attributs dont la valeur est 1 pour tous
+for (Attribute attr : selectedAttributes) {
+boolean allOne = true;
+
+for (int i : instances) {
+Instance instance = inst.instance(i);
+if (instance.isMissing(attr) || instance.value(attr) != 1.0) {
+allOne = false;
+break;
+}
+}
+
+if (allOne) {
+closureMap.put(attr.name(), "1");
+}
+// Sinon on ne met rien (valeurs 0 ou missing sont ignorées)
+}
+}
+
+return closureMap;
+}
+
+    
+    
     
     /**
      * Génère les concepts formels en considérant tous les attributs individuellement (sans combinaisons)
@@ -372,7 +385,7 @@ public class _GaloisConnection {
 
         generateCombinationsHelper(filteredAttributes, k, 0, new ArrayList<>(), combinations);
 
-        if (debug) {
+        /*if (debug) {
             System.out.println("=== ATTRIBUTE COMBINATIONS (k = " + k + ") ===");
             for (List<Attribute> combo : combinations) {
                 String comboStr = combo.stream()
@@ -381,7 +394,7 @@ public class _GaloisConnection {
                 System.out.println(" - [" + comboStr + "]");
             }
             System.out.println("=== END COMBINATIONS ===");
-        }
+        }*/
 
         return combinations;
     }

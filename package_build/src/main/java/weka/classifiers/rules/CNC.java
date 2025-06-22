@@ -64,6 +64,8 @@ public class CNC extends AbstractClassifier
     public static final int POLICY_FIRST = 1;
     public static final int POLICY_LAST = 2;
     
+    private Instances structure;
+    
     //All Combinations constants
 
     public static final boolean ALL_COMBINATIONS = true;
@@ -710,6 +712,10 @@ public class CNC extends AbstractClassifier
         if (m_classifierNC == null) {
             throw new IllegalStateException("Model not built. Call buildClassifier() first.");
         }
+        if (structure == null)
+            throw new Exception("No input instance format defined");
+        
+        
 
         // Filter the instance
         m_Filter.input(inst);
@@ -776,7 +782,7 @@ public class CNC extends AbstractClassifier
     
     public void buildClassifier(Instances data) throws Exception {
 
-    	for (int i = 0; i < data.numInstances(); i++) {
+    	/*for (int i = 0; i < data.numInstances(); i++) {
     	    Instance inst = data.instance(i);
     	    for (int j = 0; j < inst.numAttributes(); j++) {
     	    	if (inst.attribute(j).isNominal() || inst.attribute(j).isString() || inst.attribute(j).isDate()) {
@@ -792,11 +798,12 @@ public class CNC extends AbstractClassifier
     	    }
     	    }
     	    }
-
+*/
 
         // Vérification des capacités et prétraitement des données
         getCapabilities().testWithFail(data);
         
+        structure = new Instances(data, 0); // sauvegarde du format
         // Étape 1: Préparation des données
         m_FilteredInstances = new Instances(data);
         m_FilteredInstances.deleteWithMissingClass();
