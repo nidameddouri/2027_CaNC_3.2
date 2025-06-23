@@ -336,7 +336,6 @@ return closureMap;
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
 
-        System.out.println("generateConcepts:: Data set binary: "+isBinaryDataset(inst));
 
         // Version simplifiée qui ne génère pas de combinaisons
         for (Attribute attr : attributes) {
@@ -385,16 +384,7 @@ return closureMap;
 
         generateCombinationsHelper(filteredAttributes, k, 0, new ArrayList<>(), combinations);
 
-        /*if (debug) {
-            System.out.println("=== ATTRIBUTE COMBINATIONS (k = " + k + ") ===");
-            for (List<Attribute> combo : combinations) {
-                String comboStr = combo.stream()
-                    .map(Attribute::name)
-                    .collect(Collectors.joining(", "));
-                System.out.println(" - [" + comboStr + "]");
-            }
-            System.out.println("=== END COMBINATIONS ===");
-        }*/
+       
 
         return combinations;
     }
@@ -559,8 +549,10 @@ return closureMap;
         
         // Export JSON
         //String conceptsString = JsonExporter.toJson(concepts);
-        //String path = "C://Users//asus//Desktop//generated_concepts.json";
-        //JsonExporter.saveToFile(conceptsString, path);
+        //String conceptString= JsonExporter.toJsonGroupedByLevel(concepts);
+        
+        //String path = "//home//user//Stage//conceptsList.json";
+        //JsonExporter.saveToFile(conceptString, path);
         
         return concepts;
     }

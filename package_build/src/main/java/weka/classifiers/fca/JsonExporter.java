@@ -3,8 +3,11 @@ import weka.classifiers.fca._GaloisConnection.FormalConcept;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 public class JsonExporter {
 
@@ -58,6 +61,54 @@ public class JsonExporter {
         sb.append("]");
         return sb.toString();
     }
+    
+    public static String toJsonGroupedByLevel(List<FormalConcept> conceptsList) {
+        if (conceptsList == null || conceptsList.isEmpty()) {
+            return "[]";
+        }
+
+        // Grouper les concepts par niveau (nombre d'attributs dans l'intention)
+        Map<Integer, List<FormalConcept>> conceptsByLevel = new TreeMap<>();
+        for (FormalConcept concept : conceptsList) {
+            int level = concept.getAttributes().size();
+            conceptsByLevel.computeIfAbsent(level, k -> new ArrayList<>()).add(concept);
+        }
+
+        StringBuilder jsonBuilder = new StringBuilder("[");
+        int conceptCounter = 1;
+
+        for (Map.Entry<Integer, List<FormalConcept>> entry : conceptsByLevel.entrySet()) {
+            int level = entry.getKey();
+            List<FormalConcept> conceptsAtLevel = entry.getValue();
+
+            jsonBuilder.append("{");
+            jsonBuilder.append("\"level\": ").append(level).append(",");
+            jsonBuilder.append("\"concepts\": [");
+
+            for (FormalConcept concept : conceptsAtLevel) {
+                String conceptName = "C" + conceptCounter++;
+                jsonBuilder.append("{")
+                           .append("\"name\": \"").append(conceptName).append("\", ")
+                           .append("\"extent\": ").append(setToJsonInt(concept.getObjects())).append(", ")
+                           .append("\"intent\": ").append(setToJsonStrings(concept.getAttributes()))
+                           .append("},");
+            }
+
+            // Supprimer la dernière virgule
+            if (!conceptsAtLevel.isEmpty()) {
+                jsonBuilder.deleteCharAt(jsonBuilder.length() - 1);
+            }
+
+            jsonBuilder.append("]},");
+        }
+
+        // Supprimer la dernière virgule finale
+        jsonBuilder.deleteCharAt(jsonBuilder.length() - 1);
+        jsonBuilder.append("]");
+
+        return jsonBuilder.toString();
+    }
+
     
     public static void saveToFile(String jsonString, String filename) {
         try {
