@@ -464,9 +464,35 @@ public class RuleExtractor {
 		    
 		    return rules;
 		}
+	 
+		public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValuesAllCombinations(Instances inst, double threshold) throws Exception {
+
+			ArrayList<Classification_Rule> rules = new ArrayList<>();
+		    double[] featureMeasures = computeFeatureMeasures(inst);
+		    threshold = checkThreshold(threshold, inst, featureMeasures);
+		    
+		    ArrayList<Attribute> topAttributes = this.selectAttributesAboveThreshold(inst, threshold);
+		
+		    if (m_Debug) {
+		        System.out.println("\n=== Processing attribute combinations above threshold ===");
+		        System.out.println("Selected attributes count: " + topAttributes.size());
+		        System.out.println("Significance threshold: " + threshold);
+		    }
+		    Map<Attribute, String> majorityValues = new HashMap<>();
+		    for (Attribute attr : topAttributes) {
+		        majorityValues.put(attr, findMajorityValue(inst, attr.index()));
+		    }
+		
+		    ArrayList<String> allConcepts = new ArrayList<>();
+	        rules = this.m_GaloisConnection.generateConceptsAllCombinations(inst, topAttributes, allConcepts, m_Debug);
+
+		    
+		    
+		    return rules;
+		}
     
 	  
-	 public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValuesAllCombinations(Instances inst, double threshold) throws Exception {
+	/* public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValuesAllCombinations(Instances inst, double threshold) throws Exception {
 		    
 		    ArrayList<Attribute> topAttributes = selectAttributesAboveThreshold(inst, threshold);
 
@@ -484,7 +510,7 @@ public class RuleExtractor {
 		    
 		    return rules;
 		  
-		}
+		}*/
 
 	  /**
 	     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et tous ses valeur
@@ -520,7 +546,7 @@ public class RuleExtractor {
 			    ArrayList<Attribute> topAttributes = selectAttributesUnderThreshold(inst, threshold);
 			
 			    if (m_Debug) {
-			        System.out.println("\n=== Processing attribute combinations above threshold ===");
+			        System.out.println("\n=== Processing attribute combinations under threshold ===");
 			        System.out.println("Selected attributes count: " + topAttributes.size());
 			        System.out.println("Significance threshold: " + threshold);
 			    }

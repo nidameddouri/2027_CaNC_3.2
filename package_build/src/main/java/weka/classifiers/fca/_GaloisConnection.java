@@ -252,7 +252,8 @@ public class _GaloisConnection {
         setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
            
         if (debug) {
-            printConcepts(this.getConceptList(), inst);
+            //affichage concepts
+        	//printConcepts(this.getConceptList(), inst);
         }
         return rules;
     }
@@ -260,66 +261,66 @@ public class _GaloisConnection {
     private Map<String, String> computeAttributeClosure(Instances inst, 
             ArrayList<Integer> instances, 
             List<Attribute> selectedAttributes) {
-Map<String, String> closureMap = new LinkedHashMap<>();
+    	Map<String, String> closureMap = new LinkedHashMap<>();
 
-if (instances.isEmpty()) {
-return closureMap; // fermeture vide
-}
+		if (instances.isEmpty()) {
+		return closureMap; // fermeture vide
+		}
 
-if (!isBinaryDataset(inst)) {
-// Cas général pour datasets non binaires
-for (Attribute attr : selectedAttributes) {
-String firstValue = null;
-boolean allSame = true;
-
-for (int idx = 0; idx < instances.size(); idx++) {
-Instance instance = inst.instance(instances.get(idx));
-
-if (instance.isMissing(attr)) {
-allSame = false;
-break;
-}
-
-String val = instance.stringValue(attr);
-if (val == null || val.equals("?")) {
-allSame = false;
-break;
-}
-
-if (idx == 0) {
-firstValue = val;
-} else if (!val.equals(firstValue)) {
-allSame = false;
-break;
-}
-}
-
-if (allSame && firstValue != null) {
-closureMap.put(attr.name(), firstValue);
-}
-// Sinon : on ne met rien (pas de -null-)
-}
-} else {
-// Cas binaire : on inclut uniquement les attributs dont la valeur est 1 pour tous
-for (Attribute attr : selectedAttributes) {
-boolean allOne = true;
-
-for (int i : instances) {
-Instance instance = inst.instance(i);
-if (instance.isMissing(attr) || instance.value(attr) != 1.0) {
-allOne = false;
-break;
-}
-}
-
-if (allOne) {
-closureMap.put(attr.name(), "1");
-}
-// Sinon on ne met rien (valeurs 0 ou missing sont ignorées)
-}
-}
-
-return closureMap;
+		if (!isBinaryDataset(inst)) {
+		// Cas général pour datasets non binaires
+		for (Attribute attr : selectedAttributes) {
+		String firstValue = null;
+		boolean allSame = true;
+		
+		for (int idx = 0; idx < instances.size(); idx++) {
+		Instance instance = inst.instance(instances.get(idx));
+		
+		if (instance.isMissing(attr)) {
+		allSame = false;
+		break;
+		}
+		
+		String val = instance.stringValue(attr);
+		if (val == null || val.equals("?")) {
+		allSame = false;
+		break;
+		}
+		
+		if (idx == 0) {
+		firstValue = val;
+		} else if (!val.equals(firstValue)) {
+		allSame = false;
+		break;
+		}
+		}
+		
+		if (allSame && firstValue != null) {
+		closureMap.put(attr.name(), firstValue);
+		}
+		// Sinon : on ne met rien (pas de -null-)
+		}
+		} else {
+		// Cas binaire : on inclut uniquement les attributs dont la valeur est 1 pour tous
+		for (Attribute attr : selectedAttributes) {
+		boolean allOne = true;
+		
+		for (int i : instances) {
+		Instance instance = inst.instance(i);
+		if (instance.isMissing(attr) || instance.value(attr) != 1.0) {
+		allOne = false;
+		break;
+		}
+		}
+		
+		if (allOne) {
+		closureMap.put(attr.name(), "1");
+		}
+		// Sinon on ne met rien (valeurs 0 ou missing sont ignorées)
+		}
+		}
+		
+		return closureMap;
 }
 
     
@@ -364,7 +365,8 @@ return closureMap;
      // Construire la liste finale
         setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
         if (debug) {
-            printConcepts(this.getConceptList(), inst);
+            //affichage concepts
+        	//printConcepts(this.getConceptList(), inst);
         }
         
         return rules;
@@ -811,7 +813,7 @@ return closureMap;
         int m = attributes.size();
         for (int k = 1; k <= m; k++) {
             List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
-
+ 
             for (List<Attribute> attrCombination : attrCombinations) {
                 ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
                 
@@ -837,7 +839,8 @@ return closureMap;
         setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
            
         if (debug) {
-            printConcepts(this.getConceptList(), inst);
+            //affichage concepts
+        	//printConcepts(this.getConceptList(), inst);
         }
         return rules;
     }
@@ -914,7 +917,8 @@ return closureMap;
 	        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
 	           
 	        if (debug) {
-	            printConcepts(this.getConceptList(), inst);
+	        	//affichage concepts
+	            //printConcepts(this.getConceptList(), inst);
 	        }
 	        
 	        return rules;
