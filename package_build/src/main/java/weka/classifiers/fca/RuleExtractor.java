@@ -324,7 +324,7 @@ public class RuleExtractor {
         ArrayList<String> allConcepts = new ArrayList<>();
 
         // 3. Générer les concepts à partir des valeurs majoritaires
-        ArrayList<Classification_Rule> rules=this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, attributes, majorityValues,allConcepts,m_Debug);
+        ArrayList<Classification_Rule> rules=this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, attributes, Policy_Selection, allConcepts, m_Debug);
         
 	    
         return rules;
@@ -437,7 +437,7 @@ public class RuleExtractor {
 		    
 		    
 	        ArrayList<String> allConcepts = new ArrayList<>();
-	        rules = this.m_GaloisConnection.generateConcepts(inst, topAttributes, allConcepts,m_Debug);
+	        rules = this.m_GaloisConnection.generateConceptsAllCombinations(inst, topAttributes, allConcepts,m_Debug);
 
 		    
 		    
@@ -484,7 +484,7 @@ public class RuleExtractor {
 		    }
 		
 		    ArrayList<String> allConcepts = new ArrayList<>();
-	        rules = this.m_GaloisConnection.generateConceptsAllCombinations(inst, topAttributes, allConcepts, m_Debug);
+	        rules = this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, topAttributes,Policy_Selection, allConcepts, m_Debug);
 
 		    
 		    
@@ -598,7 +598,7 @@ public class RuleExtractor {
 		        ArrayList<String> allConcepts = new ArrayList<>();
 
 		        // 3. Générer les concepts à partir des valeurs majoritaires
-			    rules = this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, topAttributes, majorityValues,allConcepts,m_Debug);
+			    rules = this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, topAttributes, Policy_Selection, allConcepts, m_Debug);
 		        
 			    return rules;
 			}

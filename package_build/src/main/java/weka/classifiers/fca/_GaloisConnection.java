@@ -207,56 +207,7 @@ public class _GaloisConnection {
                (val1.equals("1") && val2.equals("0"));
     }
     
-    /**
-     * Génère les concepts formels à partir des instances et attributs
-     */
-    ArrayList<Classification_Rule> generateConceptsAllCombinations(Instances inst, 
-                                                         ArrayList<Attribute> attributes,
-                                                         ArrayList<String> allConcepts,
-                                                         boolean debug) throws Exception {
-        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
-        ArrayList<Classification_Rule> rules = new ArrayList<>();
-        
-        //afficheAttributsEtValeurs(inst);
-
-        
-        int m = attributes.size();
-        for (int k = 1; k <= m; k++) {
-            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst,attributes, k,debug);
-
-            for (List<Attribute> attrCombination : attrCombinations) {
-                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
-                Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, attrCombinationArrayList);
-
-                for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
-                    ArrayList<Integer> instanceSubset = entry.getValue();
-                    
-                    if (instanceSubset.size() <= 1) {
-                        continue;
-                    }
-                    
-                    Set<Integer> instanceSet = new HashSet<>(instanceSubset);
-                    Map<String,String> closure = computeAttributeClosure(inst, instanceSubset,attrCombinationArrayList);
-                    // Parcours de tous les attributs
-                    
-                    if (closure.size()!=0) {
-                        Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
-                        updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-
-                    }
-                }
-            }
-        }
-
-        // Construire la liste finale
-        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
-           
-        if (debug) {
-            //affichage concepts
-        	//printConcepts(this.getConceptList(), inst);
-        }
-        return rules;
-    }
+  
     
     private Map<String, String> computeAttributeClosure(Instances inst, 
             ArrayList<Integer> instances, 
@@ -366,7 +317,7 @@ public class _GaloisConnection {
         setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
         if (debug) {
             //affichage concepts
-        	//printConcepts(this.getConceptList(), inst);
+        	printConcepts(this.getConceptList(), inst);
         }
         
         return rules;
@@ -378,22 +329,54 @@ public class _GaloisConnection {
     private List<List<Attribute>> generateAttributeCombinations(Instances inst, ArrayList<Attribute> attributes, int k, boolean debug) {
         List<List<Attribute>> combinations = new ArrayList<>();
 
-        // Si binaire, filtrer les attributs qui peuvent avoir 0, 0.0 ou false
-        List<Attribute> filteredAttributes=attributes;
-        if (isBinaryDataset(inst)) {
-        	filteredAttributes = filterBinaryAttributes(attributes, inst);
+        // Si binaire, on filtre les attributs non discriminants
+        List<Attribute> filteredAttributes = isBinaryDataset(inst)
+            ? filterBinaryAttributes(attributes, inst)
+            : attributes;
+
+        int n = filteredAttributes.size();
+        if (k > n) return combinations;
+
+        if (debug) {
+            System.out.println("➡ Generating attribute combinations of size " + k + " from " + n + " attributes");
         }
 
-        generateCombinationsHelper(filteredAttributes, k, 0, new ArrayList<>(), combinations);
+        // Initialiser un tableau d’indices [0, 1, ..., k-1]
+        int[] indices = new int[k];
+        for (int i = 0; i < k; i++) {
+            indices[i] = i;
+        }
 
-       
+        while (indices[0] <= n - k) {
+            // Ajouter la combinaison courante
+            List<Attribute> combination = new ArrayList<>();
+            for (int index : indices) {
+                combination.add(filteredAttributes.get(index));
+            }
+            combinations.add(combination);
+
+            // Générer la prochaine combinaison
+            int t = k - 1;
+            while (t >= 0 && indices[t] == n - k + t) {
+                t--;
+            }
+            if (t < 0) break;
+            indices[t]++;
+            for (int i = t + 1; i < k; i++) {
+                indices[i] = indices[i - 1] + 1;
+            }
+        }
 
         return combinations;
     }
 
 
+
     private void generateCombinationsHelper(List<Attribute> attributes, int k, int start, 
             List<Attribute> current, List<List<Attribute>> result) {
+    	if(m_Debug) {
+    		System.out.println("Generating combination for "+k+" attributes");
+    	}
         if (current.size() == k) {
             result.add(new ArrayList<>(current));
             return;
@@ -452,7 +435,6 @@ public class _GaloisConnection {
 		    rule.setRule_Ponderation(weight);
 
 		    
-		    
 		    return rule;
 		}
     /**
@@ -488,6 +470,7 @@ public class _GaloisConnection {
                 majorityClassIndex = i;
             }
         }
+        
         
         return majorityClassIndex;
     }
@@ -797,41 +780,47 @@ public class _GaloisConnection {
         }
         return count;
     }
-
+    
     /**
-     * Génère les concepts formels à partir des valeurs majoritaires des attributs
+     * Génère les concepts formels à partir des instances et attributs
      */
-    public ArrayList<Classification_Rule> generateConceptsFromMajorityValuesAllCombinations(Instances inst, 
-                                                                            ArrayList<Attribute> attributes,
-                                                                            Map<Attribute, String> majorityValues,
-                                                                            ArrayList<String> allConcepts,
-                                                                            boolean debug) throws Exception {
+    ArrayList<Classification_Rule> generateConceptsAllCombinations(Instances inst, 
+                                                         ArrayList<Attribute> attributes,
+                                                         ArrayList<String> allConcepts,
+                                                         boolean debug) throws Exception {
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
-
-        // Générer toutes les combinaisons d'attributs de taille 1 à m
+        
+        //afficheAttributsEtValeurs(inst);
+        if(debug) {
+        	System.out.println("Generating concepts .....");
+        }
+        
         int m = attributes.size();
         for (int k = 1; k <= m; k++) {
-            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
- 
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst,attributes, k,debug);
+
             for (List<Attribute> attrCombination : attrCombinations) {
                 ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
-                
-                // Trouver les instances ayant les valeurs majoritaires pour ces attributs
-                ArrayList<Integer> majorityInstances = findInstancesWithMajorityValues(inst, 
-                    attrCombinationArrayList, majorityValues);
+                Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, attrCombinationArrayList);
 
-                if (majorityInstances.isEmpty()) continue;
+                for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
+                    ArrayList<Integer> instanceSubset = entry.getValue();
+                    
+                    if (instanceSubset.size() <= 1) {
+                        continue;
+                    }
+                    
+                    Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+                    Map<String,String> closure = computeAttributeClosure(inst, instanceSubset,attrCombinationArrayList);
+                    // Parcours de tous les attributs
+                    
+                    if (closure.size()!=0) {
+                        Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                        updateBestConcepts(bestConcepts, instanceSet, rule, closure);
 
-                Set<Integer> instanceSet = new HashSet<>(majorityInstances);
-                
-                // Calculer la fermeture pour ces attributs
-                Map<String,String> closure = computeAttributeClosure(inst, majorityInstances, attributes);
-
-                // Créer la règle de classification
-                Classification_Rule rule = createClassificationRule(inst, majorityInstances, closure, attributes);
-                // Mettre à jour les meilleurs concepts
-                updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+                    }
+                }
             }
         }
 
@@ -844,6 +833,94 @@ public class _GaloisConnection {
         }
         return rules;
     }
+
+    /**
+     * Génère les concepts formels à partir des combinaisons d'attributs avec leurs valeurs majoritaires
+     */
+    
+    /**
+     * Génère les concepts formels à partir des combinaisons d'attributs avec leurs valeurs majoritaires
+     */
+    public ArrayList<Classification_Rule> generateConceptsFromMajorityValuesAllCombinations(
+            Instances inst, 
+            ArrayList<Attribute> attributes,
+            int Policy_Selection,
+            ArrayList<String> allConcepts,
+            boolean debug) throws Exception {
+
+        if (debug) {
+            System.out.println("🔍 Generating concepts from majority value combinations ...");
+        }
+
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        // 🔢 Étape 1 : Calcul des valeurs majoritaires pour chaque attribut
+        if (debug) {
+            System.out.println("🔢 Step 1: Calculating majority values for each attribute ...");
+        }
+
+        Map<Attribute, String> majorityValues = new HashMap<>();
+        for (Attribute attr : attributes) {
+            int majorityIndex = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
+            String majorityValue = attr.value(majorityIndex);
+            majorityValues.put(attr, majorityValue);
+            if (debug) {
+                System.out.println("   - Majority value for attribute '" + attr.name() + "': " + majorityValue);
+            }
+        }
+
+        // 🧩 Étape 2 : Générer les combinaisons d'attributs
+        int m = attributes.size();
+        for (int k = 1; k <= m; k++) {
+            if (debug) {
+                System.out.println("\n🧩 Step 2: Generating combinations of size " + k + " ...");
+            }
+
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
+
+            for (List<Attribute> attrCombination : attrCombinations) {
+                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
+
+                if (debug) {
+                    System.out.print("   ➤ Processing combination: ");
+                    for (Attribute attr : attrCombinationArrayList) {
+                        System.out.print(attr.name() + "=" + majorityValues.get(attr) + "  ");
+                    }
+                    System.out.println();
+                }
+
+                // 🧮 Étape 3 : Trouver les instances correspondant à la combinaison
+                ArrayList<Integer> instanceSubset = findInstancesWithMajorityValues(inst, attrCombinationArrayList, majorityValues);
+
+                if (debug) {
+                    System.out.println("      → Found " + instanceSubset.size() + " matching instances");
+                }
+
+                if (instanceSubset.size() <= 1) continue;
+
+                Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+                Map<String, String> closure = computeAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
+
+                if (!closure.isEmpty()) {
+                    Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                    updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+                }
+            }
+        }
+
+        // 🧾 Étape 4 : Construire la liste finale
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
+
+        if (debug) {
+            System.out.println("\n📋 Final concepts:");
+            printConcepts(this.getConceptList(), inst);
+        }
+
+        return rules;
+    }
+
+
 
     
     
@@ -975,6 +1052,4 @@ public class _GaloisConnection {
 
         return new FormalConcept(instanceSet, labeledAttributes);
     }
-
-    
 }
