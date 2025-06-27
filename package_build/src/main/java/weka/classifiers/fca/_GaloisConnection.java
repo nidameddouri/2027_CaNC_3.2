@@ -16,6 +16,9 @@ import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 
 /**
  * Implementation of Galois Connection for Formal Concept Analysis
@@ -834,30 +837,32 @@ public class _GaloisConnection {
         return rules;
     }
 
-    /**
-     * Génère les concepts formels à partir des combinaisons d'attributs avec leurs valeurs majoritaires
-     */
+
+
+    private void logDebug(String message) {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss.SSS");
+        String timestamp = sdf.format(new Date());
+        System.out.println("[" + timestamp + "] " + message);
+    }
+
     
-    /**
-     * Génère les concepts formels à partir des combinaisons d'attributs avec leurs valeurs majoritaires
-     */
     public ArrayList<Classification_Rule> generateConceptsFromMajorityValuesAllCombinations(
-            Instances inst, 
+            Instances inst,
             ArrayList<Attribute> attributes,
             int Policy_Selection,
             ArrayList<String> allConcepts,
             boolean debug) throws Exception {
 
         if (debug) {
-            System.out.println("🔍 Generating concepts from majority value combinations ...");
+            logDebug("Generating concepts from majority value combinations ...");
         }
 
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
 
-        // 🔢 Étape 1 : Calcul des valeurs majoritaires pour chaque attribut
+        // Étape 1 : Calcul des valeurs majoritaires pour chaque attribut
         if (debug) {
-            System.out.println("🔢 Step 1: Calculating majority values for each attribute ...");
+            logDebug("Step 1: Calculating majority values for each attribute ...");
         }
 
         Map<Attribute, String> majorityValues = new HashMap<>();
@@ -866,15 +871,15 @@ public class _GaloisConnection {
             String majorityValue = attr.value(majorityIndex);
             majorityValues.put(attr, majorityValue);
             if (debug) {
-                System.out.println("   - Majority value for attribute '" + attr.name() + "': " + majorityValue);
+                logDebug("   - Majority value for attribute '" + attr.name() + "': " + majorityValue);
             }
         }
 
-        // 🧩 Étape 2 : Générer les combinaisons d'attributs
+        // Étape 2 : Générer les combinaisons d'attributs
         int m = attributes.size();
         for (int k = 1; k <= m; k++) {
             if (debug) {
-                System.out.println("\n🧩 Step 2: Generating combinations of size " + k + " ...");
+                logDebug("Step 2: Generating combinations of size " + k + " ...");
             }
 
             List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
@@ -883,18 +888,19 @@ public class _GaloisConnection {
                 ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
 
                 if (debug) {
-                    System.out.print("   ➤ Processing combination: ");
+                    StringBuilder combInfo = new StringBuilder();
+                    combInfo.append("   > Processing combination: ");
                     for (Attribute attr : attrCombinationArrayList) {
-                        System.out.print(attr.name() + "=" + majorityValues.get(attr) + "  ");
+                        combInfo.append(attr.name()).append("=").append(majorityValues.get(attr)).append("  ");
                     }
-                    System.out.println();
+                    logDebug(combInfo.toString());
                 }
 
-                // 🧮 Étape 3 : Trouver les instances correspondant à la combinaison
+                // Étape 3 : Trouver les instances correspondant à la combinaison
                 ArrayList<Integer> instanceSubset = findInstancesWithMajorityValues(inst, attrCombinationArrayList, majorityValues);
 
                 if (debug) {
-                    System.out.println("      → Found " + instanceSubset.size() + " matching instances");
+                    logDebug("      -> Found " + instanceSubset.size() + " matching instances");
                 }
 
                 if (instanceSubset.size() <= 1) continue;
@@ -909,11 +915,11 @@ public class _GaloisConnection {
             }
         }
 
-        // 🧾 Étape 4 : Construire la liste finale
-        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
+        // Étape 4 : Construire la liste finale
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
 
         if (debug) {
-            System.out.println("\n📋 Final concepts:");
+            logDebug("Final concepts:");
             printConcepts(this.getConceptList(), inst);
         }
 
