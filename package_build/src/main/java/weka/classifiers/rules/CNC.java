@@ -315,12 +315,12 @@ public class CNC extends AbstractClassifier
     @Override
     public TechnicalInformation getTechnicalInformation() {
         TechnicalInformation result = new TechnicalInformation(Type.INPROCEEDINGS);
-        result.setValue(Field.YEAR, "2011");
-        result.setValue(Field.AUTHOR, "N. MEDDOURI");
+        result.setValue(Field.YEAR, "2025");
+        result.setValue(Field.AUTHOR, "Y. Souissi,N. MEDDOURI et F. Boissier");
         result.setValue(Field.PUBLISHER, "Academic Publisher");
-        result.setValue(Field.ADDRESS, "Tunis, Tunisia");
+        result.setValue(Field.ADDRESS, "Paris, France");
         result.setValue(Field.ORGANIZATION, "Research Unit on Programming, Algorithmics and Heuristics");
-        result.setValue(Field.SCHOOL, "Faculty of Science");
+        result.setValue(Field.SCHOOL, "LRE EPITA");
         return result;
     }
     
@@ -328,7 +328,7 @@ public class CNC extends AbstractClassifier
         return "Classifier Nominal Concepts (CNC) discovers classification Rules using concept learning "
              + "and feature measures.\n\n"
              + "For more information, see:\n\n"
-             + getTechnicalInformation().toString() + "\n\nThis code was rewritten and improved by Francoise Lapetite & Younes Kara Zaitri \n";
+             + getTechnicalInformation().toString() + "\n\nThis code was rewritten and improved by Yasmine Souissi, Nida Meddouri et Fabrice Boissier\n";
     }
     
     @Override
@@ -920,7 +920,7 @@ public class CNC extends AbstractClassifier
                     }
                     System.out.printf("Extraction with (Threshold=%.4f) " ,m_THRESHOLD);
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
-                    extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
+                    extractor.printTopPercentageAttributes(m_FilteredInstances, m_THRESHOLD);
 
                 }
                 m_classifierNC = extractor.extractAttributeAboveThresholdAllValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
@@ -948,7 +948,7 @@ public class CNC extends AbstractClassifier
                     
                     System.out.printf("Extraction with(Threshold=%.4f) " ,m_THRESHOLD);
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
-                    extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
+                    extractor.printTopPercentageAttributes(m_FilteredInstances, m_THRESHOLD);
 
                 }
                 m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValuesAllCombinations(m_FilteredInstances,m_THRESHOLD);
@@ -1090,7 +1090,7 @@ public class CNC extends AbstractClassifier
                     }
                     System.out.printf("Extraction with (Threshold=%.4f) " ,m_THRESHOLD);
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
-                    extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
+                    extractor.printTopPercentageAttributes(m_FilteredInstances, m_THRESHOLD);
 
                 }
                 m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(m_FilteredInstances,m_THRESHOLD);
@@ -1118,7 +1118,7 @@ public class CNC extends AbstractClassifier
                     
                     System.out.printf("Extraction with(Threshold=%.4f) " ,m_THRESHOLD);
                     System.out.println("Used Measure: " + featureMeasureToString(FeatureMeasureMethod));
-                    extractor.printAttributesAboveThreshold(m_FilteredInstances, m_THRESHOLD);
+                    extractor.printTopPercentageAttributes(m_FilteredInstances, m_THRESHOLD);
 
                 }
                 m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(m_FilteredInstances,m_THRESHOLD);

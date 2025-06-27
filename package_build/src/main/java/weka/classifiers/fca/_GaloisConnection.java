@@ -375,23 +375,6 @@ public class _GaloisConnection {
 
 
 
-    private void generateCombinationsHelper(List<Attribute> attributes, int k, int start, 
-            List<Attribute> current, List<List<Attribute>> result) {
-    	if(m_Debug) {
-    		System.out.println("Generating combination for "+k+" attributes");
-    	}
-        if (current.size() == k) {
-            result.add(new ArrayList<>(current));
-            return;
-        }
-        
-        for (int i = start; i < attributes.size(); i++) {
-            current.add(attributes.get(i));
-            generateCombinationsHelper(attributes, k, i + 1, current, result);
-            current.remove(current.size() - 1);
-        }
-    }
-
  
 
     

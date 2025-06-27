@@ -1,12 +1,12 @@
 # Description file for CNC
 PackageName=CNC
-Version=1.0.0
-Date=2025-04-09
+Version=1.2.0
+Date=2025-04-06
 Title=CNC Classifier
 Category=Classification
-Author=Francoise Lapetite, Younes Kara Zaitri
-Maintainer=Francoise Lapetite <francoise.lapetite@epita.fr>
+Author=Yasmine Souissi, Nida Meddouri AND Fabrice Boissier
+Maintainer=FYasmine Souissi <yasmine.souissi@epita.fr>
 License=GPL 3.0
-Description=Un classificateur basé sur FCA (Formal Concept Analysis) pour detecter les relations cachées
+Description=Classifier base on FCA (Formal Concept Analysis) for detecting hidden correlations
 Depends=weka (>=3.7.0)
 Classifier=weka.classifiers.rules.CNC

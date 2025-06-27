@@ -4,6 +4,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import weka.attributeSelection.*;
 import weka.core.Attribute;
@@ -400,7 +402,7 @@ public class RuleExtractor {
 	        threshold=checkThreshold(threshold,inst,featureMeasures);
 	            
 
-	        ArrayList<Attribute> topAttributes =  selectAttributesAboveThreshold(inst,  threshold);
+	        ArrayList<Attribute> topAttributes =  selectTopPercentageAttributes(inst,  threshold);
 	
 	        ArrayList<String> allConceptsList = new ArrayList<>();
 		    boolean debug = m_Debug;
@@ -427,7 +429,7 @@ public class RuleExtractor {
 		    double[] featureMeasures = computeFeatureMeasures(inst);
 		    threshold = checkThreshold(threshold, inst, featureMeasures);
 		    
-		    ArrayList<Attribute> topAttributes = selectAttributesAboveThreshold(inst, threshold);
+		    ArrayList<Attribute> topAttributes = selectTopPercentageAttributes(inst, threshold);
 		
 		    if (m_Debug) {
 		        System.out.println("\n=== Processing attribute combinations above threshold ===");
@@ -454,7 +456,7 @@ public class RuleExtractor {
 		    double[] featureMeasures = computeFeatureMeasures(inst);
 	        threshold=checkThreshold(threshold,inst,featureMeasures);
 
-		    ArrayList<Attribute> topAttributes = selectAttributesAboveThreshold(inst, threshold);
+		    ArrayList<Attribute> topAttributes = selectTopPercentageAttributes(inst, threshold);
 
 		    ArrayList<String> allConcepts= new ArrayList<>();
 	        
@@ -471,7 +473,7 @@ public class RuleExtractor {
 		    double[] featureMeasures = computeFeatureMeasures(inst);
 		    threshold = checkThreshold(threshold, inst, featureMeasures);
 		    
-		    ArrayList<Attribute> topAttributes = this.selectAttributesAboveThreshold(inst, threshold);
+		    ArrayList<Attribute> topAttributes = this.selectTopPercentageAttributes(inst, threshold);
 		
 		    if (m_Debug) {
 		        System.out.println("\n=== Processing attribute combinations above threshold ===");
@@ -491,26 +493,6 @@ public class RuleExtractor {
 		    return rules;
 		}
     
-	  
-	/* public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValuesAllCombinations(Instances inst, double threshold) throws Exception {
-		    
-		    ArrayList<Attribute> topAttributes = selectAttributesAboveThreshold(inst, threshold);
-
-		  // 1. Pré-calculer les valeurs majoritaires pour chaque attribut
-	        Map<Attribute, String> majorityValues = new HashMap<>();
-		    for (Attribute attr : topAttributes) {
-		        majorityValues.put(attr, findMajorityValue(inst, attr.index()));
-		    }
-	        ArrayList<String> allConcepts = new ArrayList<>();
-
-
-	        // 3. Générer les concepts à partir des valeurs majoritaires
-		    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, topAttributes, majorityValues,allConcepts,m_Debug);
-	        
-		    
-		    return rules;
-		  
-		}*/
 
 	  /**
 	     * Méthode pour extraire des règles basées sur les attributs depassant le seuil  et tous ses valeur
@@ -759,136 +741,144 @@ public class RuleExtractor {
      * @param threshold seuil
      */
     
-    private ArrayList<Attribute> selectAttributesAboveThreshold(Instances inst, double threshold) {
-    ArrayList<Attribute> selectedAttributes = new ArrayList<>();
-    double[] measures= null;
-	try {
-		measures = computeFeatureMeasures(inst);
-	} catch (Exception e) {
-		System.out.println("Error in measures calculating in selectAttributesAboveThreshold function: "+e.getMessage());
-	}
+    private ArrayList<Attribute> selectTopPercentageAttributes(Instances inst, double threshold) {
+        ArrayList<Attribute> selectedAttributes = new ArrayList<>();
+        double[] measures = null;
 
-    for (int i = 0; i < measures.length; i++) {
-        if (i != inst.classIndex()) {
-            double score = measures[i];
+        try {
+            measures = computeFeatureMeasures(inst);
+        } catch (Exception e) {
+            System.out.println("Error in measures calculating in selectTopPercentageAttributes: " + e.getMessage());
+            return selectedAttributes;
+        }
 
-            // Vérifie si le score dépasse le seuil 
-            if ( score >= threshold) {
-                selectedAttributes.add(inst.attribute(i));
+        // Créer une liste des attributs avec leur score
+        List<AttributeScore> attributeScores = new ArrayList<>();
+
+        for (int i = 0; i < measures.length; i++) {
+            if (i != inst.classIndex()) {
+                attributeScores.add(new AttributeScore(inst.attribute(i), measures[i]));
             }
         }
+
+        // Trier les attributs par ordre décroissant de score
+        attributeScores.sort((a, b) -> Double.compare(b.score, a.score));
+
+        // Calculer le nombre d'attributs à sélectionner
+        int numToSelect = (int) Math.ceil(threshold * attributeScores.size());
+
+        for (int i = 0; i < numToSelect && i < attributeScores.size(); i++) {
+            selectedAttributes.add(attributeScores.get(i).attribute);
+        }
+
+        return selectedAttributes;
     }
 
-    return selectedAttributes;
-}
 
-    private ArrayList<Attribute> selectAttributesUnderThreshold(Instances inst, double threshold) {
-    ArrayList<Attribute> selectedAttributes = new ArrayList<>();
-    double[] measures= null;
-	try {
-		measures = computeFeatureMeasures(inst);
-	} catch (Exception e) {
-		System.out.println("Error in measures calculating in selectAttributesAboveThreshold function: "+e.getMessage());
-	}
 
-    for (int i = 0; i < measures.length; i++) {
-        if (i != inst.classIndex()) {
-            double score = measures[i];
+    private ArrayList<Attribute> selectAttributesUnderThreshold(Instances inst, double threshold)  {
+        ArrayList<Attribute> selectedAttributes = new ArrayList<>();
+        double[] measures = null;
 
-         // Vérifie si le score dépasse le seuil 
-            if ( score <= threshold) {
-                selectedAttributes.add(inst.attribute(i));
+        try {
+            measures = computeFeatureMeasures(inst);
+        } catch (Exception e) {
+            System.out.println("Error in measures calculating in selectTopPercentageAttributes: " + e.getMessage());
+            return selectedAttributes;
+        }
+
+        // Créer une liste des attributs avec leur score
+        List<AttributeScore> attributeScores = new ArrayList<>();
+
+        for (int i = 0; i < measures.length; i++) {
+            if (i != inst.classIndex()) {
+                attributeScores.add(new AttributeScore(inst.attribute(i), measures[i]));
             }
         }
-    }
 
-    return selectedAttributes;
-}
+        // Trier les attributs par ordre décroissant de score
+        attributeScores.sort((a, b) -> Double.compare(b.score, a.score));
+
+        // Calculer le nombre d'attributs à sélectionner
+        int numToSelect = (int) Math.ceil(threshold * attributeScores.size());
+
+        for (int i = attributeScores.size()-1; i > numToSelect && i <= attributeScores.size(); i--) {
+            selectedAttributes.add(attributeScores.get(i).attribute);
+        }
+
+        return selectedAttributes;
+    }
 
     
     
     public void printAttributesUnderThreshold(Instances inst, double threshold) throws Exception {
-        // Calculer les mesures pour chaque attribut
-        double[] featureMeasures = computeFeatureMeasures(inst);
+    double[] featureMeasures = computeFeatureMeasures(inst);
+    ArrayList<AttributeScore> allScores = new ArrayList<>();
 
-        // Créer une liste de tous les attributs avec leurs mesures (sauf la classe)
-        ArrayList<Pair<Attribute, Double>> allAttributeMeasures = new ArrayList<>();
-        for (int i = 0; i < inst.numAttributes(); i++) {
-            if (i != inst.classIndex()) {
-                allAttributeMeasures.add(new Pair<>(inst.attribute(i), featureMeasures[i]));
-            }
-        }
-
-        // Trier tous les attributs selon la métrique
-        allAttributeMeasures.sort((a1, a2) -> {
-            if (FeatureMeasureMethod == FEAT_ENTROPY) {
-                return Double.compare(a1.getValue(), a2.getValue());
-            } else {
-                return Double.compare(a2.getValue(), a1.getValue());
-            }
-        });
-
-        // Affichage de TOUS les attributs
-        System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
-        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
-        System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
-        System.out.println("━".repeat(80));
-        
-        int rank = 1;
-        for (Pair<Attribute, Double> p : allAttributeMeasures) {
-            String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
-            System.out.println(String.format("%-6d%-30s%12.4f",
-                rank++,
-                cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
-                p.getValue()));
-        }
-        
-        System.out.println("--------------------------------------------------------------------------------------");
-
-        
-        // Statistiques de tous les attributs
-        double max = allAttributeMeasures.get(0).getValue();
-        double min = allAttributeMeasures.get(allAttributeMeasures.size() - 1).getValue();
-        double average = allAttributeMeasures.stream()
-            .mapToDouble(Pair::getValue)
-            .average()
-            .orElse(0);
-
-        System.out.println("\n📊 Statistics:");
-        System.out.println(String.format("\nMax: %8.4f  Min: %8.4f  Moy: %8.4f", max, min, average));
-
-        // Obtenir les attributs sous le seuil
-        ArrayList<Attribute> selectedAttributes = new ArrayList<>();
-        for (Pair<Attribute, Double> p : allAttributeMeasures) {
-            if (p.getValue() < threshold) {
-                selectedAttributes.add(p.getKey());
-            }
-        }
-
-        if (selectedAttributes.isEmpty()) {
-            System.out.println("\n⚠ No attributes below threshold: " + threshold);
-            return;
-        }
-
-        // Affichage des attributs sous le seuil
-        System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES UNDER THRESHOLD (Threshold=%.4f)  ▬▬▬▬▬▬▬▬", threshold);
-        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
-        System.out.println("Selected attributes: " + selectedAttributes.size() + "/" + allAttributeMeasures.size() + "\n");
-
-        System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
-        System.out.println("━".repeat(48));
-
-        int displayedRank = 1;
-        for (Pair<Attribute, Double> p : allAttributeMeasures) {
-            if (p.getValue() < threshold) {
-                String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
-                System.out.println(String.format("%-6d%-30s%12.4f",
-                    displayedRank++,
-                    cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
-                    p.getValue()));
-            }
+    for (int i = 0; i < inst.numAttributes(); i++) {
+        if (i != inst.classIndex()) {
+            allScores.add(new AttributeScore(inst.attribute(i), featureMeasures[i]));
         }
     }
+
+    // Tri : croissant pour Entropy, décroissant sinon
+    boolean ascending = FeatureMeasureMethod == FEAT_ENTROPY;
+    allScores.sort((a, b) -> ascending ? Double.compare(a.score, b.score) : Double.compare(b.score, a.score));
+
+    // Affichage de tous les attributs
+    System.out.println("\n" + "▬".repeat(80));
+    System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
+    System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+    System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+    System.out.println("━".repeat(80));
+
+    int rank = 1;
+    for (AttributeScore s : allScores) {
+        String name = s.attribute.name().trim().replaceAll("\\s+", " ");
+        if (name.length() > 30) {
+            name = name.substring(0, 27) + "...";
+        }
+        System.out.println(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
+    }
+
+    System.out.println("─".repeat(80));
+
+    // Statistiques
+    double max = allScores.stream().mapToDouble(s -> s.score).max().orElse(0);
+    double min = allScores.stream().mapToDouble(s -> s.score).min().orElse(0);
+    double avg = allScores.stream().mapToDouble(s -> s.score).average().orElse(0);
+    System.out.println("\n📊 Statistics:");
+    System.out.printf(Locale.US, "Max: %8.4f  Min: %8.4f  Avg: %8.4f%n", max, min, avg);
+
+    // Sélection des top % attributs
+    int total = allScores.size();
+    int numSelected = (int) Math.ceil(threshold * total);
+
+    // Attributs les moins pertinents (fin de la liste)
+    List<AttributeScore> leastAttributes = allScores.subList(total - numSelected, total);
+
+    // Affichage des meilleurs attributs
+    System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES UNDER THRESHOLD  ▬▬▬▬▬▬▬▬", threshold);
+    System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+    System.out.printf(Locale.US, "BOTTOM %.0f%% ATTRIBUTES\n", threshold * 100);
+    System.out.println("Number of selected attributes: " + leastAttributes.size() + "\n");
+    System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+    System.out.println("━".repeat(80));
+    
+    
+
+    rank = 1;
+    for (AttributeScore s : leastAttributes) {
+        String name = s.attribute.name().trim().replaceAll("\\s+", " ");
+        if (name.length() > 30) {
+            name = name.substring(0, 27) + "...";
+        }
+        System.out.println(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
+    }
+
+    System.out.println("─".repeat(80));
+}
+
     
     public void printPertinentAttribute(Instances inst) throws Exception {
        
@@ -956,103 +946,93 @@ public class RuleExtractor {
     }
     
     
-   
-    
+
     /**
-     * Affiche les attributs dépassant un seuil avec leurs mesures
-     * 
+     * Affiche les attributs classés selon leur mesure et affiche les top % sélectionnés.
+     *
      * @param inst Les instances du dataset
-     * @param threshold Le seuil à dépasser
-     * @throws Exception Si le calcul des mesures échoue
+     * @param threshold Pourcentage (entre 0 et 1) des meilleurs attributs à afficher
+     * @throws Exception En cas d'erreur dans le calcul des mesures
      */
-    public void printAttributesAboveThreshold(Instances inst, double threshold) throws Exception {
-        // Calculer les mesures pour chaque attribut
-        double[] featureMeasures = computeFeatureMeasures(inst);
+    public void printTopPercentageAttributes(Instances inst, double threshold) throws Exception {
+    double[] featureMeasures = computeFeatureMeasures(inst);
+    ArrayList<AttributeScore> allScores = new ArrayList<>();
 
-        // Créer une liste de tous les attributs avec leurs mesures (sauf la classe)
-        ArrayList<Pair<Attribute, Double>> allAttributeMeasures = new ArrayList<>();
-        for (int i = 0; i < inst.numAttributes(); i++) {
-            if (i != inst.classIndex()) {
-                allAttributeMeasures.add(new Pair<>(inst.attribute(i), featureMeasures[i]));
-            }
+    for (int i = 0; i < inst.numAttributes(); i++) {
+        if (i != inst.classIndex()) {
+            allScores.add(new AttributeScore(inst.attribute(i), featureMeasures[i]));
         }
-
-        // Trier tous les attributs selon la métrique
-        allAttributeMeasures.sort((a1, a2) -> {
-            if (FeatureMeasureMethod == FEAT_ENTROPY) {
-                return Double.compare(a1.getValue(), a2.getValue()); // Ascendant
-            } else {
-                return Double.compare(a2.getValue(), a1.getValue()); // Descendant
-            }
-        });
-
-        // === Affichage de TOUS les attributs ===
-        System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
-        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
-        System.out.println(String.format("%-6s%-30s%12s", "Rang", "Attribut", "Valeur"));
-        System.out.println("-------------------------------------------");
-        int rank = 1;
-        for (Pair<Attribute, Double> p : allAttributeMeasures) {
-            String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
-            System.out.println(String.format("%-6d%-30s%12.4f",
-                rank++,
-                cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
-                p.getValue()));
-        }
-        System.out.println("-------------------------------------------");
-
-        // Statistiques de tous les attributs
-        double max = allAttributeMeasures.get(0).getValue();
-        double min = allAttributeMeasures.get(allAttributeMeasures.size() - 1).getValue();
-        double average = allAttributeMeasures.stream()
-            .mapToDouble(Pair::getValue)
-            .average()
-            .orElse(0);
-
-        System.out.println("\n📊 Statistics:");
-        System.out.println(String.format("\nMax: %8.4f  Min: %8.4f  Moy: %8.4f", max, min, average));
-        // Obtenir les attributs dépassant le seuil
-        ArrayList<Attribute> selectedAttributes = selectAttributesAboveThreshold(inst, threshold);
-        if (selectedAttributes.isEmpty()) {
-            System.out.println("\n ⚠ No attributes above threshold: " + threshold);
-            return;
-        }
-
-        // Créer la liste pour les affichages filtrés
-        ArrayList<Pair<Attribute, Double>> attributeMeasures = new ArrayList<>();
-        for (Attribute attr : selectedAttributes) {
-            int index = attr.index();
-            attributeMeasures.add(new Pair<>(attr, featureMeasures[index]));
-        }
-
-        // Trier cette liste aussi
-        attributeMeasures.sort((a1, a2) -> {
-            if (FeatureMeasureMethod == FEAT_ENTROPY) {
-                return Double.compare(a1.getValue(), a2.getValue());
-            } else {
-                return Double.compare(a2.getValue(), a1.getValue());
-            }
-        });
-
-        // === Affichage des attributs au-dessus du seuil ===
-        System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES ABOVE THRESHOLD  (Threshold=%.4f)  ▬▬▬▬▬▬▬▬", threshold);
-        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
-        System.out.println("Number of selected attributes: " + selectedAttributes.size() + "\n");
-
-        System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
-        System.out.println("-------------------------------------------");
-
-        for (int i = 0; i < attributeMeasures.size(); i++) {
-            Pair<Attribute, Double> p = attributeMeasures.get(i);
-            String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
-            System.out.println(String.format("%-6d%-30s%12.4f",
-                i + 1,
-                cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
-                p.getValue()));
-        }
-
-       
     }
+
+    // Tri : croissant pour Entropy, décroissant sinon
+    boolean ascending = FeatureMeasureMethod == FEAT_ENTROPY;
+    allScores.sort((a, b) -> ascending ? Double.compare(a.score, b.score) : Double.compare(b.score, a.score));
+
+    // Affichage de tous les attributs
+    System.out.println("\n" + "▬".repeat(80));
+    System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
+    System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+    System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+    System.out.println("━".repeat(80));
+
+    int rank = 1;
+    for (AttributeScore s : allScores) {
+        String name = s.attribute.name().trim().replaceAll("\\s+", " ");
+        if (name.length() > 30) {
+            name = name.substring(0, 27) + "...";
+        }
+        System.out.println(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
+    }
+
+    System.out.println("─".repeat(80));
+
+    // Statistiques
+    double max = allScores.stream().mapToDouble(s -> s.score).max().orElse(0);
+    double min = allScores.stream().mapToDouble(s -> s.score).min().orElse(0);
+    double avg = allScores.stream().mapToDouble(s -> s.score).average().orElse(0);
+    System.out.println("\n📊 Statistics:");
+    System.out.printf(Locale.US, "Max: %8.4f  Min: %8.4f  Avg: %8.4f%n", max, min, avg);
+
+    // Sélection des top % attributs
+    int numSelected = (int) Math.ceil(threshold * allScores.size());
+    List<AttributeScore> topAttributes = allScores.subList(0, Math.min(numSelected, allScores.size()));
+
+    // Affichage des meilleurs attributs
+    System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES ABOVE THRESHOLD  ▬▬▬▬▬▬▬▬", threshold);
+    System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+    System.out.printf(Locale.US, "TOP %.0f%% ATTRIBUTES\n", threshold * 100);
+    System.out.println("Number of selected attributes: " + topAttributes.size() + "\n");
+    System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+    System.out.println("━".repeat(80));
+    
+    
+
+    rank = 1;
+    for (AttributeScore s : topAttributes) {
+        String name = s.attribute.name().trim().replaceAll("\\s+", " ");
+        if (name.length() > 30) {
+            name = name.substring(0, 27) + "...";
+        }
+        System.out.println(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
+    }
+
+    System.out.println("─".repeat(80));
+}
+
+
+    /**
+     * Petite classe utilitaire pour stocker un attribut avec sa mesure.
+     */
+    private static class AttributeScore {
+        Attribute attribute;
+        double score;
+
+        AttributeScore(Attribute attribute, double score) {
+            this.attribute = attribute;
+            this.score = score;
+        }
+    }
+
 
     // Classe utilitaire Pair pour stocker les paires attribut-mesure
     private static class Pair<K, V> {
