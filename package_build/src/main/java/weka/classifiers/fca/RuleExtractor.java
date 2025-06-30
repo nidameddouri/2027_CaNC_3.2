@@ -2,6 +2,7 @@ package weka.classifiers.fca;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -776,38 +777,39 @@ public class RuleExtractor {
 
 
 
-    private ArrayList<Attribute> selectAttributesUnderThreshold(Instances inst, double threshold)  {
-        ArrayList<Attribute> selectedAttributes = new ArrayList<>();
-        double[] measures = null;
+   private ArrayList<Attribute> selectAttributesUnderThreshold(Instances inst, double percentage) {
+    ArrayList<Attribute> selectedAttributes = new ArrayList<>();
+    double[] measures = null;
 
-        try {
-            measures = computeFeatureMeasures(inst);
-        } catch (Exception e) {
-            System.out.println("Error in measures calculating in selectTopPercentageAttributes: " + e.getMessage());
-            return selectedAttributes;
-        }
-
-        // Créer une liste des attributs avec leur score
-        List<AttributeScore> attributeScores = new ArrayList<>();
-
-        for (int i = 0; i < measures.length; i++) {
-            if (i != inst.classIndex()) {
-                attributeScores.add(new AttributeScore(inst.attribute(i), measures[i]));
-            }
-        }
-
-        // Trier les attributs par ordre décroissant de score
-        attributeScores.sort((a, b) -> Double.compare(b.score, a.score));
-
-        // Calculer le nombre d'attributs à sélectionner
-        int numToSelect = (int) Math.ceil(threshold * attributeScores.size());
-
-        for (int i = attributeScores.size()-1; i > numToSelect && i <= attributeScores.size(); i--) {
-            selectedAttributes.add(attributeScores.get(i).attribute);
-        }
-
+    try {
+        measures = computeFeatureMeasures(inst);
+    } catch (Exception e) {
+        System.out.println("Error in measures calculating in selectAttributesUnderThreshold: " + e.getMessage());
         return selectedAttributes;
     }
+
+    // Créer une liste des attributs avec leur score
+    List<AttributeScore> attributeScores = new ArrayList<>();
+
+    for (int i = 0; i < measures.length; i++) {
+        if (i != inst.classIndex()) {
+            attributeScores.add(new AttributeScore(inst.attribute(i), measures[i]));
+        }
+    }
+
+    // Trier les attributs par ordre croissant de score (plus petit d'abord)
+    attributeScores.sort(Comparator.comparingDouble(a -> a.score));
+
+    // Calculer le nombre d'attributs à sélectionner
+    int numToSelect = (int) Math.ceil(percentage * attributeScores.size());
+
+    // Sélectionner les n% plus petits attributs
+    for (int i = 0; i < numToSelect && i < attributeScores.size(); i++) {
+        selectedAttributes.add(attributeScores.get(i).attribute);
+    }
+
+    return selectedAttributes;
+}
 
     
     
@@ -850,22 +852,29 @@ public class RuleExtractor {
     System.out.println("\n📊 Statistics:");
     System.out.printf(Locale.US, "Max: %8.4f  Min: %8.4f  Avg: %8.4f%n", max, min, avg);
 
-    // Sélection des top % attributs
-    int total = allScores.size();
-    int numSelected = (int) Math.ceil(threshold * total);
+    // Sélection des attributs sous le seuil via la méthode dédiée
+    ArrayList<Attribute> bottomAttributes = selectAttributesUnderThreshold(inst, threshold);
 
-    // Attributs les moins pertinents (fin de la liste)
-    List<AttributeScore> leastAttributes = allScores.subList(total - numSelected, total);
+    // Récupérer les scores correspondants
+    Map<String, Double> nameToScore = new HashMap<>();
+    for (int i = 0; i < inst.numAttributes(); i++) {
+        if (i != inst.classIndex()) {
+            nameToScore.put(inst.attribute(i).name(), featureMeasures[i]);
+        }
+    }
 
-    // Affichage des meilleurs attributs
+    List<AttributeScore> leastAttributes = new ArrayList<>();
+    for (Attribute attr : bottomAttributes) {
+        leastAttributes.add(new AttributeScore(attr, nameToScore.get(attr.name())));
+    }
+
+    // Affichage des attributs sélectionnés
     System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES UNDER THRESHOLD  ▬▬▬▬▬▬▬▬", threshold);
     System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
-    System.out.printf(Locale.US, "BOTTOM %.0f%% ATTRIBUTES\n", threshold * 100);
+    System.out.printf(Locale.US, "BOTTOM %.1f%% ATTRIBUTES\n", threshold * 100);
     System.out.println("Number of selected attributes: " + leastAttributes.size() + "\n");
     System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
     System.out.println("━".repeat(80));
-    
-    
 
     rank = 1;
     for (AttributeScore s : leastAttributes) {
