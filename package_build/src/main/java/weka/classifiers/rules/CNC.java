@@ -59,6 +59,11 @@ public class CNC extends AbstractClassifier
     public static final int CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY = 6;
     public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_ALL = 7;
     public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY = 8;
+    public static final int N_ATTRIBUTES_COMBINATION_ALL_VALUES= 9;
+    public static final int N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES= 10;
+
+
+    
 
     // Policy selection constants
     public static final int POLICY_FIRST = 1;
@@ -69,7 +74,7 @@ public class CNC extends AbstractClassifier
     //All Combinations constants
 
     public static final boolean ALL_COMBINATIONS = true;
-    
+
     //Concepts list
     String conceptsListStr;
     
@@ -102,7 +107,11 @@ public class CNC extends AbstractClassifier
         new Tag(CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL, "Closure of attributes above THRESHOLD & All Values"),
         new Tag(CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY, "Closure of attributes above THRESHOLD & Majority Value"),
         new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_ALL, "Closure of attributes under THRESHOLD & All Values"),
-        new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY, "Closure of attributes under THRESHOLD & Majority Value")
+        new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY, "Closure of attributes under THRESHOLD & Majority Value"),
+        new Tag(N_ATTRIBUTES_COMBINATION_ALL_VALUES,"Closure of N attributes combination All Values" ),
+        new Tag(N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES,"Closure of N attributes combination Majority  Values" ),
+
+
     };
     
     public static final Tag[] TAGS_Policy_Selection = {
@@ -124,6 +133,8 @@ public class CNC extends AbstractClassifier
     protected double m_PluralityThreshold = 50;
     protected double m_WeightThreshold = 10;
     protected boolean allCombinations = true;
+    protected int combinationSize = 1;
+
 
     
     protected ReplaceMissingValues m_Missing = new ReplaceMissingValues();
@@ -248,6 +259,8 @@ public class CNC extends AbstractClassifier
             case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY: return "Closure of Attributes Above Threshold & Majority Value";
             case CONCEPT_LEARNING_UNDER_THRESHOLD_ALL: return "Closure of Attributes Under Threshold & All Values";
             case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY: return "Closure of Attributes Under Threshold & Majority Value";
+            case N_ATTRIBUTES_COMBINATION_ALL_VALUES: return "Closure of N attributes combination All Values" ;
+			case N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES : return "Closure of N attributes combination Majority Values";
             default: return "Unknown Strategy";
         } 
     }
@@ -308,7 +321,13 @@ public class CNC extends AbstractClassifier
             System.out.println("[DEBUG] allCombinations set to: " + value);
         }
     }
+    public int getCombinationSize() {
+    	return combinationSize;
+    }
 
+    public void setCombinationSize(int n) {
+    	combinationSize=n;
+    }
     
 
     // Core methods
@@ -316,7 +335,7 @@ public class CNC extends AbstractClassifier
     public TechnicalInformation getTechnicalInformation() {
         TechnicalInformation result = new TechnicalInformation(Type.INPROCEEDINGS);
         result.setValue(Field.YEAR, "2025");
-        result.setValue(Field.AUTHOR, "Y. Souissi,N. MEDDOURI et F. Boissier");
+        result.setValue(Field.AUTHOR, "Y. Souissi,N. MEDDOURI And F. Boissier");
         result.setValue(Field.PUBLISHER, "Academic Publisher");
         result.setValue(Field.ADDRESS, "Paris, France");
         result.setValue(Field.ORGANIZATION, "Research Unit on Programming, Algorithmics and Heuristics");
@@ -395,13 +414,20 @@ public class CNC extends AbstractClassifier
             "\t5: Above Threshold - All Values\n" +
             "\t6: Above Threshold - Majority Value\n" +
             "\t7: Under Threshold - All Values\n" +
-            "\t8: Under Threshold - Majority Value",
+            "\t8: Under Threshold - Majority Value"+
+            "\t9: N Attributes Combination- All Values\n"+
+            "\t10: N Attributes Combination- Majority Values\n",
+
             "conceptStrategy", 1, "-conceptStrategy <num>"));
 
         // Option for threshold
         newVector.addElement(new Option(
             "\tThreshold value for attribute selection (>= 0).",
             "THRESHOLD", 1, "-THRESHOLD <num>"));
+        
+        newVector.addElement(new Option(
+                "\tCombination size for attribute selection (>= 0).",
+                "combinationSize", 1, "-combinationSize <num>"));
         
         newVector.addElement(new Option(
             "\tWhen to calculate threshold:\n" +
@@ -467,6 +493,15 @@ public class CNC extends AbstractClassifier
             }
         }
 
+     // Handle Combination size
+        String combinationSizeStr = Utils.getOption("combinationSize", options);
+        if (!combinationSizeStr.isEmpty()) {
+            combinationSize = Integer.parseInt(combinationSizeStr);
+            if (combinationSize < 1) {
+                throw new IllegalArgumentException("Combination size must be at least 1");
+            }
+        }
+
         // Handle plurality threshold
         String pluralityAgregationThresholdStr = Utils.getOption("pluralityAgregationThreshold", options);
         if (!pluralityAgregationThresholdStr.isEmpty()) {
@@ -499,7 +534,7 @@ public class CNC extends AbstractClassifier
         String strategyStr = Utils.getOption("conceptStrategy", options);
         if (!strategyStr.isEmpty()) {
             int strategy = Integer.parseInt(strategyStr);
-            if (strategy < 1 || strategy > 8) {
+            if (strategy < 1 || strategy > 10) {
                 throw new IllegalArgumentException("Invalid concept strategy number. Must be between 1-8");
             }
             ConceptLearningStrategy = strategy;
@@ -585,6 +620,11 @@ public class CNC extends AbstractClassifier
         result.add("-numbTopKVoters");
         result.add(String.valueOf(m_TopKVoters));
         
+        //combinationSize
+        result.add("-combinationSize");
+        result.add(String.valueOf(combinationSize));
+        
+        
         result.add("-thresholdTiming");
         result.add(String.valueOf(m_ThresholdTiming));
 
@@ -656,7 +696,7 @@ public class CNC extends AbstractClassifier
         id.append("_ConLearn=").append(getConceptLearningStrategyName());
 
         if (ConceptLearningStrategy >= CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL &&
-            ConceptLearningStrategy <= CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY) {
+            ConceptLearningStrategy <= N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES) {
             id.append("_Thr=").append(m_THRESHOLD);
             id.append("_ThrTim=").append(m_ThresholdTiming == 1 ? "BEF disc" : "AFT disc");
             id.append("_ThrCalc=").append(Auto_THRESHOLD ? "Auto" : "Manual");
@@ -782,23 +822,7 @@ public class CNC extends AbstractClassifier
     
     public void buildClassifier(Instances data) throws Exception {
 
-    	/*for (int i = 0; i < data.numInstances(); i++) {
-    	    Instance inst = data.instance(i);
-    	    for (int j = 0; j < inst.numAttributes(); j++) {
-    	    	if (inst.attribute(j).isNominal() || inst.attribute(j).isString() || inst.attribute(j).isDate()) {
-    	            if ( inst.stringValue(j).equals("?")) {
-    	            	if(m_Debug) {
-    	            		System.out.println("Missing value detected at instance " + i + ", attribute " + j);
-    	            	}
-    	            	
-    	            	// Affichage du panneau d’alerte
-    	               
-    	                throw new Exception("Cannot build CNC classifier: dataset contains missing values.");
-    	            }
-    	    }
-    	    }
-    	    }
-*/
+    	
 
         // Vérification des capacités et prétraitement des données
         getCapabilities().testWithFail(data);
@@ -929,7 +953,7 @@ public class CNC extends AbstractClassifier
                 }
 
                 break;
-                
+                 
             case CONCEPT_LEARNING_ABOVE_THRESHOLD_MAJORITY:
                 if (m_Debug) {
                     System.out.println("=== ABOVE THRESHOLD - MAJORITY VALUES - AllCombinations MODE ACTIVE ===");
@@ -1010,7 +1034,22 @@ public class CNC extends AbstractClassifier
                 if (m_Debug) {
                     printRuleStatistics();
                 }
-
+            case N_ATTRIBUTES_COMBINATION_ALL_VALUES:
+            	if (m_Debug) {
+                    System.out.println("=== N Attribute- ALL VALUES - AllCombinations MODE ACTIVE ===");
+            	}
+            	
+                m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances,getCombinationSize());
+                
+                break;
+                
+            case N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES:
+            	if (m_Debug) {
+                    System.out.println("=== N Attribute- ALL VALUES - AllCombinations MODE ACTIVE ===");
+            	}
+            	
+                m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances,getCombinationSize());
+                
                 break;
         }
         }

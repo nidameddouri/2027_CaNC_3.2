@@ -280,51 +280,8 @@ public class _GaloisConnection {
     
     
     
-    /**
-     * Génère les concepts formels en considérant tous les attributs individuellement (sans combinaisons)
-     * tout en réutilisant la même structure que generateConceptsAllCombinations
-     */
-    public ArrayList<Classification_Rule> generateConcepts(Instances inst, 
-                                                         ArrayList<Attribute> attributes,
-                                                         ArrayList<String> allConcepts,
-                                                         boolean debug) throws Exception {
-        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
-        ArrayList<Classification_Rule> rules = new ArrayList<>();
+    
 
-
-        // Version simplifiée qui ne génère pas de combinaisons
-        for (Attribute attr : attributes) {
-            ArrayList<Attribute> singleAttrList = new ArrayList<>();
-            singleAttrList.add(attr);
-
-            // Grouper les instances par valeurs de cet attribut unique
-            Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, singleAttrList);
-
-            for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
-                ArrayList<Integer> instanceSubset = entry.getValue();
-                
-                if (instanceSubset.size() <= 1) {
-                    continue;
-                }
-                
-                Set<Integer> instanceSet = new HashSet<>(instanceSubset);
-                Map<String,String> closure = computeAttributeClosure(inst, instanceSubset,attributes);
-
-                Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
-                updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-            }
-        }
-
-        // Construire la liste finale (même méthode que generateConceptsAllCombinations)
-     // Construire la liste finale
-        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
-        if (debug) {
-            //affichage concepts
-        	printConcepts(this.getConceptList(), inst);
-        }
-        
-        return rules;
-    }
     
     
   
@@ -767,59 +724,7 @@ public class _GaloisConnection {
         return count;
     }
     
-    /**
-     * Génère les concepts formels à partir des instances et attributs
-     */
-    ArrayList<Classification_Rule> generateConceptsAllCombinations(Instances inst, 
-                                                         ArrayList<Attribute> attributes,
-                                                         ArrayList<String> allConcepts,
-                                                         boolean debug) throws Exception {
-        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
-        ArrayList<Classification_Rule> rules = new ArrayList<>();
-        
-        //afficheAttributsEtValeurs(inst);
-        if(debug) {
-        	System.out.println("Generating concepts .....");
-        }
-        
-        int m = attributes.size();
-        for (int k = 1; k <= m; k++) {
-            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst,attributes, k,debug);
-
-            for (List<Attribute> attrCombination : attrCombinations) {
-                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
-                Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, attrCombinationArrayList);
-
-                for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
-                    ArrayList<Integer> instanceSubset = entry.getValue();
-                    
-                    if (instanceSubset.size() <= 1) {
-                        continue;
-                    }
-                    
-                    Set<Integer> instanceSet = new HashSet<>(instanceSubset);
-                    Map<String,String> closure = computeAttributeClosure(inst, instanceSubset,attrCombinationArrayList);
-                    // Parcours de tous les attributs
-                    
-                    if (closure.size()!=0) {
-                        Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
-                        updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-
-                    }
-                }
-            }
-        }
-
-        // Construire la liste finale
-        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
-           
-        if (debug) {
-            //affichage concepts
-        	//printConcepts(this.getConceptList(), inst);
-        }
-        return rules;
-    }
-
+    
 
 
     private void logDebug(String message) {
@@ -829,91 +734,7 @@ public class _GaloisConnection {
     }
 
     
-    public ArrayList<Classification_Rule> generateConceptsFromMajorityValuesAllCombinations(
-            Instances inst,
-            ArrayList<Attribute> attributes,
-            int Policy_Selection,
-            ArrayList<String> allConcepts,
-            boolean debug) throws Exception {
-
-        if (debug) {
-            logDebug("Generating concepts from majority value combinations ...");
-        }
-
-        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
-        ArrayList<Classification_Rule> rules = new ArrayList<>();
-
-        // Étape 1 : Calcul des valeurs majoritaires pour chaque attribut
-        if (debug) {
-            logDebug("Step 1: Calculating majority values for each attribute ...");
-        }
-
-        Map<Attribute, String> majorityValues = new HashMap<>();
-        for (Attribute attr : attributes) {
-            int majorityIndex = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
-            String majorityValue = attr.value(majorityIndex);
-            majorityValues.put(attr, majorityValue);
-            if (debug) {
-                logDebug("   - Majority value for attribute '" + attr.name() + "': " + majorityValue);
-            }
-        }
-
-        // Étape 2 : Générer les combinaisons d'attributs
-        int m = attributes.size();
-        for (int k = 1; k <= m; k++) {
-            if (debug) {
-                logDebug("Step 2: Generating combinations of size " + k + " ...");
-            }
-
-            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
-
-            for (List<Attribute> attrCombination : attrCombinations) {
-                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
-
-                if (debug) {
-                    StringBuilder combInfo = new StringBuilder();
-                    combInfo.append("   > Processing combination: ");
-                    for (Attribute attr : attrCombinationArrayList) {
-                        combInfo.append(attr.name()).append("=").append(majorityValues.get(attr)).append("  ");
-                    }
-                    logDebug(combInfo.toString());
-                }
-
-                // Étape 3 : Trouver les instances correspondant à la combinaison
-                ArrayList<Integer> instanceSubset = findInstancesWithMajorityValues(inst, attrCombinationArrayList, majorityValues);
-
-                if (debug) {
-                    logDebug("      -> Found " + instanceSubset.size() + " matching instances");
-                }
-
-                if (instanceSubset.size() <= 1) continue;
-
-                Set<Integer> instanceSet = new HashSet<>(instanceSubset);
-                Map<String, String> closure = computeAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
-
-                if (!closure.isEmpty()) {
-                    Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
-                    updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-                }
-            }
-        }
-
-        // Étape 4 : Construire la liste finale
-        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
-
-        if (debug) {
-            logDebug("Final concepts:");
-            printConcepts(this.getConceptList(), inst);
-        }
-
-        return rules;
-    }
-
-
-
     
-    
-   
 
     /**
      * Trouve les instances ayant les valeurs majoritaires pour une combinaison d'attributs
@@ -940,57 +761,6 @@ public class _GaloisConnection {
         return instances;
     }
 
-
-	    /**
-	     * Génère des règles pour chaque attribut avec sa valeur majoritaire
-	     */
-	public ArrayList<Classification_Rule> generateConceptsFromMajorityValues(Instances inst, 
-	                                                                         ArrayList<Attribute> attributes,
-	                                                                         ArrayList<String> allConcepts,
-	                                                                         int Policy_Selection,
-	                                                                         boolean debug) throws Exception {
-	        ArrayList<Classification_Rule> rules = new ArrayList<>();
-	        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
-
-	        // 1. Pour chaque attribut individuellement
-	        for (Attribute attr : attributes) {
-	            // 2. Trouver la valeur majoritaire de cet attribut
-	            int majorityIdx = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
-	            String majorityValue = attr.value(majorityIdx);
-
-	            // 3. Trouver les instances ayant cette valeur majoritaire
-	            ArrayList<Integer> matchingInstances = new ArrayList<>();
-	            for (int i = 0; i < inst.numInstances(); i++) {
-	                if (inst.instance(i).stringValue(attr).equals(majorityValue)) {
-	                    matchingInstances.add(i);
-	                }
-	            }
-
-	            if (matchingInstances.size() > 1) { // Seuil minimal d'instances
-	                // 4. Calculer la fermeture pour ces instances
-	                Map<String,String> closure = computeAttributeClosure(inst, matchingInstances,attributes);
-
-	                // 5. Créer une règle spécifique à cet attribut
-	                Classification_Rule rule = createClassificationRule(inst, matchingInstances, closure, attributes);
-	                
-	                // 6. Mettre à jour les meilleurs concepts
-	                Set<Integer> instanceSet = new HashSet<>(matchingInstances);
-	                updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-	            }
-	        }
-
-	        // 7. Construire le résultat final
-	        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
-	           
-	        if (debug) {
-	        	//affichage concepts
-	            //printConcepts(this.getConceptList(), inst);
-	        }
-	        
-	        return rules;
-	    }
-	    
-	    
 
     /**
      * Trouve l'index de la valeur majoritaire d'un attribut
@@ -1041,4 +811,394 @@ public class _GaloisConnection {
 
         return new FormalConcept(instanceSet, labeledAttributes);
     }
+    
+    /**
+     * Génère les concepts formels en considérant tous les attributs individuellement (sans combinaisons)
+     * tout en réutilisant la même structure que generateConceptsAllCombinations
+     */
+    public ArrayList<Classification_Rule> generateConcepts(Instances inst, 
+            ArrayList<Attribute> attributes,
+            ArrayList<String> allConcepts,
+		    boolean debug) throws Exception {
+    	
+		long startTime = System.currentTimeMillis(); // Start timing
+		
+		if (debug) logDebug("Starting concept generation (no attribute combinations)");
+		
+		Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+		ArrayList<Classification_Rule> rules = new ArrayList<>();
+		
+		int attrCount = 0;
+		for (Attribute attr : attributes) {
+		attrCount++;
+		if (debug) logDebug("Processing attribute " + attr.name() + " (" + attrCount + "/" + attributes.size() + ")");
+		
+		ArrayList<Attribute> singleAttrList = new ArrayList<>();
+		singleAttrList.add(attr);
+		
+		Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, singleAttrList);
+		
+		if (debug) logDebug("Found " + valueGroups.size() + " value groups for attribute " + attr.name());
+		
+		for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
+		String valueKey = entry.getKey();
+		ArrayList<Integer> instanceSubset = entry.getValue();
+		
+		if (debug) logDebug("  - Value: " + valueKey + " (" + instanceSubset.size() + " instances)");
+		
+		if (instanceSubset.size() <= 1) {
+		if (debug) logDebug("    - Group ignored (size <= 1)");
+		continue;
+		}
+		
+		Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+		Map<String, String> closure = computeAttributeClosure(inst, instanceSubset, attributes);
+		
+		if (debug) logDebug("    - Attribute closure computed: " + closure);
+		
+		Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+		
+		if (debug) logDebug("    - Classification rule created: " + rule.affich_nom_rule(debug));
+		
+		updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+		
+		if (debug) logDebug("    - Best concepts updated");
+		}
+		}
+		
+		// Final construction of the rules list
+		setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
+		
+		if (debug) {
+		logDebug("Final concept list built");
+		printConcepts(this.getConceptList(), inst);
+		}
+		
+		long endTime = System.currentTimeMillis();
+		if (debug) {
+		logDebug("Concept generation completed");
+		logDebug("Total duration: " + (endTime - startTime) + " ms");
+		}
+		
+		return rules;
+	}
+    
+    public ArrayList<Classification_Rule> generateConceptsFromMajorityValuesAllCombinations(
+            Instances inst,
+            ArrayList<Attribute> attributes,
+            int Policy_Selection,
+            ArrayList<String> allConcepts,
+            boolean debug) throws Exception {
+
+        long startTime = System.currentTimeMillis();
+        if (debug) logDebug("Starting concept generation using majority values and attribute combinations");
+
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        if (debug) logDebug("Step 1: Calculating majority values for each attribute");
+        Map<Attribute, String> majorityValues = new HashMap<>();
+        for (Attribute attr : attributes) {
+            int majorityIndex = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
+            String majorityValue = attr.value(majorityIndex);
+            majorityValues.put(attr, majorityValue);
+            if (debug) logDebug("  - " + attr.name() + " → " + majorityValue);
+        }
+
+        int m = attributes.size();
+        for (int k = 1; k <= m; k++) {
+            if (debug) logDebug("Step 2: Generating attribute combinations of size " + k);
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
+
+            for (List<Attribute> attrCombination : attrCombinations) {
+                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
+
+                if (debug) {
+                    StringBuilder combInfo = new StringBuilder("  -> Processing combination: ");
+                    for (Attribute attr : attrCombinationArrayList) {
+                        combInfo.append(attr.name()).append("=").append(majorityValues.get(attr)).append(" ");
+                    }
+                    logDebug(combInfo.toString());
+                }
+
+                ArrayList<Integer> instanceSubset = findInstancesWithMajorityValues(inst, attrCombinationArrayList, majorityValues);
+
+                if (debug) logDebug("     - Found " + instanceSubset.size() + " matching instances");
+
+                if (instanceSubset.size() <= 1) continue;
+
+                Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+                Map<String, String> closure = computeAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
+
+                if (!closure.isEmpty()) {
+                    Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                    updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+                    if (debug) logDebug("     - Rule added with closure: " + closure);
+                }
+            }
+        }
+
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
+
+        if (debug) {
+            logDebug("Final concept list constructed");
+            printConcepts(this.getConceptList(), inst);
+            long endTime = System.currentTimeMillis();
+            logDebug("Total duration: " + (endTime - startTime) + " ms");
+        }
+
+        return rules;
+    }
+    
+    public ArrayList<Classification_Rule> generateConceptsFromMajorityValues(Instances inst, 
+            ArrayList<Attribute> attributes,
+            ArrayList<String> allConcepts,
+            int Policy_Selection,
+            boolean debug) throws Exception {
+		long startTime = System.currentTimeMillis();
+		if (debug) logDebug("Starting concept generation using majority value for each attribute");
+		
+		ArrayList<Classification_Rule> rules = new ArrayList<>();
+		Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+		
+		for (Attribute attr : attributes) {
+		int majorityIdx = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
+		String majorityValue = attr.value(majorityIdx);
+		
+		if (debug) logDebug("  - Attribute: " + attr.name() + " → Majority: " + majorityValue);
+		
+		ArrayList<Integer> matchingInstances = new ArrayList<>();
+		for (int i = 0; i < inst.numInstances(); i++) {
+		if (inst.instance(i).stringValue(attr).equals(majorityValue)) {
+		matchingInstances.add(i);
+		}
+		}
+		
+		if (debug) logDebug("     - Matching instances: " + matchingInstances.size());
+		
+		if (matchingInstances.size() > 1) {
+		Map<String, String> closure = computeAttributeClosure(inst, matchingInstances, attributes);
+		
+		if (!closure.isEmpty()) {
+		Classification_Rule rule = createClassificationRule(inst, matchingInstances, closure, attributes);
+		Set<Integer> instanceSet = new HashSet<>(matchingInstances);
+		updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+		if (debug) logDebug("     - Rule added with closure: " + closure);
+		}
+		}
+		}
+		
+		setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
+		
+		if (debug) {
+		logDebug("Final concept list constructed");
+		printConcepts(this.getConceptList(), inst);
+		long endTime = System.currentTimeMillis();
+		logDebug("Total duration: " + (endTime - startTime) + " ms");
+		}
+		
+		return rules;
+}
+    /**
+     * Generates formal concepts from all combinations of attributes and instance groups.
+     */
+    ArrayList<Classification_Rule> generateConceptsAllCombinations(Instances inst, 
+                                                         ArrayList<Attribute> attributes,
+                                                         ArrayList<String> allConcepts,
+                                                         boolean debug) throws Exception {
+        long startTime = System.currentTimeMillis();
+        if (debug) logDebug("Starting formal concept generation from all attribute combinations");
+
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        int m = attributes.size();
+        for (int k = 1; k <= m; k++) {
+            if (debug) logDebug("Generating attribute combinations of size " + k);
+
+            List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
+
+            for (List<Attribute> attrCombination : attrCombinations) {
+                ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
+                if (debug) {
+                    logDebug("  -> Processing combination: " + attrCombinationArrayList.stream()
+                                .map(Attribute::name)
+                                .collect(Collectors.joining(", ")));
+                }
+
+                Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, attrCombinationArrayList);
+
+                for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
+                    ArrayList<Integer> instanceSubset = entry.getValue();
+
+                    if (instanceSubset.size() <= 1) {
+                        if (debug) logDebug("    - Skipping group with 1 or fewer instances");
+                        continue;
+                    }
+
+                    Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+                    Map<String, String> closure = computeAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
+
+                    if (!closure.isEmpty()) {
+                        Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                        updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+                        if (debug) logDebug("    - Rule created with closure: " + closure);
+                    }
+                }
+            }
+        }
+
+        // Build the final list of concepts
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
+
+        if (debug) {
+            logDebug("Final list of concepts built");
+            printConcepts(this.getConceptList(), inst);
+            long endTime = System.currentTimeMillis();
+            logDebug("Total duration: " + (endTime - startTime) + " ms");
+        }
+
+        return rules;
+    }
+
+    /**
+     * Generates formal concepts from all attribute combinations of fixed size n.
+     */
+    ArrayList<Classification_Rule> generateConceptsAttributeCombinationsOfSizeN(
+            Instances inst,
+            ArrayList<Attribute> attributes,
+            ArrayList<String> allConcepts,
+            int n,
+            boolean debug) throws Exception {
+
+        long startTime = System.currentTimeMillis();
+        if (debug) logDebug("➡ Starting formal concept generation with attribute combinations of size " + n);
+
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        // Générer toutes les combinaisons de taille n
+        List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, n, debug);
+
+        for (List<Attribute> attrCombination : attrCombinations) {
+            ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
+
+            if (debug) {
+                logDebug("  -> Processing combination: " + attrCombinationArrayList.stream()
+                            .map(Attribute::name)
+                            .collect(Collectors.joining(", ")));
+            }
+
+            // Grouper les instances selon les valeurs des attributs dans la combinaison
+            Map<String, ArrayList<Integer>> valueGroups =
+                    groupInstancesByAttributeValues(inst, attrCombinationArrayList);
+
+            for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
+                ArrayList<Integer> instanceSubset = entry.getValue();
+
+                if (instanceSubset.size() <= 1) {
+                    if (debug) logDebug("    - Skipping group with 1 or fewer instances");
+                    continue;
+                }
+
+                Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+                Map<String, String> closure =
+                        computeAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
+
+                if (!closure.isEmpty()) {
+                    Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                    updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+                    if (debug) logDebug("    - Rule created with closure: " + closure);
+                }
+            }
+        }
+
+        // Créer la liste finale de concepts
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
+
+        if (debug) {
+            logDebug("✅ Final list of concepts built");
+            printConcepts(this.getConceptList(), inst);
+            long endTime = System.currentTimeMillis();
+            logDebug("⏱ Total duration: " + (endTime - startTime) + " ms");
+        }
+
+        return rules;
+    }
+    
+    public ArrayList<Classification_Rule> generateConceptsAttributeCombinationsOfSizeNMajorityValues(
+            Instances inst,
+            ArrayList<Attribute> attributes,
+            int n,
+            int Policy_Selection,
+            ArrayList<String> allConcepts,
+            boolean debug) throws Exception {
+
+        long startTime = System.currentTimeMillis();
+        if (debug) logDebug("➡ Starting concept generation for attribute combinations of size " + n + " using majority values");
+
+        Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        // Étape 1 : Calcul des valeurs majoritaires pour chaque attribut
+        if (debug) logDebug("  ➤ Calculating majority values");
+        Map<Attribute, String> majorityValues = new HashMap<>();
+        for (Attribute attr : attributes) {
+            int majorityIndex = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
+            String majorityValue = attr.value(majorityIndex);
+            majorityValues.put(attr, majorityValue);
+            if (debug) logDebug("    - " + attr.name() + " → " + majorityValue);
+        }
+
+        // Étape 2 : Génération des combinaisons d'attributs de taille n
+        List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, n, debug);
+
+        for (List<Attribute> attrCombination : attrCombinations) {
+            ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
+
+            // Affichage debug des attributs avec leur valeur majoritaire
+            if (debug) {
+                StringBuilder combInfo = new StringBuilder("  ➤ Combination: ");
+                for (Attribute attr : attrCombinationArrayList) {
+                    combInfo.append(attr.name()).append("=").append(majorityValues.get(attr)).append(" ");
+                }
+                logDebug(combInfo.toString());
+            }
+
+            // Étape 3 : Filtrer les instances correspondant aux valeurs majoritaires de la combinaison
+            ArrayList<Integer> instanceSubset = findInstancesWithMajorityValues(inst, attrCombinationArrayList, majorityValues);
+
+            if (debug) logDebug("     ➥ Found " + instanceSubset.size() + " matching instances");
+
+            if (instanceSubset.size() <= 1) {
+                if (debug) logDebug("     ✖ Skipped (≤ 1 instance)");
+                continue;
+            }
+
+            Set<Integer> instanceSet = new HashSet<>(instanceSubset);
+            Map<String, String> closure = computeAttributeClosure(inst, instanceSubset, attrCombinationArrayList);
+
+            if (!closure.isEmpty()) {
+                Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
+                updateBestConcepts(bestConcepts, instanceSet, rule, closure);
+                if (debug) logDebug("     ✔ Rule added with closure: " + closure);
+            }
+        }
+
+        // Étape 4 : Construction de la liste finale de concepts
+        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
+
+        if (debug) {
+            logDebug("✅ Final list of concepts built");
+            printConcepts(this.getConceptList(), inst);
+            long endTime = System.currentTimeMillis();
+            logDebug("⏱ Total duration: " + (endTime - startTime) + " ms");
+        }
+
+        return rules;
+    }
+
+
+
+
 }

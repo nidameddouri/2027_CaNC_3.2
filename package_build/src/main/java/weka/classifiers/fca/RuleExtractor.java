@@ -229,7 +229,60 @@ public class RuleExtractor {
 
         return entropy;
     }
-
+    
+	public ArrayList<Classification_Rule> extractNAttributesAllValues(Instances inst, int n) throws Exception {
+	    ArrayList<Attribute> attributes = new ArrayList<>();
+	    for (int i = 0; i < inst.numAttributes() - 1; i++) {
+	        attributes.add(inst.attribute(i));
+	    }
+	    
+	    ArrayList<String> allConceptsList = new ArrayList<>();
+	    boolean debug = m_Debug;
+	    
+	    if (debug) {
+	        System.out.println("\n=== EXTRACTION with N ATTRIBUTS ALL VALEURS (N="+n+") ===");
+	        System.out.println("Total number of attributes: " + attributes.size());
+	    }
+	    
+	    // Appel à la nouvelle méthode generateConcepts
+	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsAttributeCombinationsOfSizeN(inst, attributes, allConceptsList,n, debug);
+	    
+	    if (debug) {
+	        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+	        System.out.println("Nombre total de règles: " + rules.size());
+	        System.out.println("--------------------------------------------");
+	    }
+	    
+	    return rules;
+	}
+	
+	public ArrayList<Classification_Rule> extractNAttributesMajorityValues(Instances inst, int n) throws Exception {
+	    ArrayList<Attribute> attributes = new ArrayList<>();
+	    for (int i = 0; i < inst.numAttributes() - 1; i++) {
+	        attributes.add(inst.attribute(i));
+	    }
+	    
+	    ArrayList<String> allConceptsList = new ArrayList<>();
+	    boolean debug = m_Debug;
+	    
+	    if (debug) {
+	        System.out.println("\n=== EXTRACTION with N ATTRIBUTS MAJORITY VALEURS (N="+n+") ===");
+	        System.out.println("Total number of attributes: " + attributes.size());
+	    }
+	    
+	    // Appel à la nouvelle méthode generateConcepts
+	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsAttributeCombinationsOfSizeNMajorityValues(inst, attributes, n, Policy_Selection, allConceptsList, debug);
+	    
+	    if (debug) {
+	        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+	        System.out.println("Nombre total de règles: " + rules.size());
+	        System.out.println("--------------------------------------------");
+	    }
+	    
+	    return rules;
+	}
+    
+    
 	/**
 	 * Ancienne méthode extractAllAttributesAllValues transformée pour appeler generateConcepts
 	 * tout en conservant sa logique originale
