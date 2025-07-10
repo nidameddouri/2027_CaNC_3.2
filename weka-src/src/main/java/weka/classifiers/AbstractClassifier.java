@@ -217,6 +217,10 @@ public abstract class AbstractClassifier implements Classifier, BatchPredictor,
     switch (instance.classAttribute().type()) {
     case Attribute.NOMINAL:
       double classification = classifyInstance(instance);
+      if(classification==-1.0) {
+          return dist;
+
+      }
       if (Utils.isMissingValue(classification)) {
         return dist;
       } else {

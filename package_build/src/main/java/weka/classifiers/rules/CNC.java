@@ -750,7 +750,8 @@ public class CNC extends AbstractClassifier
     @Override
     public double classifyInstance(Instance inst) throws Exception {
         if (m_classifierNC == null) {
-            throw new IllegalStateException("Model not built. Call buildClassifier() first.");
+            //throw new IllegalStateException("Model not built. Call buildClassifier() first.");
+        	return -1.0;
         }
         if (structure == null)
             throw new Exception("No input instance format defined");
@@ -1036,29 +1037,55 @@ public class CNC extends AbstractClassifier
                 if (m_Debug) {
                     printRuleStatistics();
                 }
+                break;
             case N_ATTRIBUTES_COMBINATION_ALL_VALUES:
-            	if (m_Debug) {
-                    System.out.println("=== N Attribute- ALL VALUES - AllCombinations MODE ACTIVE ===");
-            	}
-            	n=getCombinationSize();
-            	n=Math.min(n, m_FilteredInstances.numAttributes()-1);
-                m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances,n);
+                if (m_Debug) {
+                    System.out.println("=== N Attribute - ALL VALUES - AllCombinations MODE ACTIVE ===");
+                }
+
+                n = getCombinationSize();
+                int nbAttr = m_FilteredInstances.numAttributes() - 1; // -1 pour la classe
+
+                if (n > nbAttr) {
+                    if (m_Debug) {
+                        System.out.println(">> N > nombre d'attributs : aucune règle générée");
+                    }
+                    m_classifierNC = null; 
+                    
+                    break;
+                }
+
+                n = Math.min(n, nbAttr);
+                m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances, n);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
                 break;
-                
+
             case N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES:
-            	if (m_Debug) {
-                    System.out.println("=== N Attribute- ALL VALUES - AllCombinations MODE ACTIVE ===");
-            	}
-            	n=getCombinationSize();
-            	n=Math.min(n, m_FilteredInstances.numAttributes()-1);
-                m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances,n);
+                if (m_Debug) {
+                    System.out.println("=== N Attribute - MAJORITY VALUES - AllCombinations MODE ACTIVE ===");
+                }
+
+                n = getCombinationSize();
+                nbAttr = m_FilteredInstances.numAttributes() - 1;
+
+                if (n > nbAttr) {
+                    if (m_Debug) {
+                        System.out.println(">> N > nombre d'attributs : aucune règle générée");
+                    }
+                    m_classifierNC = null; 
+
+                    break;
+                }
+
+                n = Math.min(n, nbAttr);
+                m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances, n);
                 if (m_Debug) {
                     printRuleStatistics();
                 }
                 break;
+
         }
         }
         else if(this.getAllCombinations()==false) {
