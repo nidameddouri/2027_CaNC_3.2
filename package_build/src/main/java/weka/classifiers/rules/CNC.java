@@ -832,6 +832,8 @@ public class CNC extends AbstractClassifier
         m_FilteredInstances = new Instances(data);
         m_FilteredInstances.deleteWithMissingClass();
         
+        int n=0;
+        
         if (m_FilteredInstances.numInstances() == 0)
             throw new Exception("No training instances left after removing instances with MissingClass!");
         
@@ -1038,18 +1040,24 @@ public class CNC extends AbstractClassifier
             	if (m_Debug) {
                     System.out.println("=== N Attribute- ALL VALUES - AllCombinations MODE ACTIVE ===");
             	}
-            	
-                m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances,getCombinationSize());
-                
+            	n=getCombinationSize();
+            	n=Math.min(n, m_FilteredInstances.numAttributes()-1);
+                m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances,n);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
                 break;
                 
             case N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES:
             	if (m_Debug) {
                     System.out.println("=== N Attribute- ALL VALUES - AllCombinations MODE ACTIVE ===");
             	}
-            	
-                m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances,getCombinationSize());
-                
+            	n=getCombinationSize();
+            	n=Math.min(n, m_FilteredInstances.numAttributes()-1);
+                m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances,n);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
                 break;
         }
         }

@@ -139,20 +139,20 @@ public class Classify_Instance
 		    }
 		    
 		    if (ruleCount == 0) {
-		    	/*
+		    	
 		        if (debug) {
 		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
 		            System.out.println("=== INSTANCE ===");
 			        System.out.println(inst.toString() );
 		            System.out.println("NO Matching Rules");
 		            System.out.println("═══════════════════════════════════════════════════");
-		        }*/
+		        }
 		        return -1.0;
 		    }
 		    
 		    // Affichage debug organisé
 		    
-		    /*if (debug) {
+		    if (debug) {
 		        System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
 		        System.out.println("=== INSTANCE ===");
 		        System.out.println(inst.toString() );
@@ -167,8 +167,8 @@ public class Classify_Instance
 		                System.out.printf("%2d. %-25s | Classe: %-4s | Score: %.3f%n",
 		                    i+1,
 		                    rule.affich_nom_rule(false).replaceAll("\tIndice.*Score: :", "").trim(),
-		                    rule.Rule_ClassMaj,
-		                    rule.Rule_Ponderation);
+		                    rule.getRule_ClassMaj(),
+		                    rule.getRule_Ponderation());
 		            }
 		        }
 
@@ -184,7 +184,7 @@ public class Classify_Instance
 		            (ind_class == -1) ? "NOT CLASSIFIED" : inst.classAttribute().value((int)ind_class),
 		            max_ponderation);
 		        System.out.println("═══════════════════════════════════════════════════");
-		    }*/
+		    }
 		    
 		    return ind_class;
 		}

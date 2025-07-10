@@ -800,15 +800,10 @@ public class _GaloisConnection {
             String attrValue = rule.getPremisses().get(i);
 
             if (!(attrValue.equals("-null-") || attrValue.equals("0") || attrValue.equals("0.0"))) {
-
-                
                     labeledAttributes.add(attrValue);
                 }
             
         }
-
-          
-
         return new FormalConcept(instanceSet, labeledAttributes);
     }
     
@@ -1031,8 +1026,8 @@ public class _GaloisConnection {
                 for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
                     ArrayList<Integer> instanceSubset = entry.getValue();
 
-                    if (instanceSubset.size() <= 1) {
-                        if (debug) logDebug("    - Skipping group with 1 or fewer instances");
+                    if (instanceSubset.size() < 1) {
+                        if (debug) logDebug("    - Skipping group with 0 instances");
                         continue;
                     }
 
@@ -1072,7 +1067,7 @@ public class _GaloisConnection {
             boolean debug) throws Exception {
 
         long startTime = System.currentTimeMillis();
-        if (debug) logDebug("➡ Starting formal concept generation with attribute combinations of size " + n);
+        if (debug) logDebug("➡ Starting formal concept generation with attribute combinations of size N=" + n);
 
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
@@ -1096,8 +1091,8 @@ public class _GaloisConnection {
             for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
                 ArrayList<Integer> instanceSubset = entry.getValue();
 
-                if (instanceSubset.size() <= 1) {
-                    if (debug) logDebug("    - Skipping group with 1 or fewer instances");
+                if (instanceSubset.size() < 1) {
+                    if (debug) logDebug("    - Skipping group with 0 or fewer instances");
                     continue;
                 }
 
@@ -1170,8 +1165,8 @@ public class _GaloisConnection {
 
             if (debug) logDebug("     ➥ Found " + instanceSubset.size() + " matching instances");
 
-            if (instanceSubset.size() <= 1) {
-                if (debug) logDebug("     ✖ Skipped (≤ 1 instance)");
+            if (instanceSubset.size() < 1) {
+                if (debug) logDebug("     ✖ Skipped (≤ 0 instance)");
                 continue;
             }
 
