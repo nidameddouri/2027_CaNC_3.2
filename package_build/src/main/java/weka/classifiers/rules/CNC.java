@@ -1055,7 +1055,7 @@ public class CNC extends AbstractClassifier
                     break;
                 }
 
-                n = Math.min(n, nbAttr);
+
                 m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances, n);
                 if (m_Debug) {
                     printRuleStatistics();
@@ -1079,7 +1079,6 @@ public class CNC extends AbstractClassifier
                     break;
                 }
 
-                n = Math.min(n, nbAttr);
                 m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances, n);
                 if (m_Debug) {
                     printRuleStatistics();

@@ -277,15 +277,6 @@ public class _GaloisConnection {
 		return closureMap;
 }
 
-    
-    
-    
-    
-
-    
-    
-  
-    
     private List<List<Attribute>> generateAttributeCombinations(Instances inst, ArrayList<Attribute> attributes, int k, boolean debug) {
         List<List<Attribute>> combinations = new ArrayList<>();
 
