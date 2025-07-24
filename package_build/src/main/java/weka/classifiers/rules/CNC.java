@@ -61,6 +61,7 @@ public class CNC extends AbstractClassifier
     public static final int CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY = 8;
     public static final int N_ATTRIBUTES_COMBINATION_ALL_VALUES= 9;
     public static final int N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES= 10;
+    public static final int PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES= 11;
 
 
     
@@ -110,6 +111,8 @@ public class CNC extends AbstractClassifier
         new Tag(CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY, "Closure of attributes under THRESHOLD & Majority Value"),
         new Tag(N_ATTRIBUTES_COMBINATION_ALL_VALUES,"Closure of N attributes combination All Values" ),
         new Tag(N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES,"Closure of N attributes combination Majority  Values" ),
+        new Tag(PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES,"Closure of Percentage attributes combination All  Values" ),
+        
 
 
     };
@@ -134,6 +137,8 @@ public class CNC extends AbstractClassifier
     protected double m_WeightThreshold = 10;
     protected boolean allCombinations = true;
     protected int combinationSize = 1;
+    protected float percentCombinAtt = 1;
+
 
 
     
@@ -148,6 +153,18 @@ public class CNC extends AbstractClassifier
     
     Calendar calendar;
     SimpleDateFormat sdf = new SimpleDateFormat("E MM/dd/yyyy HH:mm:ss.SSS");
+    
+    public float getPercentCombinAtt() {
+        return percentCombinAtt;
+    }
+
+    public void setPercentCombinAtt(float percentCombinAtt) {
+        if (percentCombinAtt < 0 || percentCombinAtt > 100) {
+            throw new IllegalArgumentException("percentCombinAtt must be between 0 and 100");
+        }
+        this.percentCombinAtt = percentCombinAtt;
+    }
+
 
     // Getters and Setters
     public double getThreshold() {
@@ -261,6 +278,9 @@ public class CNC extends AbstractClassifier
             case CONCEPT_LEARNING_UNDER_THRESHOLD_MAJORITY: return "Closure of Attributes Under Threshold & Majority Value";
             case N_ATTRIBUTES_COMBINATION_ALL_VALUES: return "Closure of N attributes combination All Values" ;
 			case N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES : return "Closure of N attributes combination Majority Values";
+			case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES : return "Closure of percentage attributes combination All Values";
+
+			
             default: return "Unknown Strategy";
         } 
     }
@@ -416,7 +436,8 @@ public class CNC extends AbstractClassifier
             "\t7: Under Threshold - All Values\n" +
             "\t8: Under Threshold - Majority Value"+
             "\t9: N Attributes Combination- All Values\n"+
-            "\t10: N Attributes Combination- Majority Values\n",
+            "\t10: N Attributes Combination- Majority Values\n"+
+            "\t11: Percent Attributes Combination- All Values\n",
 
             "conceptStrategy", 1, "-conceptStrategy <num>"));
 
@@ -428,6 +449,11 @@ public class CNC extends AbstractClassifier
         newVector.addElement(new Option(
                 "\tCombination size for attribute selection (>= 0).",
                 "combinationSize", 1, "-combinationSize <num>"));
+        
+        newVector.addElement(new Option(
+        	    "\tPercentage of attributes to use in combination (0.0 - 100.0)",
+        	    "percentCombinAtt", 1, "-percentCombinAtt <float>"));
+
         
         newVector.addElement(new Option(
             "\tWhen to calculate threshold:\n" +
@@ -534,7 +560,7 @@ public class CNC extends AbstractClassifier
         String strategyStr = Utils.getOption("conceptStrategy", options);
         if (!strategyStr.isEmpty()) {
             int strategy = Integer.parseInt(strategyStr);
-            if (strategy < 1 || strategy > 10) {
+            if (strategy < 1 || strategy > 12) {
                 throw new IllegalArgumentException("Invalid concept strategy number. Must be between 1-8");
             }
             ConceptLearningStrategy = strategy;
@@ -557,6 +583,16 @@ public class CNC extends AbstractClassifier
                             autoThresholdStr.equalsIgnoreCase("yes") ||
                             autoThresholdStr.equalsIgnoreCase("1"));
         }
+        
+        // Handle percent
+        String percentCombinAttStr = Utils.getOption("percentCombinAtt", options);
+        if (!percentCombinAttStr.isEmpty()) {
+            percentCombinAtt = Float.parseFloat(percentCombinAttStr);
+            if (percentCombinAtt < 0 || percentCombinAtt > 100) {
+                throw new IllegalArgumentException("percentCombinAtt must be between 0 and 100");
+            }
+        }
+
         
         //allCombinations
         String allCombinationsStr = Utils.getOption("allCombinations", options);
@@ -648,6 +684,10 @@ public class CNC extends AbstractClassifier
         result.add("-autoThreshold");
         result.add(String.valueOf(getAuto_Threshold()));
         
+        result.add("-percentCombinAtt");
+        result.add(String.valueOf(percentCombinAtt));
+
+        
         //allCombinations
         result.add("-allCombinations");
         result.add(String.valueOf(getAllCombinations()));
@@ -696,7 +736,7 @@ public class CNC extends AbstractClassifier
         id.append("_ConLearn=").append(getConceptLearningStrategyName());
 
         if (ConceptLearningStrategy >= CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL &&
-            ConceptLearningStrategy <= N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES) {
+            ConceptLearningStrategy <= 12) {
             id.append("_Thr=").append(m_THRESHOLD);
             id.append("_ThrTim=").append(m_ThresholdTiming == 1 ? "BEF disc" : "AFT disc");
             id.append("_ThrCalc=").append(Auto_THRESHOLD ? "Auto" : "Manual");
@@ -1084,6 +1124,20 @@ public class CNC extends AbstractClassifier
                     printRuleStatistics();
                 }
                 break;
+                
+            case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES:
+                if (m_Debug) {
+                    System.out.println("=== Percent Attribute - ALL VALUES - AllCombinations MODE ACTIVE ===");
+                }
+
+                float p= this.getPercentCombinAtt();
+              
+                m_classifierNC = extractor.extractPercentAttributesAllValues(m_FilteredInstances, p);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+                break;
+                
 
         }
         }

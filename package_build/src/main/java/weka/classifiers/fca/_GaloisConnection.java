@@ -1,22 +1,22 @@
 package weka.classifiers.fca;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
 import java.util.stream.Collectors;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 
 
@@ -466,12 +466,18 @@ public class _GaloisConnection {
             }
         }
         
-        // Export JSON
-        //String conceptsString = JsonExporter.toJson(concepts);
-        //String conceptString= JsonExporter.toJsonGroupedByLevel(concepts);
-        
-        //String path = "//home//user//Stage//conceptsList.json";
-        //JsonExporter.saveToFile(conceptString, path);
+     // Export JSON
+        String conceptsString = JsonExporter.toJson(concepts);
+        String conceptString = JsonExporter.toJsonGroupedByLevel(concepts);
+
+        // Chemin vers le dossier Stage/Generated Lattices 
+        String userHome = System.getProperty("user.home");
+        String datasetName = inst.relationName(); 
+        String filename = datasetName + "_conceptsList.json";
+        String path = userHome + "/Stage/Generated Lattices/" + filename;
+
+        JsonExporter.saveToFile(conceptString, path);
+
         
         return concepts;
     }
@@ -1183,7 +1189,46 @@ public class _GaloisConnection {
 
         return rules;
     }
+    public ArrayList<Classification_Rule> generateConceptsAttributePercentCombinations(
+            Instances inst,
+            ArrayList<Attribute> attributes,
+            ArrayList<String> allConcepts,
+            float p,
+            boolean debug) throws Exception {
 
+        long startTime = System.currentTimeMillis();
+        ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+        if (debug) {
+            System.out.println("Starting generateConceptsAttributePercentCombinations...");
+            System.out.println("Total number of attributes: " + attributes.size());
+            System.out.println("Percentage value p: " + p);
+        }
+
+        int nbAttr = attributes.size();
+        int n = Math.round((p * nbAttr) / 100.0f);
+
+        if (debug) {
+            System.out.println("Computed number of attributes to combine (n): " + n);
+        }
+
+        if (n <= 0) {
+            if (debug) System.out.println("n <= 0, no attributes selected. Returning empty rule set.");
+            return rules;
+        }
+
+        rules = generateConceptsAttributeCombinationsOfSizeN(inst, attributes, allConcepts, n, debug);
+
+        if (debug) {
+            long endTime = System.currentTimeMillis();
+            System.out.println("Finished generating rules. Total rules generated: " + rules.size());
+            System.out.println("Elapsed time: " + (endTime - startTime) + " ms");
+        }
+
+        return rules;
+    }
+
+    
 
 
 
