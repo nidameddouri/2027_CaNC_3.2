@@ -62,6 +62,7 @@ public class CNC extends AbstractClassifier
     public static final int N_ATTRIBUTES_COMBINATION_ALL_VALUES= 9;
     public static final int N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES= 10;
     public static final int PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES= 11;
+    public static final int PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES_WITH_VAR= 12;
 
 
     
@@ -112,7 +113,7 @@ public class CNC extends AbstractClassifier
         new Tag(N_ATTRIBUTES_COMBINATION_ALL_VALUES,"Closure of N attributes combination All Values" ),
         new Tag(N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES,"Closure of N attributes combination Majority  Values" ),
         new Tag(PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES,"Closure of Percentage attributes combination All  Values" ),
-        
+        new Tag(PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES_WITH_VAR,"Closure of Percentage attributes combination with variance All  Values" ),
 
 
     };
@@ -138,6 +139,7 @@ public class CNC extends AbstractClassifier
     protected boolean allCombinations = true;
     protected int combinationSize = 1;
     protected float percentCombinAtt = 1;
+    protected float varCombinAtt = 1;
 
 
 
@@ -164,6 +166,20 @@ public class CNC extends AbstractClassifier
         }
         this.percentCombinAtt = percentCombinAtt;
     }
+
+
+    public float getVarCombinAtt() {
+        return varCombinAtt;
+    }
+
+    public void setVarCombinAtt(float value) {
+        this.varCombinAtt = value;
+    }
+
+    public String varCombinAttTipText() {
+        return "Variance to apply around the selected attribute percentage.";
+    }
+
 
 
     // Getters and Setters
@@ -279,6 +295,7 @@ public class CNC extends AbstractClassifier
             case N_ATTRIBUTES_COMBINATION_ALL_VALUES: return "Closure of N attributes combination All Values" ;
 			case N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES : return "Closure of N attributes combination Majority Values";
 			case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES : return "Closure of percentage attributes combination All Values";
+			case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES_WITH_VAR : return "Closure of percentage attributes combination with variance All Values";
 
 			
             default: return "Unknown Strategy";
@@ -437,7 +454,9 @@ public class CNC extends AbstractClassifier
             "\t8: Under Threshold - Majority Value"+
             "\t9: N Attributes Combination- All Values\n"+
             "\t10: N Attributes Combination- Majority Values\n"+
-            "\t11: Percent Attributes Combination- All Values\n",
+            "\t11: Percent Attributes Combination- All Values\n"+
+            "\t12: Percent Attributes Combination With Variance- All Values\n",
+
 
             "conceptStrategy", 1, "-conceptStrategy <num>"));
 
@@ -453,6 +472,13 @@ public class CNC extends AbstractClassifier
         newVector.addElement(new Option(
         	    "\tPercentage of attributes to use in combination (0.0 - 100.0)",
         	    "percentCombinAtt", 1, "-percentCombinAtt <float>"));
+
+        newVector.addElement(new Option(
+                "\tVariance for the attribute percentage (used when conceptStrategy=12)",
+                "varCombinAtt", 1, "-varCombinAtt <float>"));
+
+
+
 
         
         newVector.addElement(new Option(
@@ -519,7 +545,7 @@ public class CNC extends AbstractClassifier
             }
         }
 
-     // Handle Combination size
+        // Handle Combination size
         String combinationSizeStr = Utils.getOption("combinationSize", options);
         if (!combinationSizeStr.isEmpty()) {
             combinationSize = Integer.parseInt(combinationSizeStr);
@@ -560,7 +586,7 @@ public class CNC extends AbstractClassifier
         String strategyStr = Utils.getOption("conceptStrategy", options);
         if (!strategyStr.isEmpty()) {
             int strategy = Integer.parseInt(strategyStr);
-            if (strategy < 1 || strategy > 12) {
+            if (strategy < 1 || strategy > 13) {
                 throw new IllegalArgumentException("Invalid concept strategy number. Must be between 1-8");
             }
             ConceptLearningStrategy = strategy;
@@ -592,6 +618,14 @@ public class CNC extends AbstractClassifier
                 throw new IllegalArgumentException("percentCombinAtt must be between 0 and 100");
             }
         }
+        
+        // Handle var
+        String varStr = Utils.getOption("varCombinAtt", options);
+        if (!varStr.isEmpty()) {
+            setVarCombinAtt(Float.parseFloat(varStr));
+        }
+
+
 
         
         //allCombinations
@@ -687,6 +721,11 @@ public class CNC extends AbstractClassifier
         result.add("-percentCombinAtt");
         result.add(String.valueOf(percentCombinAtt));
 
+        result.add("-varCombinAtt");
+        result.add("" + getVarCombinAtt());
+
+
+
         
         //allCombinations
         result.add("-allCombinations");
@@ -736,7 +775,7 @@ public class CNC extends AbstractClassifier
         id.append("_ConLearn=").append(getConceptLearningStrategyName());
 
         if (ConceptLearningStrategy >= CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL &&
-            ConceptLearningStrategy <= 12) {
+            ConceptLearningStrategy <= 13) {
             id.append("_Thr=").append(m_THRESHOLD);
             id.append("_ThrTim=").append(m_ThresholdTiming == 1 ? "BEF disc" : "AFT disc");
             id.append("_ThrCalc=").append(Auto_THRESHOLD ? "Auto" : "Manual");
@@ -874,6 +913,8 @@ public class CNC extends AbstractClassifier
         m_FilteredInstances.deleteWithMissingClass();
         
         int n=0;
+        float v,p;
+        
         
         if (m_FilteredInstances.numInstances() == 0)
             throw new Exception("No training instances left after removing instances with MissingClass!");
@@ -1130,9 +1171,23 @@ public class CNC extends AbstractClassifier
                     System.out.println("=== Percent Attribute - ALL VALUES - AllCombinations MODE ACTIVE ===");
                 }
 
-                float p= this.getPercentCombinAtt();
+                p= this.getPercentCombinAtt();
               
                 m_classifierNC = extractor.extractPercentAttributesAllValues(m_FilteredInstances, p);
+                if (m_Debug) {
+                    printRuleStatistics();
+                }
+                break;
+                
+            case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES_WITH_VAR:
+                if (m_Debug) {
+                    System.out.println("=== Percent Attribute WITH VARIANCE - ALL VALUES - AllCombinations MODE ACTIVE ===");
+                }
+
+                p= this.getPercentCombinAtt();
+                v= this.getVarCombinAtt();
+              
+                m_classifierNC = extractor.extractPercentAttributesAllValuesWithVar(m_FilteredInstances, p,v);
                 if (m_Debug) {
                     printRuleStatistics();
                 }

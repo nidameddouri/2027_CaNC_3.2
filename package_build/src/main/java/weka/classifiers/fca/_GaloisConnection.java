@@ -1229,6 +1229,63 @@ public class _GaloisConnection {
     }
 
     
+    public ArrayList<Classification_Rule> generateConceptsAttributePercentCombinationsWithVar( 
+        Instances inst,
+        ArrayList<Attribute> attributes,
+        ArrayList<String> allConcepts,
+        float p,
+        float v,
+        boolean debug) throws Exception {
+
+    long startTime = System.currentTimeMillis();
+    ArrayList<Classification_Rule> rules = new ArrayList<>();
+
+    int nbAttr = attributes.size();
+
+    if (debug) {
+        System.out.println("Starting generateConceptsAttributePercentCombinationsWithVar...");
+        System.out.println("Total number of attributes: " + nbAttr);
+        System.out.println("Percentage p: " + p + "%, variance v: " + v + "%");
+    }
+
+    // Calcul du nombre d'attributs central
+    int nCenter = Math.round((p * nbAttr) / 100.0f);
+    // Calcul du min et max
+    int nMin = Math.max(1, Math.round(((p - v) * nbAttr) / 100.0f));
+    int nMax = Math.min(nbAttr, Math.round(((p + v) * nbAttr) / 100.0f));
+
+    if (debug) {
+        System.out.println("Central number of attributes (nCenter): " + nCenter);
+        System.out.println("Attribute combination interval: [" + nMin + ", " + nMax + "]");
+    }
+
+    if (nMax < nMin || nMin <= 0) {
+        if (debug) System.out.println("Invalid attribute interval. Returning empty rule set.");
+        return rules;
+    }
+
+    // Boucle sur chaque taille d'attribut à combiner
+    for (int n = nMin; n <= nMax; n++) {
+        if (debug) {
+            System.out.println("Generating rules for combination size n = " + n + "...");
+        }
+
+        ArrayList<Classification_Rule> partialRules =
+            generateConceptsAttributeCombinationsOfSizeN(inst, attributes, allConcepts, n, debug);
+
+        rules.addAll(partialRules);
+    }
+
+    if (debug) {
+        long endTime = System.currentTimeMillis();
+        System.out.println("Finished generating all rules.");
+        System.out.println("Total number of rules generated: " + rules.size());
+        System.out.println("Elapsed time: " + (endTime - startTime) + " ms");
+    }
+
+    return rules;
+}
+
 
 
 
