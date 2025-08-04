@@ -466,8 +466,8 @@ public class _GaloisConnection {
             }
         }
         
-     // Export JSON
-        String conceptsString = JsonExporter.toJson(concepts);
+        // Export JSON
+        /*String conceptsString = JsonExporter.toJson(concepts);
         String conceptString = JsonExporter.toJsonGroupedByLevel(concepts);
 
         // Chemin vers le dossier Stage/Generated Lattices 
@@ -476,7 +476,7 @@ public class _GaloisConnection {
         String filename = datasetName + "_conceptsList.json";
         String path = userHome + "/Stage/Generated Lattices/" + filename;
 
-        JsonExporter.saveToFile(conceptString, path);
+        JsonExporter.saveToFile(conceptString, path);*/
 
         
         return concepts;
