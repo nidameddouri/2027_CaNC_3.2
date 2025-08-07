@@ -48,13 +48,13 @@ public class RuleExtractor {
     
     
     
-    public RuleExtractor(boolean debug, int featureMeasureMethod, int policySelection, int conceptLearningStrategy) {
+    public RuleExtractor(boolean debug, int featureMeasureMethod, int policySelection, int conceptLearningStrategy,Instances inst) {
         this.m_Debug = debug;
         this.FeatureMeasureMethod = featureMeasureMethod;
         this.Policy_Selection = policySelection;
         this.m_InfoGainAttributeEval = new InfoGainAttributeEval();
         this.m_GainRatioAttributeEval = new GainRatioAttributeEval();
-        this.m_GaloisConnection= new _GaloisConnection(this.m_Debug);
+        this.m_GaloisConnection= new _GaloisConnection(this.m_Debug,inst);
     
         if (debug) {
             String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
@@ -1163,9 +1163,9 @@ public class RuleExtractor {
     }
 
 
-public static void main (String []args) throws Exception {
+/*public static void main (String []args) throws Exception {
 	boolean debug=true;
-	RuleExtractor exttractor= new RuleExtractor(debug,RuleExtractor.FEAT_INFOGAIN,RuleExtractor.POLICY_LAST,RuleExtractor.CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL);
+	RuleExtractor exttractor= new RuleExtractor(debug,RuleExtractor.FEAT_INFOGAIN,RuleExtractor.POLICY_LAST,RuleExtractor.CONCEPT_LEARNING_ABOVE_THRESHOLD_ALL,inst);
 	// 1. Charger les données (Instances inst)
 	String dataPath="C:\\Program Files\\Weka-3-8-6\\data\\weather.nominal.arff";
 	Instances inst=null;
@@ -1181,6 +1181,6 @@ public static void main (String []args) throws Exception {
 
 	
 
-}
+}*/
 
 }

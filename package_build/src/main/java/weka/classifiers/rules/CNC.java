@@ -140,7 +140,7 @@ public class CNC extends AbstractClassifier
     protected int combinationSize = 1;
     protected float percentCombinAtt = 1;
     protected float varCombinAtt = 1;
-
+    protected String vectorialConceptList="";
 
 
     
@@ -944,7 +944,7 @@ public class CNC extends AbstractClassifier
         
         // Étape 2: Sélection de la stratégie de génération de règles
      
-        RuleExtractor extractor = new RuleExtractor(m_Debug, FeatureMeasureMethod, Policy_Selection, ConceptLearningStrategy);
+        RuleExtractor extractor = new RuleExtractor(m_Debug, FeatureMeasureMethod, Policy_Selection, ConceptLearningStrategy,m_FilteredInstances);
        
         if (m_ThresholdTiming == THRESHOLD_BEFORE_DISCRETIZATION) {
         	m_THRESHOLD=getm_Threshold(extractor.computeFeatureMeasures(data));
@@ -1371,7 +1371,7 @@ public class CNC extends AbstractClassifier
         List<FormalConcept> concepts=extractor.m_GaloisConnection.getConceptList();
         
         this.conceptsListStr=extractor.m_GaloisConnection.getConceptLevelsAsString(concepts);
-
+        vectorialConceptList=extractor.m_GaloisConnection.vectorialConceptList;
     }
     
   
@@ -1414,74 +1414,76 @@ public class CNC extends AbstractClassifier
     }
     
     
-    public String toString() {
+    @Override
+public String toString() {
 
-    	// Vérifie si on est en mode expérimentation
-        if (isInExperimentMode()) {
-            return super.toString(); // ou return "";
-        }
-        
-        StringBuilder sb = new StringBuilder();
-        SimpleDateFormat sdf = new SimpleDateFormat("EEE yyyy-MM-dd HH:mm:ss.SSS");
-        String currentTime = sdf.format(new Date());
-        
-        // En-tête du classifieur
-        sb.append("=== CNC Classifier Output ===\n");
-        sb.append("Generated at: ").append(currentTime).append("\n\n");
-        
-        
-        // Configuration du classifieur
-        sb.append("=== Configuration ===\n");
-        sb.append(String.format("%-25s: %s\n", "Concept Learning Strategy", getConceptLearningStrategyName()));
-        sb.append(String.format("%-25s: %s\n", "Feature Measure", featureMeasureToString(FeatureMeasureMethod)));
-        sb.append(String.format("%-25s: %s\n", "Threshold ",autoThresholdToString()));
-        sb.append(String.format("%-25s: %s\n", "Threshold Calculation",m_ThresholdTimingToString()));
-        sb.append(String.format("%-25s: %.4f\n", "Threshold", m_THRESHOLD));  // Affichage du seuil avec 4 décimales
-        sb.append(String.format("%-25s: %s\n", "Policy Selection", getPolicySelectionName()));
-        sb.append(String.format("%-25s: %s\n", "Aggregation Strategy", getAggregationStrategyName()));
-        sb.append(String.format("%-25s: %.4f\n", "Pularity Threshold", m_PluralityThreshold));  // Affichage du seuil avec 4 décimales
-        sb.append(String.format("%-25s: %.4f\n", "Weight Threshold",m_WeightThreshold));  // Affichage du seuil avec 4 décimales
-        sb.append(String.format("%-25s: %d\n", "TOP K Voters Threshold",m_TopKVoters));  
-
-        
-        
- 
-        sb.append("\n");
-        
-        sb.append("=== Concepts ===\n");
-        sb.append(conceptsListStr).append("\n\n");
-        
-
-        
-        // Statistiques de performance
-        if (m_classifierNC != null && !m_classifierNC.isEmpty()) {
-            sb.append("=== Performance ===\n");
-           
-            sb.append(String.format("%-25s: %d\n", "Number of Rules Generated", m_classifierNC.size()));
-            sb.append("\n");
-            
-            // Détail des règles
-            sb.append("=== Generated Rules ===\n");
-            for (int i = 0; i < m_classifierNC.size(); i++) {
-                sb.append(String.format("\nRule %d:  ", i + 1));
-                sb.append(m_classifierNC.get(i).affich_nom_rule(true));
-                sb.append("\n");
-            }
-        } else if (m_ZeroR != null) {
-            sb.append("Using ZeroR model as fallback\n");
-        } else {
-            sb.append("No model generated\n");
-        }
-        
-        // Information de débogage
-        if (m_Debug) {
-            sb.append("\n=== Debug Information ===\n");
-            sb.append("Log console available\n");
-            sb.append("Last execution: ").append(currentTime).append("\n");
-        }
-        
-        return sb.toString();
+    // Vérifie si on est en mode expérimentation
+    if (isInExperimentMode()) {
+        return super.toString(); // ou return "";
     }
+
+    StringBuilder sb = new StringBuilder();
+    SimpleDateFormat sdf = new SimpleDateFormat("EEE yyyy-MM-dd HH:mm:ss.SSS");
+    String currentTime = sdf.format(new Date());
+
+    // En-tête du classifieur
+    sb.append("=== CNC Classifier Output ===\n");
+    sb.append("Generated at: ").append(currentTime).append("\n\n");
+
+    // Configuration du classifieur
+    sb.append("=== Configuration ===\n");
+    sb.append(String.format("%-25s: %s\n", "Concept Learning Strategy", getConceptLearningStrategyName()));
+    sb.append(String.format("%-25s: %s\n", "Feature Measure", featureMeasureToString(FeatureMeasureMethod)));
+    sb.append(String.format("%-25s: %s\n", "Threshold ", autoThresholdToString()));
+    sb.append(String.format("%-25s: %s\n", "Threshold Calculation", m_ThresholdTimingToString()));
+    sb.append(String.format("%-25s: %.4f\n", "Threshold", m_THRESHOLD));  // 4 décimales
+    sb.append(String.format("%-25s: %s\n", "Policy Selection", getPolicySelectionName()));
+    sb.append(String.format("%-25s: %s\n", "Aggregation Strategy", getAggregationStrategyName()));
+    sb.append(String.format("%-25s: %.4f\n", "Pularity Threshold", m_PluralityThreshold));
+    sb.append(String.format("%-25s: %.4f\n", "Weight Threshold", m_WeightThreshold));
+    sb.append(String.format("%-25s: %d\n", "TOP K Voters Threshold", m_TopKVoters));
+
+    sb.append("\n");
+
+    // Affichage des concepts normaux (texte complet)
+    sb.append("=== Concepts ===\n");
+    sb.append(conceptsListStr).append("\n");
+
+    // Ajout de l'affichage vectoriel
+    if (vectorialConceptList != null && !vectorialConceptList.isEmpty()) {
+        sb.append("\n=== Vectorial Concept List ===\n");
+        sb.append(vectorialConceptList).append("\n");
+    }
+
+    // Statistiques de performance
+    if (m_classifierNC != null && !m_classifierNC.isEmpty()) {
+        sb.append("=== Performance ===\n");
+        sb.append(String.format("%-25s: %d\n", "Number of Rules Generated", m_classifierNC.size()));
+        sb.append("\n");
+
+        // Détail des règles
+        sb.append("=== Generated Rules ===\n");
+        for (int i = 0; i < m_classifierNC.size(); i++) {
+            sb.append(String.format("Rule %d:  ", i + 1));
+            sb.append(m_classifierNC.get(i).affich_nom_rule(true));
+            sb.append("\n");
+        }
+    } else if (m_ZeroR != null) {
+        sb.append("Using ZeroR model as fallback\n");
+    } else {
+        sb.append("No model generated\n");
+    }
+
+    // Information de débogage
+    if (m_Debug) {
+        sb.append("\n=== Debug Information ===\n");
+        sb.append("Log console available\n");
+        sb.append("Last execution: ").append(currentTime).append("\n");
+    }
+
+    return sb.toString();
+}
+
 
 
 

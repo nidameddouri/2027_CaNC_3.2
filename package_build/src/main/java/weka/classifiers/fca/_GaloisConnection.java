@@ -10,6 +10,8 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
 import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
@@ -17,6 +19,7 @@ import weka.core.Instances;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 
 
@@ -27,13 +30,26 @@ import java.util.Date;
 public class _GaloisConnection {
     
     private boolean m_Debug;
-    
+    private List<Attribute> orderedAttributes; // ordre original des attributs du dataset
+    public String vectorialConceptList = "";  // Stocke tous les concepts en mode vectoriel
+
+
     // Constants for Galois connection strategies
     public static final int GALOIS_PERTINENT_MAJORITY = 1;  // Pertinent attribute & Majority Value
     public static final int GALOIS_PERTINENT_ALL = 2;       // Pertinent Attribute & All Values
     public static final int GALOIS_ALL_MAJORITY = 3;        // All Attributes & Majority Value
     public static final int GALOIS_ALL_ALL = 4;             // All Attributes & All Values
-    
+
+    public void setOrderedAttributes(Instances inst) {
+        orderedAttributes = new ArrayList<>();
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            Attribute attr = inst.attribute(i);
+            if (!attr.equals(inst.classAttribute())) {
+                orderedAttributes.add(attr);
+            }
+        }
+    }
+
     
     public static final int POLICY_FIRST = 1;
     public static final int POLICY_LAST = 2;
@@ -55,9 +71,10 @@ public class _GaloisConnection {
      * 
      * @param debug Debug mode flag
      */
-    public _GaloisConnection(boolean debug) {
+    public _GaloisConnection(boolean debug, Instances inst) {
         this.m_Debug = debug;
-       
+		setOrderedAttributes(inst);
+
         this.conceptList= new ArrayList<>();
         }
     
@@ -103,24 +120,62 @@ public class _GaloisConnection {
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
-            
-            sb.append("{");
-            sb.append(
-                objects.stream()
-                       .map(obj -> "O" + obj)  
-                       .collect(Collectors.joining(",", "[", "]")) // Format [O3,O4,O9]
-            );
-            
-            // Formatage des attributs (sans modification)
-            sb.append(",");
-            sb.append(attributes.toString().replace(" ", ""));
-            
-            sb.append("}");
+
+            // Formatage des attributs dans l’ordre d’apparition du dataset
+            sb.append("({");
+
+            List<String> orderedAttrValues = new ArrayList<>();
+            for (Attribute attr : orderedAttributes) {
+                String attrName = attr.name();
+                Optional<String> valueOpt = attributes.stream()
+                    .filter(a -> a.startsWith(attrName + "="))
+                    .map(a -> a.substring((attrName + "=").length()))
+                    .map(v -> v.replace("'", "")) 
+                    .findFirst();
+
+                if (valueOpt.isPresent() && !valueOpt.get().isEmpty()) {
+                    orderedAttrValues.add(attrName + "=" + valueOpt.get());
+                }
+            }
+            sb.append(String.join(",", orderedAttrValues));
+            sb.append("},");
+
+            // Formatage des objets
+            sb.append(objects.stream()
+                .map(obj -> "O" + obj)
+                .collect(Collectors.joining(",", "{", "}")));
+
+            sb.append(")");
+            return sb.toString();
+        }
+
+        public static String vectorHeader(List<Attribute> orderedAttributes) {
+              String result=orderedAttributes.stream()
+                    .map(Attribute::name)
+                    .collect(Collectors.joining(","));
+              result=result+",TAG";
+              return result;
+        }
+        
+        public String toVectorString(List<Attribute> orderedAttributes) {
+            StringBuilder sb = new StringBuilder();
+
+            List<String> attrValues = new ArrayList<>();
+            for (Attribute attr : orderedAttributes) {
+                String attrName = attr.name();
+                Optional<String> valueOpt = attributes.stream()
+                    .filter(a -> a.startsWith(attrName + "="))
+                    .map(a -> a.substring((attrName + "=").length()))
+                    .map(v -> v.replace("'", "")) // Supprimer les apostrophes
+                    .findFirst();
+
+                attrValues.add(valueOpt.orElse(""));  // Valeur vide si absente
+            }
+
+            sb.append(String.join(",", attrValues));
             return sb.toString();
         }
     }
-    
-
     /**
      * Vérifie si un dataset est binaire (tous les attributs ont des valeurs 0/1 ou false/true)
      * @param inst Le dataset Weka à vérifier
@@ -321,11 +376,6 @@ public class _GaloisConnection {
         return combinations;
     }
 
-
-
- 
-
-    
     private Map<String, ArrayList<Integer>> groupInstancesByAttributeValues(Instances inst, 
             ArrayList<Attribute> attributes) {
         
@@ -441,46 +491,44 @@ public class _GaloisConnection {
                                      Map<Set<Integer>, Classification_Rule> bestConcepts,
                                      ArrayList<String> allConcepts,
                                      ArrayList<Classification_Rule> rules) {
-        List<FormalConcept> concepts = new ArrayList<>();
-        Set<String> existingRules = new HashSet<>(); // Pour suivre les règles déjà ajoutées
-        
-        for (Map.Entry<Set<Integer>, Classification_Rule> entry : bestConcepts.entrySet()) {
-            Set<Integer> instanceSet = entry.getKey();
-            if (instanceSet.size() <= 1) {
-                continue;
-            }
-            
-            Classification_Rule rule = entry.getValue();
-            String ruleSignature = generateRuleSignature(rule); // Signature unique de la règle
-            
-            // Vérifie si la règle existe déjà
-            if (!existingRules.contains(ruleSignature)) {
-                existingRules.add(ruleSignature);
-                
-                FormalConcept concept = buildConcept(instanceSet, rule);
-                String conceptStr = concept.toString();
-                
-                concepts.add(concept);
-                allConcepts.add(conceptStr);
-                rules.add(rule);
-            }
+    List<FormalConcept> concepts = new ArrayList<>();
+    Set<String> existingRules = new HashSet<>(); // Pour suivre les règles déjà ajoutées
+
+    // Réinitialiser la chaîne globale vectorielle
+    vectorialConceptList = FormalConcept.vectorHeader(orderedAttributes)+"\n";
+    
+
+    for (Map.Entry<Set<Integer>, Classification_Rule> entry : bestConcepts.entrySet()) {
+        Set<Integer> instanceSet = entry.getKey();
+        if (instanceSet.size() <= 1) {
+            continue;
         }
-        
-        // Export JSON
-        /*String conceptsString = JsonExporter.toJson(concepts);
-        String conceptString = JsonExporter.toJsonGroupedByLevel(concepts);
 
-        // Chemin vers le dossier Stage/Generated Lattices 
-        String userHome = System.getProperty("user.home");
-        String datasetName = inst.relationName(); 
-        String filename = datasetName + "_conceptsList.json";
-        String path = userHome + "/Stage/Generated Lattices/" + filename;
+        Classification_Rule rule = entry.getValue();
+        String ruleSignature = generateRuleSignature(rule); // Signature unique de la règle
 
-        JsonExporter.saveToFile(conceptString, path);*/
+        // Vérifie si la règle existe déjà
+        if (!existingRules.contains(ruleSignature)) {
+            existingRules.add(ruleSignature);
 
-        
-        return concepts;
+            FormalConcept concept = buildConcept(instanceSet, rule);
+            String conceptStr = concept.toString();  // version normale (attributs + objets)
+
+            concepts.add(concept);
+            allConcepts.add(conceptStr);
+            rules.add(rule);
+
+            // Ajoute la représentation vectorielle ligne par ligne
+         // Ajoute la représentation vectorielle avec la classe
+            String classLabel = rule.getRule_ClassMaj(); // ou rule.getConclusion() selon ta méthode
+            vectorialConceptList += concept.toVectorString(orderedAttributes) + "," + classLabel + "\n";
+
+        }
     }
+
+    return concepts;
+}
+
 
     /**
      * Génère une signature unique pour une règle (comparaison de contenu)
@@ -509,7 +557,7 @@ public class _GaloisConnection {
         StringBuilder sb = new StringBuilder();
         int count = 1;
 
-        for (FormalConcept concept : concepts) {
+        for (FormalConcept concept : concepts) { 
             sb.append("--------------------------------------------\n\n");
 
             sb.append(count).append(". Concept:\n");
@@ -641,43 +689,8 @@ public class _GaloisConnection {
      * @param allConcepts La liste complète des concepts
      * @return Chaîne représentant les concepts groupés par taille d'intention
      */
-    public String getConceptLevelsAsString(List<FormalConcept> allConcepts) {
-        Map<Integer, List<String>> conceptsByLevel = new TreeMap<>();
-        StringBuilder sb = new StringBuilder();
+    
 
-        for (FormalConcept concept : allConcepts) {
-            int level = concept.getAttributes().size();
-
-            String objStr = concept.getObjects().stream()
-                .map(i -> "O" + i)
-                .collect(Collectors.joining(","));
-
-            String attrStr = concept.getAttributes().stream()
-                .collect(Collectors.joining(","));
-
-            String concise = String.format("{[%s],[%s]}", objStr, attrStr);
-
-            conceptsByLevel
-                .computeIfAbsent(level, k -> new ArrayList<>())
-                .add(concise);
-        }
-
-        sb.append("\n=== CONCEPTS BY INTENTION SET SIZE ===\n");
-        for (Map.Entry<Integer, List<String>> entry : conceptsByLevel.entrySet()) {
-            sb.append(String.format("\n--- SIZE %d (%d concepts) ---\n",
-                    entry.getKey(), entry.getValue().size()));
-
-            int count = 0;
-            for (String concept : entry.getValue()) {
-                sb.append(concept).append("  ");
-                if (++count % 5 == 0) sb.append("\n");
-            }
-            if (count % 5 != 0) sb.append("\n");
-        }
-        sb.append("=== END ===\n");
-
-        return sb.toString();
-    }
     public void afficheAttributsEtValeurs(Instances inst) {
         System.out.println("=== ATTRIBUTES AND THEIR VALEURS ===");
 
@@ -703,9 +716,6 @@ public class _GaloisConnection {
         System.out.println("=== END ===");
     }
 
-    
-    
-  
     /**
      * Compte le nombre d'attributs valides dans une fermeture
      * @param closureMap Map des attributs (nom -> valeur)
@@ -730,7 +740,34 @@ public class _GaloisConnection {
         System.out.println("[" + timestamp + "] " + message);
     }
 
-    
+    public String getConceptLevelsAsString(List<FormalConcept> allConcepts) {
+        Map<Integer, List<FormalConcept>> conceptsByLevel = new TreeMap<>();
+        StringBuilder sb = new StringBuilder();
+
+        for (FormalConcept concept : allConcepts) {
+            int level = concept.getAttributes().size();
+
+            conceptsByLevel
+                .computeIfAbsent(level, k -> new ArrayList<>())
+                .add(concept);
+        }
+
+        sb.append("\n=== CONCEPTS BY INTENTION SET SIZE ===\n");
+
+        for (Map.Entry<Integer, List<FormalConcept>> entry : conceptsByLevel.entrySet()) {
+            sb.append(String.format("\n--- SIZE %d (%d concepts) ---\n",
+                    entry.getKey(), entry.getValue().size()));
+
+            for (FormalConcept concept : entry.getValue()) {
+                sb.append(concept.toString()).append("\n");
+            }
+        }
+
+        sb.append("=== END ===\n");
+        return sb.toString();
+    }
+
+
     
 
     /**
@@ -791,7 +828,7 @@ public class _GaloisConnection {
     
     private FormalConcept buildConcept(Set<Integer> instanceSet, Classification_Rule rule) {
         Set<String> labeledAttributes = new HashSet<>();
-
+        
         int size = rule.getPremisses().size();
         for (int i = 0; i < size; i++) {
             String attrValue = rule.getPremisses().get(i);
@@ -1105,8 +1142,14 @@ public class _GaloisConnection {
             }
         }
 
-        // Créer la liste finale de concepts
-        setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
+        //Créer la liste finale de concepts
+        List<FormalConcept> finalConceptsList= new  ArrayList<>();
+        finalConceptsList=buildFinalConceptsList(inst, bestConcepts, allConcepts, rules);
+        
+        setConceptList(finalConceptsList);
+        //generation et affichage du treillis sous forme textuelle
+        //generateConceptLattice(finalConceptsList);
+        //setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
 
         if (debug) {
             logDebug("✅ Final list of concepts built");
@@ -1285,6 +1328,56 @@ public class _GaloisConnection {
 
     return rules;
 }
+    /**
+    /**
+ * Organise les concepts en relations de sur/sous-concept et affiche le treillis textuel.
+ *
+ * @param concepts Liste des concepts formels générée par buildFinalConceptsList.
+ */
+
+private void generateConceptLattice(List<FormalConcept> concepts) {
+    // Structure pour stocker les relations de sur/sous-concepts
+    Map<FormalConcept, List<FormalConcept>> lattice = new HashMap<>();
+    System.out.println("Final list size: " + concepts.size());
+
+    // Initialiser chaque concept avec une liste vide de sous-concepts
+    for (FormalConcept c : concepts) {
+        lattice.put(c, new ArrayList<>());
+    }
+
+    // Établir les relations de sous-concept/sur-concept
+    for (FormalConcept c1 : concepts) {
+        for (FormalConcept c2 : concepts) {
+            if (!c1.equals(c2)) {
+                // Vérifie si c1 ≤ c2 : objects(c1) ⊆ objects(c2) ET attributes(c2) ⊆ attributes(c1)
+                if (c2.getObjects().containsAll(c1.getObjects()) ) {
+                   // &&c1.getAttributes().containsAll(c2.getAttributes())) {
+                    
+                    lattice.get(c2).add(c1); // c1 est un sous-concept de c2
+                }
+            }
+        }
+    }
+
+    // Affichage textuel du treillis
+    System.out.println("=== Concept Lattice (Treillis de concepts) ===");
+    for (Map.Entry<FormalConcept, List<FormalConcept>> entry : lattice.entrySet()) {
+        FormalConcept superConcept = entry.getKey();
+        System.out.println("Superconcept: " + formatConcept(superConcept));
+        for (FormalConcept subConcept : entry.getValue()) {
+            System.out.println("   ↳ Subconcept: " + formatConcept(subConcept));
+        }
+    }
+}
+
+
+/**
+ * Formate un concept en chaîne lisible : (Objects, Attributes)
+ */
+private String formatConcept(FormalConcept concept) {
+    return concept.toString();
+}
+
 
 
 
