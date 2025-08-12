@@ -843,7 +843,7 @@ public class _GaloisConnection {
     
     /**
      * Génère les concepts formels en considérant tous les attributs individuellement (sans combinaisons)
-     * tout en réutilisant la même structure que generateConceptsAllCombinations
+     * tout en réutilisant la même structure que generateConceptsfullAttribCombinations
      */
     public ArrayList<Classification_Rule> generateConcepts(Instances inst, 
             ArrayList<Attribute> attributes,
@@ -912,7 +912,7 @@ public class _GaloisConnection {
 		return rules;
 	}
     
-    public ArrayList<Classification_Rule> generateConceptsFromMajorityValuesAllCombinations(
+    public ArrayList<Classification_Rule> generateConceptsFromMajorityValuesfullAttribCombinations(
             Instances inst,
             ArrayList<Attribute> attributes,
             int Policy_Selection,
@@ -1031,7 +1031,7 @@ public class _GaloisConnection {
     /**
      * Generates formal concepts from all combinations of attributes and instance groups.
      */
-    ArrayList<Classification_Rule> generateConceptsAllCombinations(Instances inst, 
+    ArrayList<Classification_Rule> generateConceptsfullAttribCombinations(Instances inst, 
                                                          ArrayList<Attribute> attributes,
                                                          ArrayList<String> allConcepts,
                                                          boolean debug) throws Exception {

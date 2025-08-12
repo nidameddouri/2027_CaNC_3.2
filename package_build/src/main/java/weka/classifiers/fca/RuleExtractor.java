@@ -19,7 +19,7 @@ import weka.core.converters.ConverterUtils.DataSource;
  */
 public class RuleExtractor {
     private boolean m_Debug;
-    private int FeatureMeasureMethod;
+    private int PertinenceMeasureMethod;
     private int Policy_Selection;
     private InfoGainAttributeEval m_InfoGainAttributeEval;
     private GainRatioAttributeEval m_GainRatioAttributeEval;
@@ -50,7 +50,7 @@ public class RuleExtractor {
     
     public RuleExtractor(boolean debug, int featureMeasureMethod, int policySelection, int conceptLearningStrategy,Instances inst) {
         this.m_Debug = debug;
-        this.FeatureMeasureMethod = featureMeasureMethod;
+        this.PertinenceMeasureMethod = featureMeasureMethod;
         this.Policy_Selection = policySelection;
         this.m_InfoGainAttributeEval = new InfoGainAttributeEval();
         this.m_GainRatioAttributeEval = new GainRatioAttributeEval();
@@ -114,7 +114,7 @@ public class RuleExtractor {
      * Initialise les évaluateurs d'attributs selon la méthode choisie
      */
     private void initializeFeatureEvaluator(Instances inst) throws Exception {
-        switch (FeatureMeasureMethod) {
+        switch (PertinenceMeasureMethod) {
             case FEAT_ENTROPY:
                 break;
             case FEAT_INFOGAIN:
@@ -130,7 +130,7 @@ public class RuleExtractor {
     /**
      * Calcule les mesures pour chaque attribut
      */
-    public double[] computeFeatureMeasures(Instances inst) throws Exception {
+    public double[] computePertinenceMeasures(Instances inst) throws Exception {
     double[] featureMeasures = new double[inst.numAttributes()];
     
     // Réinitialiser les évaluateurs à chaque appel
@@ -145,7 +145,7 @@ public class RuleExtractor {
     for (int i = 0; i < inst.numAttributes(); i++) {
         if (i == inst.classIndex()) continue;
         
-        switch (FeatureMeasureMethod) {
+        switch (PertinenceMeasureMethod) {
             case FEAT_INFOGAIN:
                 featureMeasures[i] = m_InfoGainAttributeEval.evaluateAttribute(i);
                 break;
@@ -169,7 +169,7 @@ public class RuleExtractor {
      * Sélectionne l'attribut avec la meilleure mesure
      */
     private Attribute selectBestAttribute(Instances inst, double[] featureMeasures) {
-        if (FeatureMeasureMethod == FEAT_ENTROPY) {
+        if (PertinenceMeasureMethod == FEAT_ENTROPY) {
             int minIndex = Utils.minIndex(featureMeasures);
             if (minIndex == inst.classIndex()) {
 
@@ -375,7 +375,7 @@ public class RuleExtractor {
      * @throws Exception en cas d'erreur
      */
    
-    public ArrayList<Classification_Rule> extractAllAttributesAllValuesAllCombinations(Instances inst) throws Exception {
+    public ArrayList<Classification_Rule> extractAllAttributesAllValuesfullAttribCombinations(Instances inst) throws Exception {
     // 1. Préparer la liste des attributs (sans la classe)
     ArrayList<Attribute> attributes = new ArrayList<>();
     for (int i = 0; i < inst.numAttributes() - 1; i++) {
@@ -384,7 +384,7 @@ public class RuleExtractor {
 
     // 2. Générer les concepts
     ArrayList<String> allConcepts = new ArrayList<>();
-    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsAllCombinations(inst, attributes, allConcepts, m_Debug);
+    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsfullAttribCombinations(inst, attributes, allConcepts, m_Debug);
 
     
     
@@ -416,7 +416,7 @@ public class RuleExtractor {
      * Extrait des règles en utilisant toutes les combinaisons d'attributs possibles
      * avec seulement leurs valeurs majoritaires
      */
-    public ArrayList<Classification_Rule> extractAllAttributesMajorityValueAllCombinations(Instances inst) throws Exception {
+    public ArrayList<Classification_Rule> extractAllAttributesMajorityValuefullAttribCombinations(Instances inst) throws Exception {
         // 1. Pré-calculer les valeurs majoritaires pour chaque attribut
         Map<Attribute, String> majorityValues = new HashMap<>();
         for (int attrIdx = 0; attrIdx < inst.numAttributes() - 1; attrIdx++) {
@@ -432,7 +432,7 @@ public class RuleExtractor {
         ArrayList<String> allConcepts = new ArrayList<>();
 
         // 3. Générer les concepts à partir des valeurs majoritaires
-        ArrayList<Classification_Rule> rules=this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, attributes, Policy_Selection, allConcepts, m_Debug);
+        ArrayList<Classification_Rule> rules=this.m_GaloisConnection.generateConceptsFromMajorityValuesfullAttribCombinations(inst, attributes, Policy_Selection, allConcepts, m_Debug);
         
 	    
         return rules;
@@ -448,7 +448,7 @@ public class RuleExtractor {
         initializeFeatureEvaluator(inst);
         
         // Calculer les mesures pour chaque attribut
-        double[] featureMeasures = computeFeatureMeasures(inst);
+        double[] featureMeasures = computePertinenceMeasures(inst);
         Attribute bestAttribute = this.selectBestAttribute(inst, featureMeasures);
         ArrayList<Attribute> attributes= new ArrayList<>();
         attributes.add(bestAttribute);
@@ -485,7 +485,7 @@ public class RuleExtractor {
         initializeFeatureEvaluator(inst);
         
         // Calculer les mesures pour chaque attribut
-        double[] featureMeasures = computeFeatureMeasures(inst);
+        double[] featureMeasures = computePertinenceMeasures(inst);
         Attribute bestAttribute = this.selectBestAttribute(inst, featureMeasures);
         ArrayList<Attribute> bestAttributeList= new ArrayList<>();
         bestAttributeList.add(bestAttribute);
@@ -504,7 +504,7 @@ public class RuleExtractor {
 	public ArrayList<Classification_Rule> extractAttributeAboveThresholdAllValues(Instances inst, double threshold) throws Exception {
 	        // utilisation de methode compute multiAtt closure
 	        ArrayList<Classification_Rule> rules = new ArrayList<>();
-	        double[] featureMeasures = computeFeatureMeasures(inst);
+	        double[] featureMeasures = computePertinenceMeasures(inst);
 	        threshold=checkThreshold(threshold,inst,featureMeasures);
 	            
 
@@ -530,9 +530,9 @@ public class RuleExtractor {
 	/**
 	* Extrait des règles basées sur toutes les combinaisons d'attributs dépassant le seuil
 	*/
-	public ArrayList<Classification_Rule> extractAttributeAboveThresholdAllValuesAllCombinations(Instances inst, double threshold) throws Exception {
+	public ArrayList<Classification_Rule> extractAttributeAboveThresholdAllValuesfullAttribCombinations(Instances inst, double threshold) throws Exception {
 		    ArrayList<Classification_Rule> rules = new ArrayList<>();
-		    double[] featureMeasures = computeFeatureMeasures(inst);
+		    double[] featureMeasures = computePertinenceMeasures(inst);
 		    threshold = checkThreshold(threshold, inst, featureMeasures);
 		    
 		    ArrayList<Attribute> topAttributes = selectTopPercentageAttributes(inst, threshold);
@@ -545,7 +545,7 @@ public class RuleExtractor {
 		    
 		    
 	        ArrayList<String> allConcepts = new ArrayList<>();
-	        rules = this.m_GaloisConnection.generateConceptsAllCombinations(inst, topAttributes, allConcepts,m_Debug);
+	        rules = this.m_GaloisConnection.generateConceptsfullAttribCombinations(inst, topAttributes, allConcepts,m_Debug);
 
 		    
 		    
@@ -559,7 +559,7 @@ public class RuleExtractor {
 	     */
 	 public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValues(Instances inst, double threshold) throws Exception {
 		    ArrayList<Classification_Rule> rules = new ArrayList<>();
-		    double[] featureMeasures = computeFeatureMeasures(inst);
+		    double[] featureMeasures = computePertinenceMeasures(inst);
 	        threshold=checkThreshold(threshold,inst,featureMeasures);
 
 		    ArrayList<Attribute> topAttributes = selectTopPercentageAttributes(inst, threshold);
@@ -573,10 +573,10 @@ public class RuleExtractor {
 		    return rules;
 		}
 	 
-		public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValuesAllCombinations(Instances inst, double threshold) throws Exception {
+		public ArrayList<Classification_Rule> extractAttributeAboveThresholdMajorityValuesfullAttribCombinations(Instances inst, double threshold) throws Exception {
 
 			ArrayList<Classification_Rule> rules = new ArrayList<>();
-		    double[] featureMeasures = computeFeatureMeasures(inst);
+		    double[] featureMeasures = computePertinenceMeasures(inst);
 		    threshold = checkThreshold(threshold, inst, featureMeasures);
 		    
 		    ArrayList<Attribute> topAttributes = this.selectTopPercentageAttributes(inst, threshold);
@@ -592,7 +592,7 @@ public class RuleExtractor {
 		    }
 		
 		    ArrayList<String> allConcepts = new ArrayList<>();
-	        rules = this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, topAttributes,Policy_Selection, allConcepts, m_Debug);
+	        rules = this.m_GaloisConnection.generateConceptsFromMajorityValuesfullAttribCombinations(inst, topAttributes,Policy_Selection, allConcepts, m_Debug);
 
 		    
 		    
@@ -606,7 +606,7 @@ public class RuleExtractor {
 	 public ArrayList<Classification_Rule> extractAttributeUnderThresholdAllValues(Instances inst, double threshold) throws Exception {
 			// utilisation de methode compute multiAtt closure
 	        ArrayList<Classification_Rule> rules = new ArrayList<>();
-		    double[] featureMeasures = computeFeatureMeasures(inst);
+		    double[] featureMeasures = computePertinenceMeasures(inst);
 
 	        threshold=checkThreshold(threshold,inst,featureMeasures);
 
@@ -626,9 +626,9 @@ public class RuleExtractor {
 		  /**
 			 * Extrait des règles basées sur toutes les combinaisons d'attributs dépassant le seuil
 			 */
-	 public ArrayList<Classification_Rule> extractAttributeUnderThresholdAllValuesAllCombinations(Instances inst, double threshold) throws Exception {
+	 public ArrayList<Classification_Rule> extractAttributeUnderThresholdAllValuesfullAttribCombinations(Instances inst, double threshold) throws Exception {
 			    ArrayList<Classification_Rule> rules = new ArrayList<>();
-			    double[] featureMeasures = computeFeatureMeasures(inst);
+			    double[] featureMeasures = computePertinenceMeasures(inst);
 			    threshold = checkThreshold(threshold, inst, featureMeasures);
 			    
 			    ArrayList<Attribute> topAttributes = selectAttributesUnderThreshold(inst, threshold);
@@ -644,7 +644,7 @@ public class RuleExtractor {
 			    }
 			
 			    ArrayList<String> allConcepts = new ArrayList<>();
-		        rules = this.m_GaloisConnection.generateConceptsAllCombinations(inst, topAttributes, allConcepts, m_Debug);
+		        rules = this.m_GaloisConnection.generateConceptsfullAttribCombinations(inst, topAttributes, allConcepts, m_Debug);
 
 			    
 			    
@@ -657,7 +657,7 @@ public class RuleExtractor {
 	     */
 	public ArrayList<Classification_Rule> extractAttributeUnderThresholdMajorityValues(Instances inst, double threshold) throws Exception {
 				ArrayList<Classification_Rule> rules = new ArrayList<>();
-			    double[] featureMeasures = computeFeatureMeasures(inst);
+			    double[] featureMeasures = computePertinenceMeasures(inst);
 		        threshold=checkThreshold(threshold,inst,featureMeasures);
 			    ArrayList<Attribute> topAttributes = selectAttributesUnderThreshold(inst, threshold);
 
@@ -671,9 +671,9 @@ public class RuleExtractor {
 			    return rules;
 			}
   
-	public ArrayList<Classification_Rule> extractAttributeUnderThresholdMajorityValuesAllCombinations(Instances inst, double threshold) throws Exception {
+	public ArrayList<Classification_Rule> extractAttributeUnderThresholdMajorityValuesfullAttribCombinations(Instances inst, double threshold) throws Exception {
 			    ArrayList<Classification_Rule> rules = new ArrayList<>();
-			    double[] featureMeasures = computeFeatureMeasures(inst);
+			    double[] featureMeasures = computePertinenceMeasures(inst);
 			    threshold = checkThreshold(threshold, inst, featureMeasures);
 			    
 			    // 1. Sélection des attributs au-dessus du seuil et calcul de leurs valeurs majoritaires
@@ -686,7 +686,7 @@ public class RuleExtractor {
 		        ArrayList<String> allConcepts = new ArrayList<>();
 
 		        // 3. Générer les concepts à partir des valeurs majoritaires
-			    rules = this.m_GaloisConnection.generateConceptsFromMajorityValuesAllCombinations(inst, topAttributes, Policy_Selection, allConcepts, m_Debug);
+			    rules = this.m_GaloisConnection.generateConceptsFromMajorityValuesfullAttribCombinations(inst, topAttributes, Policy_Selection, allConcepts, m_Debug);
 		        
 			    return rules;
 			}
@@ -852,7 +852,7 @@ public class RuleExtractor {
         double[] measures = null;
 
         try {
-            measures = computeFeatureMeasures(inst);
+            measures = computePertinenceMeasures(inst);
         } catch (Exception e) {
             System.out.println("Error in measures calculating in selectTopPercentageAttributes: " + e.getMessage());
             return selectedAttributes;
@@ -887,7 +887,7 @@ public class RuleExtractor {
     double[] measures = null;
 
     try {
-        measures = computeFeatureMeasures(inst);
+        measures = computePertinenceMeasures(inst);
     } catch (Exception e) {
         System.out.println("Error in measures calculating in selectAttributesUnderThreshold: " + e.getMessage());
         return selectedAttributes;
@@ -919,7 +919,7 @@ public class RuleExtractor {
     
     
     public void printAttributesUnderThreshold(Instances inst, double threshold) throws Exception {
-    double[] featureMeasures = computeFeatureMeasures(inst);
+    double[] featureMeasures = computePertinenceMeasures(inst);
     ArrayList<AttributeScore> allScores = new ArrayList<>();
 
     for (int i = 0; i < inst.numAttributes(); i++) {
@@ -929,13 +929,13 @@ public class RuleExtractor {
     }
 
     // Tri : croissant pour Entropy, décroissant sinon
-    boolean ascending = FeatureMeasureMethod == FEAT_ENTROPY;
+    boolean ascending = PertinenceMeasureMethod == FEAT_ENTROPY;
     allScores.sort((a, b) -> ascending ? Double.compare(a.score, b.score) : Double.compare(b.score, a.score));
 
     // Affichage de tous les attributs
     System.out.println("\n" + "▬".repeat(80));
     System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
-    System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+    System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
     System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
     System.out.println("━".repeat(80));
 
@@ -975,7 +975,7 @@ public class RuleExtractor {
 
     // Affichage des attributs sélectionnés
     System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES UNDER THRESHOLD  ▬▬▬▬▬▬▬▬", threshold);
-    System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+    System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
     System.out.printf(Locale.US, "BOTTOM %.1f%% ATTRIBUTES\n", threshold * 100);
     System.out.println("Number of selected attributes: " + leastAttributes.size() + "\n");
     System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
@@ -997,7 +997,7 @@ public class RuleExtractor {
     public void printPertinentAttribute(Instances inst) throws Exception {
        
     	// Calculer les mesures pour chaque attribut
-        double[] featureMeasures = computeFeatureMeasures(inst);
+        double[] featureMeasures = computePertinenceMeasures(inst);
 
         // Créer une liste de tous les attributs avec leurs mesures (sauf la classe)
         ArrayList<Pair<Attribute, Double>> allAttributeMeasures = new ArrayList<>();
@@ -1009,7 +1009,7 @@ public class RuleExtractor {
 
         // Trier tous les attributs selon la métrique
         allAttributeMeasures.sort((a1, a2) -> {
-            if (FeatureMeasureMethod == FEAT_ENTROPY) {
+            if (PertinenceMeasureMethod == FEAT_ENTROPY) {
                 return Double.compare(a1.getValue(), a2.getValue());
             } else {
                 return Double.compare(a2.getValue(), a1.getValue());
@@ -1018,7 +1018,7 @@ public class RuleExtractor {
 
         // Affichage de TOUS les attributs
         System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
-        System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+        System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
         System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
         System.out.println("━".repeat(48));
         
@@ -1042,12 +1042,12 @@ public class RuleExtractor {
             Pair<Attribute, Double> pertinentPair;
             String criteria;
             
-            if (FeatureMeasureMethod == FEAT_ENTROPY) {
+            if (PertinenceMeasureMethod == FEAT_ENTROPY) {
                 pertinentPair = allAttributeMeasures.get(allAttributeMeasures.size() - 1);
                 criteria = "Lowest Entropy";
             } else {
                 pertinentPair = allAttributeMeasures.get(0);
-                criteria = "Highest " + featureMeasureToString(FeatureMeasureMethod);
+                criteria = "Highest " + featureMeasureToString(PertinenceMeasureMethod);
             }
 
             // Affichage formaté
@@ -1069,7 +1069,7 @@ public class RuleExtractor {
      * @throws Exception En cas d'erreur dans le calcul des mesures
      */
     public void printTopPercentageAttributes(Instances inst, double threshold) throws Exception {
-    double[] featureMeasures = computeFeatureMeasures(inst);
+    double[] featureMeasures = computePertinenceMeasures(inst);
     ArrayList<AttributeScore> allScores = new ArrayList<>();
 
     for (int i = 0; i < inst.numAttributes(); i++) {
@@ -1079,13 +1079,13 @@ public class RuleExtractor {
     }
 
     // Tri : croissant pour Entropy, décroissant sinon
-    boolean ascending = FeatureMeasureMethod == FEAT_ENTROPY;
+    boolean ascending = PertinenceMeasureMethod == FEAT_ENTROPY;
     allScores.sort((a, b) -> ascending ? Double.compare(a.score, b.score) : Double.compare(b.score, a.score));
 
     // Affichage de tous les attributs
     System.out.println("\n" + "▬".repeat(80));
     System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
-    System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+    System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
     System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
     System.out.println("━".repeat(80));
 
@@ -1113,7 +1113,7 @@ public class RuleExtractor {
 
     // Affichage des meilleurs attributs
     System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES ABOVE THRESHOLD  ▬▬▬▬▬▬▬▬", threshold);
-    System.out.println("[" + featureMeasureToString(FeatureMeasureMethod) + "]\n");
+    System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
     System.out.printf(Locale.US, "TOP %.0f%% ATTRIBUTES\n", threshold * 100);
     System.out.println("Number of selected attributes: " + topAttributes.size() + "\n");
     System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
