@@ -126,7 +126,7 @@ public class CNC extends AbstractClassifier
     // Class members
     protected int m_CNC = 0;
     protected double m_LowPondVoter = 66.66;
-    protected double m_aboveUnderPertThreshold = 0;
+    protected double m_aboveUnderPertThreshold = 0.75;
     protected boolean autoPertThresholdComb = true;
     protected int m_beforeAfterDisc = aboveUnderPertThreshold_BEFORE_DISCRETIZATION;
     protected int PertinenceMeasureMethod = FEAT_GAINRATIO;
@@ -135,10 +135,10 @@ public class CNC extends AbstractClassifier
     protected int policySelectionOccurence = POLICY_LAST;
     protected int m_TopKVoters = 10;
     protected double m_PluralityVotersThreshold = 50;
-    protected double m_WeightedVoteThreshold = 10;
+    protected double m_WeightedVoteThreshold = 50;
     protected boolean fullAttribCombinations = true;
     protected int attributesCombinSize = 1;
-    protected float attributesCombinPercent = 1;
+    protected float attributesCombinPercent = 45;
     protected float varianceAttriCombPercent = 1;
     protected String vectorialConceptList="";
     protected boolean m_Debug = false;
