@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import weka.classifiers.rules.CNC;
 import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -30,6 +30,7 @@ import java.util.Date;
 public class _GaloisConnection {
     
     private boolean m_Debug;
+    protected String m_outputFilePath;
     private List<Attribute> orderedAttributes; // ordre original des attributs du dataset
     public String vectorialConceptList = "";  // Stocke tous les concepts en mode vectoriel
 
@@ -71,10 +72,10 @@ public class _GaloisConnection {
      * 
      * @param debug Debug mode flag
      */
-    public _GaloisConnection(boolean debug, Instances inst) {
+    public _GaloisConnection(boolean debug, Instances inst,String outputPath) {
         this.m_Debug = debug;
 		setOrderedAttributes(inst);
-
+		this.m_outputFilePath=outputPath;
         this.conceptList= new ArrayList<>();
         }
     
@@ -344,7 +345,7 @@ public class _GaloisConnection {
         if (k > n) return combinations;
 
         if (debug) {
-            System.out.println("➡ Generating attribute combinations of size " + k + " from " + n + " attributes");
+            CNC.logDebugFile("➡ Generating attribute combinations of size " + k + " from " + n + " attributes");
         }
 
         // Initialiser un tableau d’indices [0, 1, ..., k-1]
@@ -519,9 +520,18 @@ public class _GaloisConnection {
             rules.add(rule);
 
             // Ajoute la représentation vectorielle ligne par ligne
-         // Ajoute la représentation vectorielle avec la classe
+            // Ajoute la représentation vectorielle avec la classe
             String classLabel = rule.getRule_ClassMaj(); // ou rule.getConclusion() selon ta méthode
             vectorialConceptList += concept.toVectorString(orderedAttributes) + "," + classLabel + "\n";
+            // Export JSON
+            /*String conceptString = JsonExporter.toJson(concepts);
+            String conceptStringByLevel = JsonExporter.toJsonGroupedByLevel(concepts);
+
+            // Chemin vers le dossier Stage/Generated Lattices 
+
+            JsonExporter.saveToFile(conceptString, this.m_outputFilePath);*/
+
+
 
         }
     }
@@ -596,30 +606,30 @@ public class _GaloisConnection {
      */
     public void printConcepts(List<FormalConcept> allConcepts, Instances inst) {
         if (m_Debug && allConcepts != null && !allConcepts.isEmpty()) {
-            System.out.println("\n=== GENERATED CONCEPTS LIST ===");
-            System.out.println("Total number of concepts: " + allConcepts.size());
+            CNC.logDebugFile("\n=== GENERATED CONCEPTS LIST ===");
+            CNC.logDebugFile("Total number of concepts: " + allConcepts.size());
             
             for (int i = 0; i < allConcepts.size(); i++) {
                 FormalConcept concept = allConcepts.get(i);
-                System.out.println("\n" + (i + 1) + ". Concept:");
+                CNC.logDebugFile("\n" + (i + 1) + ". Concept:");
                 
                 // Affichage des instances
-                System.out.println("Objects (instances):");
+                CNC.logDebugFile("Objects (instances):");
                 concept.getObjects().stream()
                       .sorted()
                       .forEach(idx -> printInstance(inst, idx));
                 
                 // Affichage des attributs
-                System.out.println("\nConnexion Attributes:");
+                CNC.logDebugFile("\nConnexion Attributes:");
                 concept.getAttributes().stream()
                       .sorted()
-                      .forEach(attr -> System.out.println("  - " + attr));
+                      .forEach(attr -> CNC.logDebugFile("  - " + attr));
                 
                 if (i < allConcepts.size() - 1) {
-                    System.out.println("\n--------------------------------------------");
+                    CNC.logDebugFile("\n--------------------------------------------");
                 }
             }
-            System.out.println("\n=== CONCEPTS LIST END ===");
+            CNC.logDebugFile("\n=== CONCEPTS LIST END ===");
         }
         afficheConceptLevels(allConcepts);
     }
@@ -637,50 +647,66 @@ public class _GaloisConnection {
             }
             if (j < inst.numAttributes() - 1) sb.append(", ");
         }
-        System.out.println(sb.toString());
+        CNC.logDebugFile(sb.toString());
     }
     
-    /**
-     * Affiche les concepts groupés par niveau (nombre d'attributs)
-     * @param allConcepts La liste complète des concepts
-     */
-    public void afficheConceptLevels(List<FormalConcept> allConcepts) {
-        // Map pour organiser les concepts par niveau (nombre d'attributs)
-        Map<Integer, List<String>> conceptsByLevel = new TreeMap<>();
+   /**
+	 * Affiche les concepts groupés par niveau (nombre d'attributs)
+	 * et les enregistre dans le fichier de log.
+	 * @param allConcepts La liste complète des concepts
+	 */
+	public void afficheConceptLevels(List<FormalConcept> allConcepts) {
+	    // Map pour organiser les concepts par niveau (nombre d'attributs)
+	    Map<Integer, List<String>> conceptsByLevel = new TreeMap<>();
+	
+	    for (FormalConcept concept : allConcepts) {
+	        int level = concept.getAttributes().size();
+	
+	        // Création de la représentation concise
+	        String objStr = concept.getObjects().stream()
+	            .map(i -> "O" + i)
+	            .collect(Collectors.joining(","));
+	
+	        String attrStr = concept.getAttributes().stream()
+	            .collect(Collectors.joining(","));
+	
+	        String concise = String.format("{[%s],[%s]}", objStr, attrStr);
+	
+	        conceptsByLevel
+	            .computeIfAbsent(level, k -> new ArrayList<>())
+	            .add(concise);
+	    }
+	
+	    // En-tête dans le log
+	    CNC.logDebugFile("\n=== CONCEPTS BY INTENTION SET SIZE ===");
+	
+	    for (Map.Entry<Integer, List<String>> entry : conceptsByLevel.entrySet()) {
+	        String header = String.format("\n--- SIZE %d (%d concepts) ---",
+	                                      entry.getKey(), entry.getValue().size());
+	        System.out.println(header);
+	        CNC.logDebugFile(header);
+	
+	        int count = 0;
+	        StringBuilder line = new StringBuilder();
+	        for (String concept : entry.getValue()) {
+	            line.append(concept).append("  ");
+	            count++;
+	
+	            if (count % 5 == 0) {
+	                System.out.println(line);
+	                CNC.logDebugFile(line.toString());
+	                line.setLength(0); // reset StringBuilder
+	            }
+	        }
+	        if (line.length() > 0) {
+	            System.out.println(line);
+	            CNC.logDebugFile(line.toString());
+	        }
+	    }
+	
+	    CNC.logDebugFile("=== END ===");
+	}
 
-        for (FormalConcept concept : allConcepts) {
-            int level = concept.getAttributes().size();
-
-            // Création de la représentation concise
-            String objStr = concept.getObjects().stream()
-                .map(i -> "O" + i)
-                .collect(Collectors.joining(","));
-
-            String attrStr = concept.getAttributes().stream()
-                .collect(Collectors.joining(","));
-
-            String concise = String.format("{[%s],[%s]}", objStr, attrStr);
-
-            conceptsByLevel
-                .computeIfAbsent(level, k -> new ArrayList<>())
-                .add(concise);
-        }
-
-        // Affichage
-        System.out.println("\n=== CONCEPTS BY INTENTION SET SIZE ===");
-        for (Map.Entry<Integer, List<String>> entry : conceptsByLevel.entrySet()) {
-            System.out.printf("\n--- SIZE %d (%d concepts) ---\n", 
-                              entry.getKey(), entry.getValue().size());
-
-            int count = 0;
-            for (String concept : entry.getValue()) {
-                System.out.print(concept + "  ");
-                if (++count % 5 == 0) System.out.println();
-            }
-            if (count % 5 != 0) System.out.println();
-        }
-        System.out.println("=== END ===");
-    }
 
     
     
@@ -692,7 +718,7 @@ public class _GaloisConnection {
     
 
     public void afficheAttributsEtValeurs(Instances inst) {
-        System.out.println("=== ATTRIBUTES AND THEIR VALEURS ===");
+        CNC.logDebugFile("=== ATTRIBUTES AND THEIR VALEURS ===");
 
         for (int i = 0; i < inst.numAttributes(); i++) {
             Attribute attr = inst.attribute(i);
@@ -710,10 +736,10 @@ public class _GaloisConnection {
                 }
             }
 
-            System.out.println(valeurs);
+            CNC.logDebugFile(valeurs.toString());
         }
 
-        System.out.println("=== END ===");
+        CNC.logDebugFile("=== END ===");
     }
 
     /**
@@ -734,11 +760,7 @@ public class _GaloisConnection {
     
 
 
-    private void logDebug(String message) {
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss.SSS");
-        String timestamp = sdf.format(new Date());
-        System.out.println("[" + timestamp + "] " + message);
-    }
+  
 
     public String getConceptLevelsAsString(List<FormalConcept> allConcepts) {
         Map<Integer, List<FormalConcept>> conceptsByLevel = new TreeMap<>();
@@ -852,7 +874,7 @@ public class _GaloisConnection {
     	
 		long startTime = System.currentTimeMillis(); // Start timing
 		
-		if (debug) logDebug("Starting concept generation (no attribute combinations)");
+		if (debug) CNC.logDebugFile("Starting concept generation (no attribute combinations)");
 		
 		Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
 		ArrayList<Classification_Rule> rules = new ArrayList<>();
@@ -860,38 +882,38 @@ public class _GaloisConnection {
 		int attrCount = 0;
 		for (Attribute attr : attributes) {
 		attrCount++;
-		if (debug) logDebug("Processing attribute " + attr.name() + " (" + attrCount + "/" + attributes.size() + ")");
+		if (debug) CNC.logDebugFile("Processing attribute " + attr.name() + " (" + attrCount + "/" + attributes.size() + ")");
 		
 		ArrayList<Attribute> singleAttrList = new ArrayList<>();
 		singleAttrList.add(attr);
 		
 		Map<String, ArrayList<Integer>> valueGroups = groupInstancesByAttributeValues(inst, singleAttrList);
 		
-		if (debug) logDebug("Found " + valueGroups.size() + " value groups for attribute " + attr.name());
+		if (debug) CNC.logDebugFile("Found " + valueGroups.size() + " value groups for attribute " + attr.name());
 		
 		for (Map.Entry<String, ArrayList<Integer>> entry : valueGroups.entrySet()) {
 		String valueKey = entry.getKey();
 		ArrayList<Integer> instanceSubset = entry.getValue();
 		
-		if (debug) logDebug("  - Value: " + valueKey + " (" + instanceSubset.size() + " instances)");
+		if (debug) CNC.logDebugFile("  - Value: " + valueKey + " (" + instanceSubset.size() + " instances)");
 		
 		if (instanceSubset.size() <= 1) {
-		if (debug) logDebug("    - Group ignored (size <= 1)");
+		if (debug) CNC.logDebugFile("    - Group ignored (size <= 1)");
 		continue;
 		}
 		
 		Set<Integer> instanceSet = new HashSet<>(instanceSubset);
 		Map<String, String> closure = computeAttributeClosure(inst, instanceSubset, attributes);
 		
-		if (debug) logDebug("    - Attribute closure computed: " + closure);
+		if (debug) CNC.logDebugFile("    - Attribute closure computed: " + closure);
 		
 		Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
 		
-		if (debug) logDebug("    - Classification rule created: " + rule.affich_nom_rule(debug));
+		if (debug) CNC.logDebugFile("    - Classification rule created: " + rule.affich_nom_rule(debug));
 		
 		updateBestConcepts(bestConcepts, instanceSet, rule, closure);
 		
-		if (debug) logDebug("    - Best concepts updated");
+		if (debug) CNC.logDebugFile("    - Best concepts updated");
 		}
 		}
 		
@@ -899,14 +921,14 @@ public class _GaloisConnection {
 		setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
 		
 		if (debug) {
-		logDebug("Final concept list built");
-		printConcepts(this.getConceptList(), inst);
+			 CNC.logDebugFile("Final concept list built");
+			 printConcepts(this.getConceptList(), inst);
 		}
 		
 		long endTime = System.currentTimeMillis();
 		if (debug) {
-		logDebug("Concept generation completed");
-		logDebug("Total duration: " + (endTime - startTime) + " ms");
+		CNC.logDebugFile("Concept generation completed");
+		CNC.logDebugFile("Total duration: " + (endTime - startTime) + " ms");
 		}
 		
 		return rules;
@@ -920,23 +942,23 @@ public class _GaloisConnection {
             boolean debug) throws Exception {
 
         long startTime = System.currentTimeMillis();
-        if (debug) logDebug("Starting concept generation using majority values and attribute combinations");
+        if (debug) CNC.logDebugFile("Starting concept generation using majority values and attribute combinations");
 
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
 
-        if (debug) logDebug("Step 1: Calculating majority values for each attribute");
+        if (debug) CNC.logDebugFile("Step 1: Calculating majority values for each attribute");
         Map<Attribute, String> majorityValues = new HashMap<>();
         for (Attribute attr : attributes) {
             int majorityIndex = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
             String majorityValue = attr.value(majorityIndex);
             majorityValues.put(attr, majorityValue);
-            if (debug) logDebug("  - " + attr.name() + " → " + majorityValue);
+            if (debug) CNC.logDebugFile("  - " + attr.name() + " → " + majorityValue);
         }
 
         int m = attributes.size();
         for (int k = 1; k <= m; k++) {
-            if (debug) logDebug("Step 2: Generating attribute combinations of size " + k);
+            if (debug) CNC.logDebugFile("Step 2: Generating attribute combinations of size " + k);
             List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
 
             for (List<Attribute> attrCombination : attrCombinations) {
@@ -947,12 +969,12 @@ public class _GaloisConnection {
                     for (Attribute attr : attrCombinationArrayList) {
                         combInfo.append(attr.name()).append("=").append(majorityValues.get(attr)).append(" ");
                     }
-                    logDebug(combInfo.toString());
+                    CNC.logDebugFile(combInfo.toString());
                 }
 
                 ArrayList<Integer> instanceSubset = findInstancesWithMajorityValues(inst, attrCombinationArrayList, majorityValues);
 
-                if (debug) logDebug("     - Found " + instanceSubset.size() + " matching instances");
+                if (debug) CNC.logDebugFile("     - Found " + instanceSubset.size() + " matching instances");
 
                 if (instanceSubset.size() <= 1) continue;
 
@@ -962,7 +984,7 @@ public class _GaloisConnection {
                 if (!closure.isEmpty()) {
                     Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
                     updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-                    if (debug) logDebug("     - Rule added with closure: " + closure);
+                    if (debug) CNC.logDebugFile("     - Rule added with closure: " + closure);
                 }
             }
         }
@@ -970,10 +992,10 @@ public class _GaloisConnection {
         setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
 
         if (debug) {
-            logDebug("Final concept list constructed");
+            CNC.logDebugFile("Final concept list constructed");
             printConcepts(this.getConceptList(), inst);
             long endTime = System.currentTimeMillis();
-            logDebug("Total duration: " + (endTime - startTime) + " ms");
+            CNC.logDebugFile("Total duration: " + (endTime - startTime) + " ms");
         }
 
         return rules;
@@ -985,7 +1007,7 @@ public class _GaloisConnection {
             int Policy_Selection,
             boolean debug) throws Exception {
 		long startTime = System.currentTimeMillis();
-		if (debug) logDebug("Starting concept generation using majority value for each attribute");
+		if (debug) CNC.logDebugFile("Starting concept generation using majority value for each attribute");
 		
 		ArrayList<Classification_Rule> rules = new ArrayList<>();
 		Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
@@ -994,7 +1016,7 @@ public class _GaloisConnection {
 		int majorityIdx = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
 		String majorityValue = attr.value(majorityIdx);
 		
-		if (debug) logDebug("  - Attribute: " + attr.name() + " → Majority: " + majorityValue);
+		if (debug) CNC.logDebugFile("  - Attribute: " + attr.name() + " → Majority: " + majorityValue);
 		
 		ArrayList<Integer> matchingInstances = new ArrayList<>();
 		for (int i = 0; i < inst.numInstances(); i++) {
@@ -1003,7 +1025,7 @@ public class _GaloisConnection {
 		}
 		}
 		
-		if (debug) logDebug("     - Matching instances: " + matchingInstances.size());
+		if (debug) CNC.logDebugFile("     - Matching instances: " + matchingInstances.size());
 		
 		if (matchingInstances.size() > 1) {
 		Map<String, String> closure = computeAttributeClosure(inst, matchingInstances, attributes);
@@ -1012,7 +1034,7 @@ public class _GaloisConnection {
 		Classification_Rule rule = createClassificationRule(inst, matchingInstances, closure, attributes);
 		Set<Integer> instanceSet = new HashSet<>(matchingInstances);
 		updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-		if (debug) logDebug("     - Rule added with closure: " + closure);
+		if (debug) CNC.logDebugFile("     - Rule added with closure: " + closure);
 		}
 		}
 		}
@@ -1020,10 +1042,10 @@ public class _GaloisConnection {
 		setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
 		
 		if (debug) {
-		logDebug("Final concept list constructed");
-		printConcepts(this.getConceptList(), inst);
-		long endTime = System.currentTimeMillis();
-		logDebug("Total duration: " + (endTime - startTime) + " ms");
+			 CNC.logDebugFile("Final concept list constructed");
+			 printConcepts(this.getConceptList(), inst);
+			 long endTime = System.currentTimeMillis();
+			 CNC.logDebugFile("Total duration: " + (endTime - startTime) + " ms");
 		}
 		
 		return rules;
@@ -1036,21 +1058,21 @@ public class _GaloisConnection {
                                                          ArrayList<String> allConcepts,
                                                          boolean debug) throws Exception {
         long startTime = System.currentTimeMillis();
-        if (debug) logDebug("Starting formal concept generation from all attribute combinations");
+        if (debug) CNC.logDebugFile("Starting formal concept generation from all attribute combinations");
 
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
 
         int m = attributes.size();
         for (int k = 1; k <= m; k++) {
-            if (debug) logDebug("Generating attribute combinations of size " + k);
+            if (debug) CNC.logDebugFile("Generating attribute combinations of size " + k);
 
             List<List<Attribute>> attrCombinations = generateAttributeCombinations(inst, attributes, k, debug);
 
             for (List<Attribute> attrCombination : attrCombinations) {
                 ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
                 if (debug) {
-                    logDebug("  -> Processing combination: " + attrCombinationArrayList.stream()
+                    CNC.logDebugFile("  -> Processing combination: " + attrCombinationArrayList.stream()
                                 .map(Attribute::name)
                                 .collect(Collectors.joining(", ")));
                 }
@@ -1061,7 +1083,7 @@ public class _GaloisConnection {
                     ArrayList<Integer> instanceSubset = entry.getValue();
 
                     if (instanceSubset.size() < 1) {
-                        if (debug) logDebug("    - Skipping group with 0 instances");
+                        if (debug) CNC.logDebugFile("    - Skipping group with 0 instances");
                         continue;
                     }
 
@@ -1071,7 +1093,7 @@ public class _GaloisConnection {
                     if (!closure.isEmpty()) {
                         Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
                         updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-                        if (debug) logDebug("    - Rule created with closure: " + closure);
+                        if (debug) CNC.logDebugFile("    - Rule created with closure: " + closure);
                     }
                 }
             }
@@ -1081,10 +1103,10 @@ public class _GaloisConnection {
         setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules)); 
 
         if (debug) {
-            logDebug("Final list of concepts built");
+            CNC.logDebugFile("Final list of concepts built");
             printConcepts(this.getConceptList(), inst);
             long endTime = System.currentTimeMillis();
-            logDebug("Total duration: " + (endTime - startTime) + " ms");
+            CNC.logDebugFile("Total duration: " + (endTime - startTime) + " ms");
         }
 
         return rules;
@@ -1101,7 +1123,7 @@ public class _GaloisConnection {
             boolean debug) throws Exception {
 
         long startTime = System.currentTimeMillis();
-        if (debug) logDebug("➡ Starting formal concept generation with attribute combinations of size N=" + n);
+        if (debug) CNC.logDebugFile("➡ Starting formal concept generation with attribute combinations of size N=" + n);
 
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
@@ -1113,7 +1135,7 @@ public class _GaloisConnection {
             ArrayList<Attribute> attrCombinationArrayList = new ArrayList<>(attrCombination);
 
             if (debug) {
-                logDebug("  -> Processing combination: " + attrCombinationArrayList.stream()
+                CNC.logDebugFile("  -> Processing combination: " + attrCombinationArrayList.stream()
                             .map(Attribute::name)
                             .collect(Collectors.joining(", ")));
             }
@@ -1126,7 +1148,7 @@ public class _GaloisConnection {
                 ArrayList<Integer> instanceSubset = entry.getValue();
 
                 if (instanceSubset.size() < 1) {
-                    if (debug) logDebug("    - Skipping group with 0 or fewer instances");
+                    if (debug) CNC.logDebugFile("    - Skipping group with 0 or fewer instances");
                     continue;
                 }
 
@@ -1137,7 +1159,7 @@ public class _GaloisConnection {
                 if (!closure.isEmpty()) {
                     Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
                     updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-                    if (debug) logDebug("    - Rule created with closure: " + closure);
+                    if (debug) CNC.logDebugFile("    - Rule created with closure: " + closure);
                 }
             }
         }
@@ -1152,10 +1174,10 @@ public class _GaloisConnection {
         //setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
 
         if (debug) {
-            logDebug("✅ Final list of concepts built");
+            CNC.logDebugFile("✅ Final list of concepts built");
             printConcepts(this.getConceptList(), inst);
             long endTime = System.currentTimeMillis();
-            logDebug("⏱ Total duration: " + (endTime - startTime) + " ms");
+            CNC.logDebugFile("⏱ Total duration: " + (endTime - startTime) + " ms");
         }
 
         return rules;
@@ -1170,19 +1192,19 @@ public class _GaloisConnection {
             boolean debug) throws Exception {
 
         long startTime = System.currentTimeMillis();
-        if (debug) logDebug("➡ Starting concept generation for attribute combinations of size " + n + " using majority values");
+        if (debug) CNC.logDebugFile("➡ Starting concept generation for attribute combinations of size " + n + " using majority values");
 
         Map<Set<Integer>, Classification_Rule> bestConcepts = new HashMap<>();
         ArrayList<Classification_Rule> rules = new ArrayList<>();
 
         // Étape 1 : Calcul des valeurs majoritaires pour chaque attribut
-        if (debug) logDebug("  ➤ Calculating majority values");
+        if (debug) CNC.logDebugFile("  ➤ Calculating majority values");
         Map<Attribute, String> majorityValues = new HashMap<>();
         for (Attribute attr : attributes) {
             int majorityIndex = findMajorityValueIndex(inst, attr.index(), Policy_Selection);
             String majorityValue = attr.value(majorityIndex);
             majorityValues.put(attr, majorityValue);
-            if (debug) logDebug("    - " + attr.name() + " → " + majorityValue);
+            if (debug) CNC.logDebugFile("    - " + attr.name() + " → " + majorityValue);
         }
 
         // Étape 2 : Génération des combinaisons d'attributs de taille n
@@ -1197,16 +1219,16 @@ public class _GaloisConnection {
                 for (Attribute attr : attrCombinationArrayList) {
                     combInfo.append(attr.name()).append("=").append(majorityValues.get(attr)).append(" ");
                 }
-                logDebug(combInfo.toString());
+                CNC.logDebugFile(combInfo.toString());
             }
 
             // Étape 3 : Filtrer les instances correspondant aux valeurs majoritaires de la combinaison
             ArrayList<Integer> instanceSubset = findInstancesWithMajorityValues(inst, attrCombinationArrayList, majorityValues);
 
-            if (debug) logDebug("     ➥ Found " + instanceSubset.size() + " matching instances");
+            if (debug) CNC.logDebugFile("     ➥ Found " + instanceSubset.size() + " matching instances");
 
             if (instanceSubset.size() < 1) {
-                if (debug) logDebug("     ✖ Skipped (≤ 0 instance)");
+                if (debug) CNC.logDebugFile("     ✖ Skipped (≤ 0 instance)");
                 continue;
             }
 
@@ -1216,7 +1238,7 @@ public class _GaloisConnection {
             if (!closure.isEmpty()) {
                 Classification_Rule rule = createClassificationRule(inst, instanceSubset, closure, attributes);
                 updateBestConcepts(bestConcepts, instanceSet, rule, closure);
-                if (debug) logDebug("     ✔ Rule added with closure: " + closure);
+                if (debug) CNC.logDebugFile("     ✔ Rule added with closure: " + closure);
             }
         }
 
@@ -1224,10 +1246,10 @@ public class _GaloisConnection {
         setConceptList(buildFinalConceptsList(inst, bestConcepts, allConcepts, rules));
 
         if (debug) {
-            logDebug("✅ Final list of concepts built");
+            CNC.logDebugFile("✅ Final list of concepts built");
             printConcepts(this.getConceptList(), inst);
             long endTime = System.currentTimeMillis();
-            logDebug("⏱ Total duration: " + (endTime - startTime) + " ms");
+            CNC.logDebugFile("⏱ Total duration: " + (endTime - startTime) + " ms");
         }
 
         return rules;
@@ -1243,20 +1265,20 @@ public class _GaloisConnection {
         ArrayList<Classification_Rule> rules = new ArrayList<>();
 
         if (debug) {
-            System.out.println("Starting generateConceptsAttributePercentCombinations...");
-            System.out.println("Total number of attributes: " + attributes.size());
-            System.out.println("Percentage value p: " + p);
+            CNC.logDebugFile("Starting generateConceptsAttributePercentCombinations...");
+            CNC.logDebugFile("Total number of attributes: " + attributes.size());
+            CNC.logDebugFile("Percentage value p: " + p);
         }
 
         int nbAttr = attributes.size();
         int n = Math.round((p * nbAttr) / 100.0f);
 
         if (debug) {
-            System.out.println("Computed number of attributes to combine (n): " + n);
+            CNC.logDebugFile("Computed number of attributes to combine (n): " + n);
         }
 
         if (n <= 0) {
-            if (debug) System.out.println("n <= 0, no attributes selected. Returning empty rule set.");
+            if (debug) CNC.logDebugFile("n <= 0, no attributes selected. Returning empty rule set.");
             return rules;
         }
 
@@ -1264,8 +1286,8 @@ public class _GaloisConnection {
 
         if (debug) {
             long endTime = System.currentTimeMillis();
-            System.out.println("Finished generating rules. Total rules generated: " + rules.size());
-            System.out.println("Elapsed time: " + (endTime - startTime) + " ms");
+            CNC.logDebugFile("Finished generating rules. Total rules generated: " + rules.size());
+            CNC.logDebugFile("Elapsed time: " + (endTime - startTime) + " ms");
         }
 
         return rules;
@@ -1286,9 +1308,9 @@ public class _GaloisConnection {
     int nbAttr = attributes.size();
 
     if (debug) {
-        System.out.println("Starting generateConceptsAttributePercentCombinationsWithVar...");
-        System.out.println("Total number of attributes: " + nbAttr);
-        System.out.println("Percentage p: " + p + "%, variance v: " + v + "%");
+        CNC.logDebugFile("Starting generateConceptsAttributePercentCombinationsWithVar...");
+        CNC.logDebugFile("Total number of attributes: " + nbAttr);
+        CNC.logDebugFile("Percentage p: " + p + "%, variance v: " + v + "%");
     }
 
     // Calcul du nombre d'attributs central
@@ -1298,19 +1320,19 @@ public class _GaloisConnection {
     int nMax = Math.min(nbAttr, Math.round(((p + v) * nbAttr) / 100.0f));
 
     if (debug) {
-        System.out.println("Central number of attributes (nCenter): " + nCenter);
-        System.out.println("Attribute combination interval: [" + nMin + ", " + nMax + "]");
+        CNC.logDebugFile("Central number of attributes (nCenter): " + nCenter);
+        CNC.logDebugFile("Attribute combination interval: [" + nMin + ", " + nMax + "]");
     }
 
     if (nMax < nMin || nMin <= 0) {
-        if (debug) System.out.println("Invalid attribute interval. Returning empty rule set.");
+        if (debug) CNC.logDebugFile("Invalid attribute interval. Returning empty rule set.");
         return rules;
     }
 
     // Boucle sur chaque taille d'attribut à combiner
     for (int n = nMin; n <= nMax; n++) {
         if (debug) {
-            System.out.println("Generating rules for combination size n = " + n + "...");
+            CNC.logDebugFile("Generating rules for combination size n = " + n + "...");
         }
 
         ArrayList<Classification_Rule> partialRules =
@@ -1321,9 +1343,9 @@ public class _GaloisConnection {
 
     if (debug) {
         long endTime = System.currentTimeMillis();
-        System.out.println("Finished generating all rules.");
-        System.out.println("Total number of rules generated: " + rules.size());
-        System.out.println("Elapsed time: " + (endTime - startTime) + " ms");
+        CNC.logDebugFile("Finished generating all rules.");
+        CNC.logDebugFile("Total number of rules generated: " + rules.size());
+        CNC.logDebugFile("Elapsed time: " + (endTime - startTime) + " ms");
     }
 
     return rules;
@@ -1338,7 +1360,7 @@ public class _GaloisConnection {
 private void generateConceptLattice(List<FormalConcept> concepts) {
     // Structure pour stocker les relations de sur/sous-concepts
     Map<FormalConcept, List<FormalConcept>> lattice = new HashMap<>();
-    System.out.println("Final list size: " + concepts.size());
+    CNC.logDebugFile("Final list size: " + concepts.size());
 
     // Initialiser chaque concept avec une liste vide de sous-concepts
     for (FormalConcept c : concepts) {
@@ -1360,12 +1382,12 @@ private void generateConceptLattice(List<FormalConcept> concepts) {
     }
 
     // Affichage textuel du treillis
-    System.out.println("=== Concept Lattice (Treillis de concepts) ===");
+    CNC.logDebugFile("=== Concept Lattice (Treillis de concepts) ===");
     for (Map.Entry<FormalConcept, List<FormalConcept>> entry : lattice.entrySet()) {
         FormalConcept superConcept = entry.getKey();
-        System.out.println("Superconcept: " + formatConcept(superConcept));
+        CNC.logDebugFile("Superconcept: " + formatConcept(superConcept));
         for (FormalConcept subConcept : entry.getValue()) {
-            System.out.println("   ↳ Subconcept: " + formatConcept(subConcept));
+            CNC.logDebugFile("   ↳ Subconcept: " + formatConcept(subConcept));
         }
     }
 }

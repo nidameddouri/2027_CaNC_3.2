@@ -1,5 +1,7 @@
 package weka.classifiers.fca;
 import weka.classifiers.fca._GaloisConnection.FormalConcept;
+import weka.classifiers.rules.CNC;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -113,7 +115,7 @@ public class JsonExporter {
     public static void saveToFile(String jsonString, String filename) {
         try {
             Files.write(Paths.get(filename), jsonString.getBytes());
-            System.out.println("JSON file successfully created at: " + filename);
+            CNC.logDebugFile("JSON file successfully created at: " + filename);
         } catch (IOException e) {
             System.err.println("Error writing to file: " + e.getMessage());
         }

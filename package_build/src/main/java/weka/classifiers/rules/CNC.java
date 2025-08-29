@@ -5,6 +5,11 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Collections;
@@ -126,7 +131,7 @@ public class CNC extends AbstractClassifier
     // Class members
     protected int m_CNC = 0;
     protected double m_LowPondVoter = 66.66;
-    protected double m_aboveUnderPertThreshold = 0.75;
+    protected double m_aboveUnderPertThreshold = 0.775;
     protected boolean autoPertThresholdComb = true;
     protected int m_beforeAfterDisc = aboveUnderPertThreshold_BEFORE_DISCRETIZATION;
     protected int PertinenceMeasureMethod = FEAT_GAINRATIO;
@@ -142,6 +147,30 @@ public class CNC extends AbstractClassifier
     protected float varianceAttriCombPercent = 1;
     protected String vectorialConceptList="";
     protected boolean m_Debug = false;
+    protected boolean m_subContexts = false;
+    protected String m_ConceptsOutputPath = ""; // Path to save concepts in JSON
+    /** File where concepts will be saved as JSON */
+    protected File m_ConceptsOutputFile = new File(System.getProperty("user.home"), "concepts.json");
+
+    private static PrintWriter logWriter;
+    private static final Object lock = new Object();
+    private static boolean logInitialized = false;
+
+    
+
+    public File getConceptsOutputFile() {
+        return m_ConceptsOutputFile;
+    }
+
+    public void setConceptsOutputFile(File value) {
+        m_ConceptsOutputFile = value;
+    }
+
+    public String conceptsOutputFileTipText() {
+        return "Choose the file where the generated concepts will be saved in JSON format.";
+    }
+
+
 
 
 
@@ -169,7 +198,13 @@ public class CNC extends AbstractClassifier
         this.attributesCombinPercent = attributesCombinPercent;
     }
 
-
+    public String getConceptsOutputPath() {
+    	return m_ConceptsOutputPath;
+    }
+    
+    public void setConceptsOutputPath(String path) {
+    	this.m_ConceptsOutputPath=path;
+    }
     public float getVarianceAttriCombPercent() {
         return varianceAttriCombPercent;
     }
@@ -178,7 +213,14 @@ public class CNC extends AbstractClassifier
         this.varianceAttriCombPercent = value;
     }
 
-  //TIPTEXT functions
+    public boolean getSubContexts() {
+    	return m_subContexts;
+    }
+    
+    public void setSubContexts(boolean subCon) {
+    	this.m_subContexts=subCon;
+    }
+    //TIPTEXT functions
 
     public String CNCTipText() {
         return "Number of CNC classifiers to use.";
@@ -247,6 +289,9 @@ public class CNC extends AbstractClassifier
     public String filterTipText() {
         return "Filter to apply to the dataset before classification.";
     }
+    public String subContextsTipText() {
+        return "If enabled, the dataset is devided into sub-contexts according to classe value and rules are extracted from each subcontext.";
+    }
 
 
 
@@ -262,6 +307,49 @@ public class CNC extends AbstractClassifier
                 "Threshold must be between 0.0 and 1.0.");
         }
         this.m_aboveUnderPertThreshold = t;
+    }
+
+    // Initialise le fichier automatiquement
+    public static void initLogFile() {
+        synchronized (lock) {
+            if (!logInitialized) {
+                try {
+                    String fileName = "cnc_debug_" + 
+                        new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".log";
+
+                    File logFile = new File(fileName);
+                    logWriter = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)));
+                    logWriter.println("===== DEBUG SESSION STARTED =====");
+                    logWriter.flush();
+                    logInitialized = true;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+    
+
+    public static void logDebugFile(String message) {
+        System.out.println(message);
+        synchronized (lock) {
+            if (logWriter != null) {
+                logWriter.println(message);
+                logWriter.flush();
+            }
+        }
+    }
+
+    public static void closeLog() {
+        synchronized (lock) {
+            if (logWriter != null) {
+                logWriter.println("===== DEBUG SESSION ENDED =====");
+                logWriter.flush();
+                logWriter.close();
+                logWriter = null;
+                logInitialized = false;
+            }
+        }
     }
 
 
@@ -505,6 +593,17 @@ public class CNC extends AbstractClassifier
             "\tNumber of top voters to consider (for Top-K strategy)",
             "numbTopKVoters", 1, "-numbTopKVoters <num>"));
 
+        // ✅ New Option: Sub-context processing
+        newVector.addElement(new Option(
+            "\tIf True, split dataset into sub-contexts per class before learning rules",
+            "subContexts", 1, "-subContexts <bool>"));
+        //to save file
+        newVector.addElement(new Option(
+        	    "\tFile path to save generated concepts in JSON format.",
+        	    "conceptsOutputFile", 1, "-conceptsOutputFile <path>"));
+
+
+        
         // Plurality aggregation threshold
         newVector.addElement(new Option(
             "\tMinimum plurality threshold value (0.0-100)",
@@ -541,6 +640,12 @@ public class CNC extends AbstractClassifier
         newVector.addElement(new Option(
             "\tCombination size for attribute selection (>= 0).",
             "attributesCombinSize", 1, "-attributesCombinSize <num>"));
+        
+        // Option to save generated concepts to JSON file
+        newVector.addElement(new Option(
+            "\tPath to save generated concepts as JSON file",
+            "conceptsOutputPath", 1, "-conceptsOutputPath <file-path>"));
+
 
         // Attribute combination percent
         newVector.addElement(new Option(
@@ -610,6 +715,19 @@ public class CNC extends AbstractClassifier
         String s = Utils.getOption("aggregationVoters", options);
         if (!s.isEmpty()) aggregationVoters = Integer.parseInt(s);
 
+        // outputPath
+
+        s = Utils.getOption("conceptsOutputPath", options);
+        if (!s.isEmpty()) {
+            m_ConceptsOutputPath = s;
+        }
+
+        //to save path
+        s = Utils.getOption("conceptsOutputFile", options);
+        if (!s.isEmpty()) {
+            setConceptsOutputFile(new File(s));
+        }
+
         // Top-K voters
         s = Utils.getOption("numbTopKVoters", options);
         if (!s.isEmpty()) m_TopKVoters = Integer.parseInt(s);
@@ -673,6 +791,11 @@ public class CNC extends AbstractClassifier
             }
         }
 
+        // ✅ Sub-context processing
+        s = Utils.getOption("subContexts", options);
+        if (!s.isEmpty()) setSubContexts(s.equalsIgnoreCase("true") || s.equalsIgnoreCase("yes") || s.equals("1"));
+
+        
         // Policy selection occurrence
         s = Utils.getOption("policySelectionOccurence", options);
         if (!s.isEmpty()) policySelectionOccurence = Integer.parseInt(s);
@@ -696,6 +819,10 @@ public class CNC extends AbstractClassifier
         
         // Debug flag
         m_Debug = Utils.getFlag("debug", options);
+        if (m_Debug) {
+            CNC.initLogFile();
+        }
+
 
         // Parent options
         super.setOptions(options);
@@ -720,6 +847,12 @@ public class CNC extends AbstractClassifier
         // Weighted vote threshold
         result.add("-minWeightedVoteThreshold");
         result.add(String.valueOf(m_WeightedVoteThreshold));
+        
+        // Output path
+
+        result.add("-conceptsOutputPath");
+        result.add(m_ConceptsOutputPath != null ? m_ConceptsOutputPath : "");
+
 
         // Closure strategy
         result.add("-closureStrategy");
@@ -752,7 +885,15 @@ public class CNC extends AbstractClassifier
         // Full attribute combinations
         result.add("-fullAttribCombinations");
         result.add(String.valueOf(getfullAttribCombinations()));
+        
+        // ✅ Sub-context processing
+        result.add("-subContexts");
+        result.add(String.valueOf(getSubContexts()));
+        //to save file
+        result.add("-conceptsOutputFile");
+        result.add(m_ConceptsOutputFile != null ? m_ConceptsOutputFile.getAbsolutePath() : "");
 
+        
         // Pertinence measure
         result.add("-PertinenceMeasure");
         switch (PertinenceMeasureMethod) {
@@ -933,45 +1074,41 @@ public class CNC extends AbstractClassifier
         return "Enable debug output (prints diagnostic information)";
     }
 
-    
-    
-    // buildClassifier() builds the classifier using the training data, it is mandatory to implement this function
+   
+
 
     
+    @Override
     public void buildClassifier(Instances data) throws Exception {
 
-    	
-
-        // Vérification des capacités et prétraitement des données
+        // Capabilities & preprocessing
         getCapabilities().testWithFail(data);
+        structure = new Instances(data, 0);
         
-        structure = new Instances(data, 0); // sauvegarde du format
-        // Étape 1: Préparation des données
+       
+
+
+        // Step 1: Data preparation
         m_FilteredInstances = new Instances(data);
         m_FilteredInstances.deleteWithMissingClass();
-        
-        int n=0;
-        float v,p;
-        
-        
+
         if (m_FilteredInstances.numInstances() == 0)
             throw new Exception("No training instances left after removing instances with MissingClass!");
-        
-        // Gestion des valeurs manquantes
+
+        // Missing values handling
         m_Missing.setInputFormat(m_FilteredInstances);
         m_FilteredInstances = Filter.useFilter(m_FilteredInstances, m_Missing);
-        
+
         if (m_FilteredInstances.numInstances() == 0)
             throw new Exception("No training instances left after removing instances with MissingValues!");
-        
-        // Application du filtre (discretisation)
+
+        // Discretization
         m_Filter.setInputFormat(m_FilteredInstances);
         m_FilteredInstances = Filter.useFilter(m_FilteredInstances, m_Filter);
-        
-        // Cas particulier: seulement l'attribut classe
+
+        // Edge case: only class attribute
         if (m_FilteredInstances.numAttributes() == 1) {
-            System.err.println("Cannot build model (only class attribute present in data!), "
-                + "using ZeroR model instead!");
+            System.err.println("Cannot build model (only class attribute present in data!), using ZeroR model instead!");
             m_ZeroR = new weka.classifiers.rules.ZeroR();
             m_ZeroR.buildClassifier(m_FilteredInstances);
             return;
@@ -979,440 +1116,599 @@ public class CNC extends AbstractClassifier
             m_ZeroR = null;
             this.m_CNC = 1;
         }
+
+        // Initialization
+        m_classifierNC = new ArrayList<>();
+
+        // Retrieve all classes
+        Attribute classAttr = m_FilteredInstances.classAttribute();
+        int numClasses = classAttr.numValues();
+
+        RuleExtractor extractor = new RuleExtractor(
+                m_Debug, PertinenceMeasureMethod, policySelectionOccurence, closureStrategy
+            );
         
-        // Étape 2: Sélection de la stratégie de génération de règles
-     
-        RuleExtractor extractor = new RuleExtractor(m_Debug, PertinenceMeasureMethod, policySelectionOccurence, closureStrategy,m_FilteredInstances);
-       
-        if (m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-        	m_aboveUnderPertThreshold=getm_Threshold(extractor.computePertinenceMeasures(data));
-        	
-        }
-        else if ( m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-        	m_aboveUnderPertThreshold=getm_Threshold(extractor.computePertinenceMeasures(m_FilteredInstances));
-
-         }
-    
-        if (this.getfullAttribCombinations()==true) {
-        	switch (closureStrategy) {
-            case CONCEPT_LEARNING_ALL_ALL:
-                if (m_Debug) {
-                    System.out.println("=== ALL ATTRIBUTES - ALL VALUES - fullAttribCombinations MODE ACTIVE ===");
-                    System.out.println("Extraction using all attributes with all values");
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                }
-                m_classifierNC = extractor.extractAllAttributesAllValuesfullAttribCombinations(m_FilteredInstances);
-               
-                break;
+        float v=0,p=0;
+            if(m_subContexts==false) {
+                 extractor = new RuleExtractor(m_Debug, PertinenceMeasureMethod, policySelectionOccurence, closureStrategy,m_FilteredInstances, getConceptsOutputPath());
                 
-            case CONCEPT_LEARNING_ALL_MAJORITY:
-                if (m_Debug) {
-                    System.out.println("=== ALL ATTRIBUTES - MAJORITY VALUE - fullAttribCombinations MODE ACTIVE ===");
-                    System.out.println("Extraction using all attributes with majority values");
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                if (m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	m_aboveUnderPertThreshold=getm_Threshold(extractor.computePertinenceMeasures(data));
+                	
                 }
-                m_classifierNC = extractor.extractAllAttributesMajorityValuefullAttribCombinations(m_FilteredInstances);
-                if (m_Debug) {
-                    printRuleStatistics();
+                else if ( m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	m_aboveUnderPertThreshold=getm_Threshold(extractor.computePertinenceMeasures(m_FilteredInstances));
+
+                 }
+            
+                if (this.getfullAttribCombinations()==true) {
+                	
+                	m_classifierNC=generateRulesFullCombinations(extractor, m_classifierNC, data,m_FilteredInstances ,  v, p);
                 }
-                break;
                 
-            case CONCEPT_LEARNING_PERTINENT_ALL:
-                if (m_Debug) {
-                    System.out.println("=== PERTINENT ATTRIBUTE - ALL VALUES - fullAttribCombinations MODE ACTIVE ==="); 
-                    System.out.println("Extraction using only pertinent attribute with all values");
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printPertinentAttribute(m_FilteredInstances);
-
-                }
-                m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
-                if (m_Debug) {
-                    printRuleStatistics();
+                else if(this.getfullAttribCombinations()==false) {
+                	m_classifierNC=generateRulesNormal(extractor, data, m_FilteredInstances, v, p);
                 }
 
-                break;
+                List<FormalConcept> concepts=extractor.m_GaloisConnection.getConceptList();
                 
-            case CONCEPT_LEARNING_PERTINENT_MAJORITY:
+                this.conceptsListStr=extractor.m_GaloisConnection.getConceptLevelsAsString(concepts);
+                vectorialConceptList=extractor.m_GaloisConnection.vectorialConceptList;
+            
+            }else {
                 if (m_Debug) {
-                    System.out.println("=== PERTINENT ATTRIBUTE - MAJORITY VALUE - fullAttribCombinations MODE ACTIVE ===");
-                    System.out.println("Extraction using only pertinent attribute with majority value");
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printPertinentAttribute(m_FilteredInstances);
-
-                } 
-                m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
-                if (m_Debug) {
-                    printRuleStatistics();
+                	CNC.logDebugFile("\n======== Deviding Context into sub-contexts ========");
+                	CNC.logDebugFile("\n=== Classes found in dataset ===");
+                    for (int i = 0; i < numClasses; i++) {
+                    	CNC.logDebugFile("Class " + i + ": " + classAttr.value(i));
+                    }
+                    CNC.logDebugFile("================================\n");
                 }
 
-                break;
-                
-            case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_ALL:
-                if (m_Debug) {
-                    System.out.println("=== ABOVE aboveUnderPertThreshold - ALL VALUES - fullAttribCombinations MODE ACTIVE ===");
-                    if(autoPertThresholdComb) {
-                        System.out.println("===Auto Threshold Mode Active=== ");
+                // Loop over each class
+                for (int i = 0; i < numClasses; i++) {
+                    String classValue = classAttr.value(i);
 
+                    // Create sub-context with only instances of this class
+                    Instances subContext = new Instances(m_FilteredInstances, 0);
+                    for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
+                        if (m_FilteredInstances.instance(j).stringValue(classAttr).equals(classValue)) {
+                            subContext.add(m_FilteredInstances.instance(j));
+                        }
                     }
-                    if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(data)));
-                    	System.out.println("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
 
+                    if (subContext.numInstances() == 0) continue;
+
+                    // Step 2: Rule generation for this class
+                    extractor = new RuleExtractor(
+                        m_Debug, PertinenceMeasureMethod, policySelectionOccurence, closureStrategy, subContext,getConceptsOutputPath()
+                    );
+            	if (m_Debug) {
+                    CNC.logDebugFile("\n=== Learning rules for class: " + classValue + " ===");
+                    CNC.logDebugFile("Sub-context size: " + subContext.numInstances());
+                    CNC.logDebugFile("Instances in sub-context:");
+
+                    // --- AFFICHAGE DES INSTANCES DU SOUS-CONTEXTE ---
+                    for (int idx = 0; idx < subContext.numInstances(); idx++) {
+                        Instance inst = subContext.instance(idx);
+                        StringBuilder sb = new StringBuilder("  [");
+                        for (int k = 0; k < subContext.numAttributes(); k++) {
+                            sb.append(subContext.attribute(k).name())
+                              .append("=")
+                              .append(inst.stringValue(k));
+                            if (k < subContext.numAttributes() - 1) sb.append(", ");
+                        }
+                        sb.append("]");
+                        CNC.logDebugFile(sb.toString());
                     }
-                    else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(m_FilteredInstances)));
-                    	System.out.println("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
-
-                    }
-                    System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
-
-                }
-                m_classifierNC = extractor.extractAttributeAboveThresholdAllValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-
-                break;
-                 
-            case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_MAJORITY:
-                if (m_Debug) {
-                    System.out.println("=== ABOVE aboveUnderPertThreshold - MAJORITY VALUES - fullAttribCombinations MODE ACTIVE ===");
-                    if(autoPertThresholdComb) {
-                        System.out.println("===Auto Threshold Mode Active=== ");
-
-                    }
-                    if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    	System.out.println("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
-
-                    }
-                    else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    	System.out.println("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
-
-                    }
-                    
-                    System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
-
-                }
-                m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
-                if (m_Debug) {
-                    printRuleStatistics();
+                    CNC.logDebugFile("--------------------------------------");
                 }
 
-                break;
-                
-            case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_ALL:
-                if (m_Debug) {
-                    System.out.println("=== UNDER aboveUnderPertThreshold - ALL VALUES - fullAttribCombinations MODE ACTIVE ===");
-                    if(autoPertThresholdComb) {
-                        System.out.println("===Auto Threshold Mode Active=== ");
-
-                    }
-                    if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    	System.out.println("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
-
-                    }
-                    else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    	System.out.println("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
-
-                    }
-                    System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
-
-                }
-                m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesfullAttribCombinations
-                		(m_FilteredInstances,m_aboveUnderPertThreshold);
-                if (m_Debug) {
-                    printRuleStatistics();
+                // Threshold computation
+                if (m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                    m_aboveUnderPertThreshold = getm_Threshold(extractor.computePertinenceMeasures(data));
+                } else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                    m_aboveUnderPertThreshold = getm_Threshold(extractor.computePertinenceMeasures(subContext));
                 }
 
-                break;
-                
-            case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_MAJORITY:
-                if (m_Debug) {
-                    System.out.println("=== UNDER aboveUnderPertThreshold - MAJORITY VALUES - fullAttribCombinations MODE ACTIVE ===");
-                    if(autoPertThresholdComb) {
-                        System.out.println("===Auto Threshold Mode Active=== ");
-
-                    }
-                    if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    	System.out.println("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
-
-                    }
-                    else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    	System.out.println("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
-
-                    }
-                    System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
-
-                }
-                m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-                break;
-            case N_ATTRIBUTES_COMBINATION_ALL_VALUES:
-                if (m_Debug) {
-                    System.out.println("=== N Attribute - ALL VALUES - fullAttribCombinations MODE ACTIVE ===");
+                ArrayList<Classification_Rule> rulesForClass;
+                if (this.getfullAttribCombinations()) {
+                    rulesForClass = generateRulesFullCombinations(extractor, new ArrayList<>(), data, subContext, 0, 0);
+                } else {
+                    rulesForClass = generateRulesNormal(extractor, data, subContext, 0, 0);
                 }
 
-                n = getAttributesCombinSize( );
-                int nbAttr = m_FilteredInstances.numAttributes() - 1; // -1 pour la classe
+                // Add generated rules to global classifier
+                if (rulesForClass != null && !rulesForClass.isEmpty()) {
+                    m_classifierNC.addAll(rulesForClass);
 
-                if (n > nbAttr) {
                     if (m_Debug) {
-                        System.out.println(">> N > nombre d'attributs : aucune règle générée");
+                        CNC.logDebugFile("Generated " + rulesForClass.size() + " rules for class: " + classValue);
+                        for (int r = 0; r < rulesForClass.size(); r++) {
+                            CNC.logDebugFile(" Rule " + (r + 1) + ": " + rulesForClass.get(r).affich_nom_rule(true));
+                        }
                     }
-                    m_classifierNC = null; 
-                    
-                    break;
+                } else if (m_Debug) {
+                    CNC.logDebugFile("No rules generated for class: " + classValue);
                 }
+            }
 
+            // Global concepts (from entire dataset)
+            if (!m_classifierNC.isEmpty()) {
+                RuleExtractor globalExtractor = new RuleExtractor(
+                    m_Debug, PertinenceMeasureMethod, policySelectionOccurence, closureStrategy, m_FilteredInstances,getConceptsOutputPath()
+                );
 
-                m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances, n);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-                break;
-
-            case N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES:
-                if (m_Debug) {
-                    System.out.println("=== N Attribute - MAJORITY VALUES - fullAttribCombinations MODE ACTIVE ===");
-                }
-
-                n = getAttributesCombinSize( );
-                nbAttr = m_FilteredInstances.numAttributes() - 1;
-
-                if (n > nbAttr) {
-                    if (m_Debug) {
-                        System.out.println(">> N > nombre d'attributs : aucune règle générée");
-                    }
-                    m_classifierNC = null; 
-
-                    break;
-                }
-
-                m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances, n);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-                break;
-                
-            case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES:
-                if (m_Debug) {
-                    System.out.println("=== Percent Attribute - ALL VALUES - fullAttribCombinations MODE ACTIVE ===");
-                }
-
-                p= this.getAttributesCombinPercent();
-              
-                m_classifierNC = extractor.extractPercentAttributesAllValues(m_FilteredInstances, p);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-                break;
-                
-            case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES_WITH_VAR:
-                if (m_Debug) {
-                    System.out.println("=== Percent Attribute WITH VARIANCE - ALL VALUES - fullAttribCombinations MODE ACTIVE ===");
-                }
-
-                p= this.getAttributesCombinPercent();
-                v= this.getVarianceAttriCombPercent();
-              
-                m_classifierNC = extractor.extractPercentAttributesAllValuesWithVar(m_FilteredInstances, p,v);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-                break;
-                
+                List<FormalConcept> concepts = globalExtractor.m_GaloisConnection.getConceptList();
+                this.conceptsListStr = globalExtractor.m_GaloisConnection.getConceptLevelsAsString(concepts);
+                vectorialConceptList = globalExtractor.m_GaloisConnection.vectorialConceptList;
+                // Save concepts to JSON if user provided a file
+                saveConceptsToJson(concepts);
+            }
+            
 
         }
-        }
-        else if(this.getfullAttribCombinations()==false) {
-        	switch (closureStrategy) {
-            case CONCEPT_LEARNING_ALL_ALL:
-                if (m_Debug) {
-                    System.out.println("=== ALL ATTRIBUTES - ALL VALUES MODE ACTIVE ===");
-                    System.out.println("Extraction using all attributes with all values");
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                }
-                m_classifierNC = extractor.extractAllAttributesAllValues(m_FilteredInstances);
-                if (m_Debug) {
-                    System.out.println("All attributes used");
-                    printRuleStatistics();
-                }
-                break;
-                
-            case CONCEPT_LEARNING_ALL_MAJORITY:
-                if (m_Debug) {
-                    System.out.println("=== ALL ATTRIBUTES - MAJORITY VALUE MODE ACTIVE ===");
-                    System.out.println("Extraction using all attributes with majority values");
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                }
-                m_classifierNC = extractor.extractAllAttributesMajorityValue(m_FilteredInstances);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-                break;
-                
-            case CONCEPT_LEARNING_PERTINENT_ALL:
-                if (m_Debug) {
-                    System.out.println("=== PERTINENT ATTRIBUTE - ALL VALUES MODE ACTIVE ==="); 
-                    System.out.println("Extraction using only pertinent attribute with all values");
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printPertinentAttribute(m_FilteredInstances);
 
-                }
-                m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-
-                break;
-                
-            case CONCEPT_LEARNING_PERTINENT_MAJORITY:
-                if (m_Debug) {
-                    System.out.println("=== PERTINENT ATTRIBUTE - MAJORITY VALUE MODE ACTIVE ===");
-                    System.out.println("Extraction using only pertinent attribute with majority value");
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printPertinentAttribute(m_FilteredInstances);
-
-                } 
-                m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-
-                break;
-                
-            case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_ALL:
-                if (m_Debug) {
-                    System.out.println("=== ABOVE aboveUnderPertThreshold - ALL VALUES MODE ACTIVE ===");
-                    if(autoPertThresholdComb) {
-                        System.out.println("===Auto Threshold Mode Active=== ");
-
-                    }
-                    if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(data)));
-                    	System.out.println("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
-
-                    }
-                    else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(m_FilteredInstances)));
-                    	System.out.println("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
-
-                    }
-                    System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
-
-                }
-                m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(m_FilteredInstances,m_aboveUnderPertThreshold);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-
-                break;
-                
-            case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_MAJORITY:
-                if (m_Debug) {
-                    System.out.println("=== ABOVE aboveUnderPertThreshold - MAJORITY VALUES MODE ACTIVE ===");
-                    if(autoPertThresholdComb) {
-                        System.out.println("===Auto Threshold Mode Active=== ");
-
-                    }
-                    if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    	System.out.println("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
-
-                    }
-                    else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    	System.out.println("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
-
-                    }
-                    
-                    System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
-
-                }
-                m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(m_FilteredInstances,m_aboveUnderPertThreshold);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-
-                break;
-                
-            case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_ALL:
-                if (m_Debug) {
-                    System.out.println("=== UNDER aboveUnderPertThreshold - ALL VALUES MODE ACTIVE ===");
-                    if(autoPertThresholdComb) {
-                        System.out.println("===Auto Threshold Mode Active=== ");
-
-                    }
-                    if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    	System.out.println("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
-
-                    }
-                    else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    	System.out.println("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
-
-                    }
-                    System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
-
-                }
-                m_classifierNC = extractor.extractAttributeUnderThresholdAllValues
-                		(m_FilteredInstances,m_aboveUnderPertThreshold);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-
-                break;
-                
-            case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_MAJORITY:
-                if (m_Debug) {
-                    System.out.println("=== UNDER aboveUnderPertThreshold - MAJORITY VALUES MODE ACTIVE ===");
-                    if(autoPertThresholdComb) {
-                        System.out.println("===Auto Threshold Mode Active=== ");
-
-                    }
-                    if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    	System.out.println("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
-
-                    }
-                    else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    	System.out.println("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
-
-                    }
-                    System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
-                    System.out.println("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                    extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
-
-                }
-                m_classifierNC = extractor.extractAttributeUnderThresholdMajorityValues(m_FilteredInstances,m_aboveUnderPertThreshold);
-                if (m_Debug) {
-                    printRuleStatistics();
-                }
-
-                break;
-        }
-        	
-        }
-
-        List<FormalConcept> concepts=extractor.m_GaloisConnection.getConceptList();
-        
-        this.conceptsListStr=extractor.m_GaloisConnection.getConceptLevelsAsString(concepts);
-        vectorialConceptList=extractor.m_GaloisConnection.vectorialConceptList;
+            if (m_Debug) {
+                CNC.closeLog();
+            }
     }
+
+
+    
+    protected void saveConceptsToJson(List<FormalConcept> concepts) {
+        if (m_ConceptsOutputFile != null) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(m_ConceptsOutputFile))) {
+                StringBuilder jsonBuilder = new StringBuilder();
+                jsonBuilder.append("[\n");
+                for (int i = 0; i < concepts.size(); i++) {
+                    FormalConcept concept = concepts.get(i);
+                    jsonBuilder.append("  {\n");
+                    jsonBuilder.append("    \"intent\": \"").append(concept.getAttributes().toString()).append("\",\n");
+                    jsonBuilder.append("    \"extent\": \"").append(concept.getObjects().toString()).append("\"\n");
+                    jsonBuilder.append("  }");
+                    if (i < concepts.size() - 1) {
+                        jsonBuilder.append(",");
+                    }
+                    jsonBuilder.append("\n");
+                }
+                jsonBuilder.append("]\n");
+                writer.write(jsonBuilder.toString());
+                if (m_Debug) {
+                    CNC.logDebugFile("Concepts successfully saved to: " + m_ConceptsOutputFile.getAbsolutePath());
+                }
+            } catch (IOException e) {
+                System.err.println("Error saving concepts to JSON: " + e.getMessage());
+            }
+        }
+    }
+
     
   
+    
+    private ArrayList<Classification_Rule> generateRulesFullCombinations(RuleExtractor extractor,ArrayList<Classification_Rule> m_classifierNC,
+           Instances data, Instances filteredData, float v, float p) throws Exception {
+    	
+
+    	int n;
+    	switch (closureStrategy) {
+        case CONCEPT_LEARNING_ALL_ALL:
+            if (m_Debug) {
+                CNC.logDebugFile("=== ALL ATTRIBUTES - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
+                CNC.logDebugFile("Extraction using all attributes with all values");
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+            }
+            m_classifierNC = extractor.extractAllAttributesAllValuesfullAttribCombinations(m_FilteredInstances);
+           
+            if (m_Debug) {
+            	printRuleStatistics(m_classifierNC);
+            }
+            break;
+            
+        case CONCEPT_LEARNING_ALL_MAJORITY:
+            if (m_Debug) {
+                CNC.logDebugFile("=== ALL ATTRIBUTES - MAJORITY VALUE - FullAttribCombinations MODE ACTIVE ===");
+                CNC.logDebugFile("Extraction using all attributes with majority values");
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+            }
+            m_classifierNC = extractor.extractAllAttributesMajorityValuefullAttribCombinations(m_FilteredInstances);
+            if (m_Debug) {
+            	printRuleStatistics(m_classifierNC);
+            }
+            break;
+            
+        case CONCEPT_LEARNING_PERTINENT_ALL:
+            if (m_Debug) {
+                CNC.logDebugFile("=== PERTINENT ATTRIBUTE - ALL VALUES - FullAttribCombinations MODE ACTIVE ==="); 
+                CNC.logDebugFile("Extraction using only pertinent attribute with all values");
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printPertinentAttribute(m_FilteredInstances);
+
+            }
+            m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_PERTINENT_MAJORITY:
+            if (m_Debug) {
+                CNC.logDebugFile("=== PERTINENT ATTRIBUTE - MAJORITY VALUE - FullAttribCombinations MODE ACTIVE ===");
+                CNC.logDebugFile("Extraction using only pertinent attribute with majority value");
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printPertinentAttribute(m_FilteredInstances);
+
+            } 
+            m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_ALL:
+            if (m_Debug) {
+                CNC.logDebugFile("=== ABOVE aboveUnderPertThreshold - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
+                if(autoPertThresholdComb) {
+                    CNC.logDebugFile("===Auto Threshold Mode Active=== ");
+
+                }
+                if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(data)));
+                	CNC.logDebugFile("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
+
+                }
+                else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(m_FilteredInstances)));
+                	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
+
+                }
+                System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
+
+            }
+            m_classifierNC = extractor.extractAttributeAboveThresholdAllValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+             
+        case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_MAJORITY:
+            if (m_Debug) {
+                CNC.logDebugFile("=== ABOVE aboveUnderPertThreshold - MAJORITY VALUES - FullAttribCombinations MODE ACTIVE ===");
+                if(autoPertThresholdComb) {
+                    CNC.logDebugFile("===Auto Threshold Mode Active=== ");
+
+                }
+                if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
+
+                }
+                else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
+
+                }
+                
+                System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
+
+            }
+            m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_ALL:
+            if (m_Debug) {
+                CNC.logDebugFile("=== UNDER aboveUnderPertThreshold - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
+                if(autoPertThresholdComb) {
+                    CNC.logDebugFile("===Auto Threshold Mode Active=== ");
+
+                }
+                if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
+
+                }
+                else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
+
+                }
+                System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
+
+            }
+            m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesfullAttribCombinations
+            		(m_FilteredInstances,m_aboveUnderPertThreshold);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_MAJORITY:
+            if (m_Debug) {
+                CNC.logDebugFile("=== UNDER aboveUnderPertThreshold - MAJORITY VALUES - FullAttribCombinations MODE ACTIVE ===");
+                if(autoPertThresholdComb) {
+                    CNC.logDebugFile("===Auto Threshold Mode Active=== ");
+
+                }
+                if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
+
+                }
+                else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
+
+                }
+                System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
+
+            }
+            m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+            break;
+        case N_ATTRIBUTES_COMBINATION_ALL_VALUES:
+            if (m_Debug) {
+                CNC.logDebugFile("=== N Attribute - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
+            }
+
+            n = getAttributesCombinSize( );
+            int nbAttr = m_FilteredInstances.numAttributes() - 1; // -1 pour la classe
+
+            if (n > nbAttr) {
+                if (m_Debug) {
+                    CNC.logDebugFile(">> N > nombre d'attributs : aucune règle générée");
+                }
+                m_classifierNC = null; 
+                
+                break;
+            }
+
+
+            m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances, n);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+            break;
+
+        case N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES:
+            if (m_Debug) {
+                CNC.logDebugFile("=== N Attribute - MAJORITY VALUES - FullAttribCombinations MODE ACTIVE ===");
+            }
+
+            n = getAttributesCombinSize( );
+            nbAttr = m_FilteredInstances.numAttributes() - 1;
+
+            if (n > nbAttr) {
+                if (m_Debug) {
+                    CNC.logDebugFile(">> N > nombre d'attributs : aucune règle générée");
+                }
+                m_classifierNC = null; 
+
+                break;
+            }
+
+            m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances, n);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+            break;
+            
+        case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES:
+            if (m_Debug) {
+                CNC.logDebugFile("=== Percent Attribute - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
+            }
+
+            p= this.getAttributesCombinPercent();
+          
+            m_classifierNC = extractor.extractPercentAttributesAllValues(m_FilteredInstances, p);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+            break;
+            
+        case PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES_WITH_VAR:
+            if (m_Debug) {
+                CNC.logDebugFile("=== Percent Attribute WITH VARIANCE - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
+            }
+
+            p= this.getAttributesCombinPercent();
+            v= this.getVarianceAttriCombPercent();
+          
+            m_classifierNC = extractor.extractPercentAttributesAllValuesWithVar(m_FilteredInstances, p,v);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+            break;
+    	}
+    		return m_classifierNC;
+}
+    
+    private ArrayList<Classification_Rule> generateRulesNormal(RuleExtractor extractor,
+    		 Instances data, Instances filteredData, float v, float p) throws Exception {
+    	switch (closureStrategy) {
+        case CONCEPT_LEARNING_ALL_ALL:
+            if (m_Debug) {
+                CNC.logDebugFile("=== ALL ATTRIBUTES - ALL VALUES MODE ACTIVE ===");
+                CNC.logDebugFile("Extraction using all attributes with all values");
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+            }
+            m_classifierNC = extractor.extractAllAttributesAllValues(m_FilteredInstances);
+            if (m_Debug) {
+                CNC.logDebugFile("All attributes used");
+                printRuleStatistics(m_classifierNC);
+            }
+            break;
+            
+        case CONCEPT_LEARNING_ALL_MAJORITY:
+            if (m_Debug) {
+                CNC.logDebugFile("=== ALL ATTRIBUTES - MAJORITY VALUE MODE ACTIVE ===");
+                CNC.logDebugFile("Extraction using all attributes with majority values");
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+            }
+            m_classifierNC = extractor.extractAllAttributesMajorityValue(m_FilteredInstances);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+            break;
+            
+        case CONCEPT_LEARNING_PERTINENT_ALL:
+            if (m_Debug) {
+                CNC.logDebugFile("=== PERTINENT ATTRIBUTE - ALL VALUES MODE ACTIVE ==="); 
+                CNC.logDebugFile("Extraction using only pertinent attribute with all values");
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printPertinentAttribute(m_FilteredInstances);
+
+            }
+            m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_PERTINENT_MAJORITY:
+            if (m_Debug) {
+                CNC.logDebugFile("=== PERTINENT ATTRIBUTE - MAJORITY VALUE MODE ACTIVE ===");
+                CNC.logDebugFile("Extraction using only pertinent attribute with majority value");
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printPertinentAttribute(m_FilteredInstances);
+
+            } 
+            m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_ALL:
+            if (m_Debug) {
+                CNC.logDebugFile("=== ABOVE aboveUnderPertThreshold - ALL VALUES MODE ACTIVE ===");
+                if(autoPertThresholdComb) {
+                    CNC.logDebugFile("===Auto Threshold Mode Active=== ");
+
+                }
+                if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(data)));
+                	CNC.logDebugFile("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
+
+                }
+                else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(m_FilteredInstances)));
+                	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
+
+                }
+                System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
+
+            }
+            m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(m_FilteredInstances,m_aboveUnderPertThreshold);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_MAJORITY:
+            if (m_Debug) {
+                CNC.logDebugFile("=== ABOVE aboveUnderPertThreshold - MAJORITY VALUES MODE ACTIVE ===");
+                if(autoPertThresholdComb) {
+                    CNC.logDebugFile("===Auto Threshold Mode Active=== ");
+
+                }
+                if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
+
+                }
+                else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
+
+                }
+                
+                System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
+
+            }
+            m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(m_FilteredInstances,m_aboveUnderPertThreshold);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_ALL:
+            if (m_Debug) {
+                CNC.logDebugFile("=== UNDER aboveUnderPertThreshold - ALL VALUES MODE ACTIVE ===");
+                if(autoPertThresholdComb) {
+                    CNC.logDebugFile("===Auto Threshold Mode Active=== ");
+
+                }
+                if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
+
+                }
+                else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
+
+                }
+                System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
+
+            }
+            m_classifierNC = extractor.extractAttributeUnderThresholdAllValues
+            		(m_FilteredInstances,m_aboveUnderPertThreshold);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+            
+        case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_MAJORITY:
+            if (m_Debug) {
+                CNC.logDebugFile("=== UNDER aboveUnderPertThreshold - MAJORITY VALUES MODE ACTIVE ===");
+                if(autoPertThresholdComb) {
+                    CNC.logDebugFile("===Auto Threshold Mode Active=== ");
+
+                }
+                if ( m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing::aboveUnderPertThreshold_BEFORE_DISCRETIZATION");
+
+                }
+                else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
+
+                }
+                System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
+                CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
+                extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
+
+            }
+            m_classifierNC = extractor.extractAttributeUnderThresholdMajorityValues(m_FilteredInstances,m_aboveUnderPertThreshold);
+            if (m_Debug) {
+                printRuleStatistics(m_classifierNC);
+            }
+
+            break;
+    }
+    	
+		return m_classifierNC;
+}
+
+
     
     public static String pertinenceMeasureToString(int measureType) {
         switch (measureType) {
@@ -1429,21 +1725,40 @@ public class CNC extends AbstractClassifier
     
     
 
-    // Méthode helper pour l'affichage debug
-    private void printRuleStatistics() {
-        if (m_classifierNC == null || m_classifierNC.isEmpty()) {
-            System.out.println("No rules generated.");
+ // Version statique, à mettre dans CNC (ou une utilitaire commune)
+    public static void printRuleStatistics(java.util.List<Classification_Rule> rules, boolean debugOn) {
+        if (!debugOn) return;
+        System.out.println("Print rules statistics");
+        if (rules == null) {
+            CNC.logDebugFile("[printRuleStatistics] rules == null");
             return;
         }
 
-        System.out.println("\n\n--- RULE GENERATION STATISTICS ---\n");
-        System.out.println("Total rules generated: " + m_classifierNC.size());
-        for (int i = 0; i < m_classifierNC.size(); i++) {
-            Classification_Rule rule = m_classifierNC.get(i);
-            System.out.printf("Rule #%d:\n", i + 1);
-            System.out.println(rule.affich_nom_rule(true));
-            System.out.println("----------------------------\n");
+        StringBuilder sb = new StringBuilder(256);
+        sb.append("\n--- RULE GENERATION STATISTICS ---\n");
+        sb.append("Total rules generated: ").append(rules.size()).append('\n');
+
+        for (int i = 0; i < rules.size(); i++) {
+            Classification_Rule r = rules.get(i);
+            sb.append("Rule #").append(i + 1).append(": ");
+            try {
+                sb.append(r != null ? r.affich_nom_rule(true) : "<null rule>");
+            } catch (Exception ex) {
+                sb.append("<error rendering rule: ").append(ex.getMessage()).append('>');
+            }
+            sb.append('\n');
         }
+        CNC.logDebugFile(sb.toString());
+    }
+
+    // Dans la classe qui possède m_classifierNC et m_Debug
+    private void printRuleStatistics() {
+        CNC.printRuleStatistics(this.m_classifierNC, this.m_Debug);
+    }
+
+    // Et si tu veux conserver la signature avec paramètre :
+    private void printRuleStatistics(java.util.List<Classification_Rule> rules) {
+        CNC.printRuleStatistics(rules, this.m_Debug);
     }
 
 
@@ -1474,6 +1789,7 @@ public class CNC extends AbstractClassifier
         sb.append(String.format("%-30s: %s\n", "Concept Learning Strategy", getClosureStrategyName()));
         sb.append(String.format("%-30s: %s\n", "Feature Measure", pertinenceMeasureToString(PertinenceMeasureMethod)));
         sb.append(String.format("%-30s: %s\n", "Auto Pertinence Threshold", autoPertThresholdCombToString()));
+        sb.append(String.format("%-30s: %s\n", "Sub-contexts mode", getSubContexts()));
         sb.append(String.format("%-30s: %s\n", "Threshold Calculation", m_beforeAfterDiscToString()));
         sb.append(String.format("%-30s: %.4f\n", "Above/Under Pert Threshold", m_aboveUnderPertThreshold));
         sb.append(String.format("%-30s: %s\n", "Policy Selection ", getPolicySelectionOccurenceName()));

@@ -1,5 +1,6 @@
 package weka.classifiers.fca;
 
+import weka.classifiers.rules.CNC;
 import weka.core.*;
 
 import java.util.ArrayList;
@@ -65,7 +66,7 @@ public class Classify_Instance
 	    }
 
 	   if ( debug) {
-	        System.out.println(debugMsg.toString());
+	        CNC.logDebugFile(debugMsg.toString());
 	   }
 
 	    return ind_class;
@@ -141,11 +142,11 @@ public class Classify_Instance
 		    if (ruleCount == 0) {
 		    	
 		        if (debug) {
-		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-		            System.out.println("=== INSTANCE ===");
-			        System.out.println(inst.toString() );
-		            System.out.println("NO Matching Rules");
-		            System.out.println("═══════════════════════════════════════════════════");
+		            CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            CNC.logDebugFile("=== INSTANCE ===");
+			        CNC.logDebugFile(inst.toString() );
+		            CNC.logDebugFile("NO Matching Rules");
+		            CNC.logDebugFile("═══════════════════════════════════════════════════");
 		        }
 		        return -1.0;
 		    }
@@ -153,12 +154,12 @@ public class Classify_Instance
 		    // Affichage debug organisé
 		    
 		    if (debug) {
-		        System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-		        System.out.println("=== INSTANCE ===");
-		        System.out.println(inst.toString() );
+		        CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+		        CNC.logDebugFile("=== INSTANCE ===");
+		        CNC.logDebugFile(inst.toString() );
 
 
-		        System.out.println("=== MATCHED RULES (" + ruleCount + ") ===");
+		        CNC.logDebugFile("=== MATCHED RULES (" + ruleCount + ") ===");
 		        
 		        // Formatage amélioré pour les règles
 		        for (int i = 0; i < ensemble_regles.size(); i++) {
@@ -172,7 +173,7 @@ public class Classify_Instance
 		            }
 		        }
 
-		        System.out.println("\n=== RESULTS PER CLASS ===");
+		        CNC.logDebugFile("\n=== RESULTS PER CLASS ===");
 		        for (int i = 0; i < nb_class; i++) {
 		            System.out.printf("Class %-4s | Score: %.3f%s%n",
 		                inst.classAttribute().value(i),
@@ -183,7 +184,7 @@ public class Classify_Instance
 		        System.out.printf("%nFINAL DECISION: %s (Score: %.3f)%n",
 		            (ind_class == -1) ? "NOT CLASSIFIED" : inst.classAttribute().value((int)ind_class),
 		            max_ponderation);
-		        System.out.println("═══════════════════════════════════════════════════");
+		        CNC.logDebugFile("═══════════════════════════════════════════════════");
 		    }
 		    
 		    return ind_class;
@@ -234,11 +235,11 @@ public class Classify_Instance
 
 		    if (ruleCount == 0) {
 		        if (debug) {
-		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-		            System.out.println("=== INSTANCE ===");
-			        System.out.println(inst.toString() );
-		            System.out.println("NO Matching Rules");
-		            System.out.println("═══════════════════════════════════════════════════");
+		            CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            CNC.logDebugFile("=== INSTANCE ===");
+			        CNC.logDebugFile(inst.toString() );
+		            CNC.logDebugFile("NO Matching Rules");
+		            CNC.logDebugFile("═══════════════════════════════════════════════════");
 		        }
 		        return -1.0;
 		    }
@@ -255,14 +256,14 @@ public class Classify_Instance
 
 		    // Affichage debug
 		    if (debug) {
-		        System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-		        System.out.println("=== INSTANCE ===");
-		        System.out.println(inst.toString());
+		        CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+		        CNC.logDebugFile("=== INSTANCE ===");
+		        CNC.logDebugFile(inst.toString());
 		        
-		        System.out.println("\n=== MATCHED RULES (" + ruleCount + ") ===");
+		        CNC.logDebugFile("\n=== MATCHED RULES (" + ruleCount + ") ===");
 		        System.out.print(triggeredRules.toString());
 		        
-		        System.out.println("\n=== RESULTS PER CLASS ===");
+		        CNC.logDebugFile("\n=== RESULTS PER CLASS ===");
 		        for (int i = 0; i < nb_class; i++) {
 		            System.out.printf("Class %-4s | Votes: %d%s%n",
 		                inst.classAttribute().value(i),
@@ -273,7 +274,7 @@ public class Classify_Instance
 		        System.out.printf("\nFINAL DECISION: %s (votes count: %d)%n",
 		            inst.classAttribute().value(classeMajoritaire),
 		            maxVotes);
-		        System.out.println("═══════════════════════════════════════════════════");
+		        CNC.logDebugFile("═══════════════════════════════════════════════════");
 		    }
 
 		    return (double) classeMajoritaire;
@@ -323,11 +324,11 @@ public class Classify_Instance
 		}
 		 if (ruleCount == 0) {
 		        if (debug) {
-		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-		            System.out.println("=== INSTANCE ===");
-			        System.out.println(inst.toString() );
-		            System.out.println("NO Matching Rules");
-		            System.out.println("═══════════════════════════════════════════════════");
+		            CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            CNC.logDebugFile("=== INSTANCE ===");
+			        CNC.logDebugFile(inst.toString() );
+		            CNC.logDebugFile("NO Matching Rules");
+		            CNC.logDebugFile("═══════════════════════════════════════════════════");
 		        }
 		        return -1.0;
 		    }
@@ -363,14 +364,14 @@ public class Classify_Instance
 		
 		
 		if (debug) {
-	        System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-			System.out.println("Majority threshold (Default) : " + seuilMajorite);
+	        CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+			CNC.logDebugFile("Majority threshold (Default) : " + seuilMajorite);
 
-	        System.out.println("=== INSTANCE ===");
-	        System.out.println(inst.toString());
-	        System.out.println("\n=== MATCHED RULES (" + ruleCount + ") ===");
+	        CNC.logDebugFile("=== INSTANCE ===");
+	        CNC.logDebugFile(inst.toString());
+	        CNC.logDebugFile("\n=== MATCHED RULES (" + ruleCount + ") ===");
 	        System.out.print(triggeredRules.toString());
-	        System.out.println("\n=== RESULTS PER CLASS ===");
+	        CNC.logDebugFile("\n=== RESULTS PER CLASS ===");
 	       
 	 	    if (ind_class!=-1|| ruleCount==0 ) {
 	        	System.out.printf("\nFINAL DECISION: %s (plurality: %d)%n",
@@ -393,7 +394,7 @@ public class Classify_Instance
 
 	        }
 	        
-		        System.out.println("═══════════════════════════════════════════════════");
+		        CNC.logDebugFile("═══════════════════════════════════════════════════");
 		}
 
 		return ind_class ;			
@@ -449,11 +450,11 @@ public class Classify_Instance
 		}
 		 if (ruleCount == 0) {
 		        if (debug) {
-		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-		            System.out.println("=== INSTANCE ===");
-			        System.out.println(inst.toString() );
-		            System.out.println("NO Matching Rules");
-		            System.out.println("═══════════════════════════════════════════════════");
+		            CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            CNC.logDebugFile("=== INSTANCE ===");
+			        CNC.logDebugFile(inst.toString() );
+		            CNC.logDebugFile("NO Matching Rules");
+		            CNC.logDebugFile("═══════════════════════════════════════════════════");
 		        }
 		        return -1.0;
 		    }
@@ -485,14 +486,14 @@ public class Classify_Instance
 			ind_class = (double) -1.0;
 		
 		if (debug) {
-			System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-			System.out.println("Plurality threshold (Set by user) : " + conv_PlurMin);
+			CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+			CNC.logDebugFile("Plurality threshold (Set by user) : " + conv_PlurMin);
 
-	        System.out.println("=== INSTANCE ===");
-	        System.out.println(inst.toString());    
-	        System.out.println("\n=== MATCHED RULES (" + ruleCount + ") ===");
+	        CNC.logDebugFile("=== INSTANCE ===");
+	        CNC.logDebugFile(inst.toString());    
+	        CNC.logDebugFile("\n=== MATCHED RULES (" + ruleCount + ") ===");
 	        System.out.print(triggeredRules.toString());
-	        System.out.println("\n=== RESULTS PER CLASS ===");
+	        CNC.logDebugFile("\n=== RESULTS PER CLASS ===");
 	        
 	 	    if (ind_class!=-1|| ruleCount==0 ) {
 	        	for (int i = 0; i < nb_class; i++) {
@@ -516,7 +517,7 @@ public class Classify_Instance
 	        }
 
 	        
-		        System.out.println("═══════════════════════════════════════════════════");
+		        CNC.logDebugFile("═══════════════════════════════════════════════════");
 		}
 		
 
@@ -608,24 +609,24 @@ public class Classify_Instance
 				
 		 if (ruleCount == 0) {
 		        if (debug) {
-		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-		            System.out.println("=== INSTANCE ===");
-			        System.out.println(inst.toString() );
-		            System.out.println("NO Matching Rules");
-		            System.out.println("═══════════════════════════════════════════════════");
+		            CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            CNC.logDebugFile("=== INSTANCE ===");
+			        CNC.logDebugFile(inst.toString() );
+		            CNC.logDebugFile("NO Matching Rules");
+		            CNC.logDebugFile("═══════════════════════════════════════════════════");
 		        }
 		        return -1.0;
 		    }
 		// Affichage debug organisé
 	    if (debug) {
-	        System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-			System.out.println("Score:  threshold (Set by user) : " + conv_LowPondVoter);
+	        CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+			CNC.logDebugFile("Score:  threshold (Set by user) : " + conv_LowPondVoter);
 
-	        System.out.println("=== INSTANCE ===");
-	        System.out.println(inst.toString() );
+	        CNC.logDebugFile("=== INSTANCE ===");
+	        CNC.logDebugFile(inst.toString() );
 
 
-	        System.out.println("=== MATCHED RULES (" + ruleCount + ") ===");
+	        CNC.logDebugFile("=== MATCHED RULES (" + ruleCount + ") ===");
 	        
 	        // Formatage amélioré pour les règles
 	        for (int i = 0; i < ensemble_regles.size(); i++) {
@@ -639,7 +640,7 @@ public class Classify_Instance
 	            }
 	        }
 
-	        System.out.println("\n=== RESULTS PER CLASS ===");
+	        CNC.logDebugFile("\n=== RESULTS PER CLASS ===");
 	       
 	        
 	        	
@@ -664,7 +665,7 @@ public class Classify_Instance
 	        	System.out.printf("\nFINAL DECISION: UNCLASSIFIED\n");
 
 	        }
-	        System.out.println("═══════════════════════════════════════════════════");
+	        CNC.logDebugFile("═══════════════════════════════════════════════════");
 	    }
 		return ind_class ;			
 	}
@@ -742,11 +743,11 @@ public class Classify_Instance
 		
 		 if (ruleCount == 0) {
 		        if (debug) {
-		            System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-		            System.out.println("=== INSTANCE ===");
-			        System.out.println(inst.toString() );
-		            System.out.println("NO Matching Rules");
-		            System.out.println("═══════════════════════════════════════════════════");
+		            CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+		            CNC.logDebugFile("=== INSTANCE ===");
+			        CNC.logDebugFile(inst.toString() );
+		            CNC.logDebugFile("NO Matching Rules");
+		            CNC.logDebugFile("═══════════════════════════════════════════════════");
 		        }
 		        return -1.0;
 		    }
@@ -773,14 +774,14 @@ public class Classify_Instance
 			ind_class = (double) -1.0;
 		
 		if (debug) {
-			System.out.println("\n════════════════════════ Classification Debug ═══════════════════════════");
-			System.out.println("Max classifiers Number (Set by user):" + MaxBestVoterS);
+			CNC.logDebugFile("\n════════════════════════ Classification Debug ═══════════════════════════");
+			CNC.logDebugFile("Max classifiers Number (Set by user):" + MaxBestVoterS);
 
-	        System.out.println("=== INSTANCE ===");
-	        System.out.println(inst.toString());    
-	        System.out.println("\n=== MATCHED RULES (" + ruleCount + ") ===");
+	        CNC.logDebugFile("=== INSTANCE ===");
+	        CNC.logDebugFile(inst.toString());    
+	        CNC.logDebugFile("\n=== MATCHED RULES (" + ruleCount + ") ===");
 	        System.out.print(triggeredRules.toString());
-	        System.out.println("\n=== RESULTS PER CLASS ===");
+	        CNC.logDebugFile("\n=== RESULTS PER CLASS ===");
 	        
 	        if (ind_class!=-1) {
 	        	for (int i = 0; i < nb_class; i++) {
@@ -804,7 +805,7 @@ public class Classify_Instance
 	        }
 
 	        
-		        System.out.println("═══════════════════════════════════════════════════");
+		        CNC.logDebugFile("═══════════════════════════════════════════════════");
 		
 		}
 		

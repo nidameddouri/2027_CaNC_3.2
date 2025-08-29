@@ -9,10 +9,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import weka.attributeSelection.*;
+import weka.classifiers.rules.CNC;
 import weka.core.Attribute;
 import weka.core.Instances;
 import weka.core.Utils;
-import weka.core.converters.ConverterUtils.DataSource;
 
 	/**
  * Classe principale qui gère l'extraction des règles avec support pour les connexions de Galois
@@ -48,17 +48,26 @@ public class RuleExtractor {
     
     
     
-    public RuleExtractor(boolean debug, int featureMeasureMethod, int policySelection, int conceptLearningStrategy,Instances inst) {
+    public RuleExtractor(boolean debug, int featureMeasureMethod, int policySelection, int conceptLearningStrategy,Instances inst, String outputPath) {
         this.m_Debug = debug;
         this.PertinenceMeasureMethod = featureMeasureMethod;
         this.Policy_Selection = policySelection;
         this.m_InfoGainAttributeEval = new InfoGainAttributeEval();
         this.m_GainRatioAttributeEval = new GainRatioAttributeEval();
-        this.m_GaloisConnection= new _GaloisConnection(this.m_Debug,inst);
+        this.m_GaloisConnection= new _GaloisConnection(this.m_Debug,inst,outputPath);
+    
+   
+    }
+    public RuleExtractor(boolean debug, int featureMeasureMethod, int policySelection, int conceptLearningStrategy) {
+        this.m_Debug = debug;
+        this.PertinenceMeasureMethod = featureMeasureMethod;
+        this.Policy_Selection = policySelection;
+        this.m_InfoGainAttributeEval = new InfoGainAttributeEval();
+        this.m_GainRatioAttributeEval = new GainRatioAttributeEval();
     
         if (debug) {
             String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-            System.out.println("\n\n\n-----------[" + timestamp + "]-----------\n"
+            CNC.logDebugFile("\n\n\n-----------[" + timestamp + "]-----------\n"
                 + "RuleExtractor initialized with debug: " + m_Debug + ",\n"
                 + "Concept Learning: " + conceptLearningToString(conceptLearningStrategy) + ",\n"
                 + "Feature MeasureMethod: " + featureMeasureToString(featureMeasureMethod) + ",\n"
@@ -240,17 +249,17 @@ public class RuleExtractor {
 	    boolean debug = m_Debug;
 	    
 	    if (debug) {
-	        System.out.println("\n=== EXTRACTION with N ATTRIBUTS ALL VALEURS (N="+n+") ===");
-	        System.out.println("Total number of attributes: " + attributes.size());
+	        CNC.logDebugFile("\n=== EXTRACTION with N ATTRIBUTS ALL VALEURS (N="+n+") ===");
+	        CNC.logDebugFile("Total number of attributes: " + attributes.size());
 	    }
 	    
 	    // Appel à la nouvelle méthode generateConcepts
 	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsAttributeCombinationsOfSizeN(inst, attributes, allConceptsList,n, debug);
 	    
 	    if (debug) {
-	        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
-	        System.out.println("Nombre total de règles: " + rules.size());
-	        System.out.println("--------------------------------------------");
+	        CNC.logDebugFile("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+	        CNC.logDebugFile("Nombre total de règles: " + rules.size());
+	        CNC.logDebugFile("--------------------------------------------");
 	    }
 	    
 	    return rules;
@@ -266,17 +275,17 @@ public class RuleExtractor {
 	    boolean debug = m_Debug;
 	    
 	    if (debug) {
-	        System.out.println("\n=== EXTRACTION with N ATTRIBUTS MAJORITY VALEURS (N="+n+") ===");
-	        System.out.println("Total number of attributes: " + attributes.size());
+	        CNC.logDebugFile("\n=== EXTRACTION with N ATTRIBUTS MAJORITY VALEURS (N="+n+") ===");
+	        CNC.logDebugFile("Total number of attributes: " + attributes.size());
 	    }
 	    
 	    // Appel à la nouvelle méthode generateConcepts
 	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsAttributeCombinationsOfSizeNMajorityValues(inst, attributes, n, Policy_Selection, allConceptsList, debug);
 	    
 	    if (debug) {
-	        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
-	        System.out.println("Nombre total de règles: " + rules.size());
-	        System.out.println("--------------------------------------------");
+	        CNC.logDebugFile("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+	        CNC.logDebugFile("Nombre total de règles: " + rules.size());
+	        CNC.logDebugFile("--------------------------------------------");
 	    }
 	    
 	    return rules;
@@ -292,17 +301,17 @@ public class RuleExtractor {
 	    boolean debug = m_Debug;
 	    
 	    if (debug) {
-	        System.out.println("\n=== EXTRACTION with "+p+"% ATTRIBUTS COMBINATION ALL VALEURS ===");
-	        System.out.println("Total number of attributes: " + attributes.size());
+	        CNC.logDebugFile("\n=== EXTRACTION with "+p+"% ATTRIBUTS COMBINATION ALL VALEURS ===");
+	        CNC.logDebugFile("Total number of attributes: " + attributes.size());
 	    }
 	    
 	    // Appel à la nouvelle méthode generateConcepts
 	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.	generateConceptsAttributePercentCombinations(inst, attributes, allConceptsList,p, debug);
 	    
 	    if (debug) {
-	        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
-	        System.out.println("Nombre total de règles: " + rules.size());
-	        System.out.println("--------------------------------------------");
+	        CNC.logDebugFile("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+	        CNC.logDebugFile("Nombre total de règles: " + rules.size());
+	        CNC.logDebugFile("--------------------------------------------");
 	    }
 	    
 	    return rules;
@@ -318,17 +327,17 @@ public class RuleExtractor {
 	    boolean debug = m_Debug;
 	    
 	    if (debug) {
-	        System.out.println("\n=== EXTRACTION with "+p+"% ATTRIBUTS COMBINATION ALL VALEURS WITH VAIRANCE===");
-	        System.out.println("Total number of attributes: " + attributes.size());
+	        CNC.logDebugFile("\n=== EXTRACTION with "+p+"% ATTRIBUTS COMBINATION ALL VALEURS WITH VAIRANCE===");
+	        CNC.logDebugFile("Total number of attributes: " + attributes.size());
 	    }
 	    
 	    // Appel à la nouvelle méthode generateConcepts
 	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConceptsAttributePercentCombinationsWithVar(inst, attributes, allConceptsList,p,v, debug);
 	    
 	    if (debug) {
-	        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
-	        System.out.println("Nombre total de règles: " + rules.size());
-	        System.out.println("--------------------------------------------");
+	        CNC.logDebugFile("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+	        CNC.logDebugFile("Nombre total de règles: " + rules.size());
+	        CNC.logDebugFile("--------------------------------------------");
 	    }
 	    
 	    return rules;
@@ -349,17 +358,17 @@ public class RuleExtractor {
 	    boolean debug = m_Debug;
 	    
 	    if (debug) {
-	        System.out.println("\n=== EXTRACTION AVEC TOUS LES ATTRIBUTS ET VALEURS ===");
-	        System.out.println("Nombre d'attributs à traiter: " + attributes.size());
+	        CNC.logDebugFile("\n=== EXTRACTION AVEC TOUS LES ATTRIBUTS ET VALEURS ===");
+	        CNC.logDebugFile("Nombre d'attributs à traiter: " + attributes.size());
 	    }
 	    
 	    // Appel à la nouvelle méthode generateConcepts
 	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConcepts(inst, attributes, allConceptsList, debug);
 	    
 	    if (debug) {
-	        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
-	        System.out.println("Nombre total de règles: " + rules.size());
-	        System.out.println("--------------------------------------------");
+	        CNC.logDebugFile("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+	        CNC.logDebugFile("Nombre total de règles: " + rules.size());
+	        CNC.logDebugFile("--------------------------------------------");
 	    }
 	    
 	    return rules;
@@ -456,16 +465,16 @@ public class RuleExtractor {
 	    boolean debug = m_Debug;
 	    
 	    if (debug) {
-	        System.out.println("\n=== EXTRACTION AVEC L'ATTRIBUTS PERTINENT ET TOUS SES VALEURS ===");
+	        CNC.logDebugFile("\n=== EXTRACTION AVEC L'ATTRIBUTS PERTINENT ET TOUS SES VALEURS ===");
 	    }
 	    
 	    // Appel à la nouvelle méthode generateConcepts
 	    ArrayList<Classification_Rule> rules = this.m_GaloisConnection.generateConcepts(inst, attributes, allConceptsList, debug);
 	    
 	    if (debug) {
-	        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
-	        System.out.println("Nombre total de règles: " + rules.size());
-	        System.out.println("--------------------------------------------");
+	        CNC.logDebugFile("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+	        CNC.logDebugFile("Nombre total de règles: " + rules.size());
+	        CNC.logDebugFile("--------------------------------------------");
 	    }
 	    
 	    return rules;
@@ -518,9 +527,9 @@ public class RuleExtractor {
 		    rules = this.m_GaloisConnection.generateConcepts(inst, topAttributes, allConceptsList, debug);
 		    
 		    if (debug) {
-		        System.out.println("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
-		        System.out.println("Nombre total de règles: " + rules.size());
-		        System.out.println("--------------------------------------------");
+		        CNC.logDebugFile("\n=== LISTE COMPLÈTE DES CONCEPTS GÉNÉRÉS ===");
+		        CNC.logDebugFile("Nombre total de règles: " + rules.size());
+		        CNC.logDebugFile("--------------------------------------------");
 		    }
 		    
 		    return rules;
@@ -538,9 +547,9 @@ public class RuleExtractor {
 		    ArrayList<Attribute> topAttributes = selectTopPercentageAttributes(inst, threshold);
 		
 		    if (m_Debug) {
-		        System.out.println("\n=== Processing attribute combinations above threshold ===");
-		        System.out.println("Selected attributes count: " + topAttributes.size());
-		        System.out.println("Significance threshold: " + threshold);
+		        CNC.logDebugFile("\n=== Processing attribute combinations above threshold ===");
+		        CNC.logDebugFile("Selected attributes count: " + topAttributes.size());
+		        CNC.logDebugFile("Significance threshold: " + threshold);
 		    }
 		    
 		    
@@ -582,9 +591,9 @@ public class RuleExtractor {
 		    ArrayList<Attribute> topAttributes = this.selectTopPercentageAttributes(inst, threshold);
 		
 		    if (m_Debug) {
-		        System.out.println("\n=== Processing attribute combinations above threshold ===");
-		        System.out.println("Selected attributes count: " + topAttributes.size());
-		        System.out.println("Significance threshold: " + threshold);
+		        CNC.logDebugFile("\n=== Processing attribute combinations above threshold ===");
+		        CNC.logDebugFile("Selected attributes count: " + topAttributes.size());
+		        CNC.logDebugFile("Significance threshold: " + threshold);
 		    }
 		    Map<Attribute, String> majorityValues = new HashMap<>();
 		    for (Attribute attr : topAttributes) {
@@ -634,9 +643,9 @@ public class RuleExtractor {
 			    ArrayList<Attribute> topAttributes = selectAttributesUnderThreshold(inst, threshold);
 			
 			    if (m_Debug) {
-			        System.out.println("\n=== Processing attribute combinations under threshold ===");
-			        System.out.println("Selected attributes count: " + topAttributes.size());
-			        System.out.println("Significance threshold: " + threshold);
+			        CNC.logDebugFile("\n=== Processing attribute combinations under threshold ===");
+			        CNC.logDebugFile("Selected attributes count: " + topAttributes.size());
+			        CNC.logDebugFile("Significance threshold: " + threshold);
 			    }
 			    Map<Attribute, String> majorityValues = new HashMap<>();
 			    for (Attribute attr : topAttributes) {
@@ -708,7 +717,7 @@ public class RuleExtractor {
 				        .orElse(0);
 
 				    if (m_Debug) {
-				        System.out.println("\n⚠ Auto-adjusted threshold: No user-defined value provided. Setting threshold to the average feature score: " + threshold);
+				        CNC.logDebugFile("\n⚠ Auto-adjusted threshold: No user-defined value provided. Setting threshold to the average feature score: " + threshold);
 				    }
 				    
 				}
@@ -741,100 +750,117 @@ public class RuleExtractor {
     }
     
     public static void printDatasetTable(Instances inst) {
-        int colPadding = 3;
-        int[] colWidths = new int[inst.numAttributes()];
-        int instanceColWidth = String.valueOf(inst.numInstances()).length();
-    
-        for (int j = 0; j < inst.numAttributes(); j++) {
-            colWidths[j] = inst.attribute(j).name().length();
-        }
-    
-        for (int i = 0; i < inst.numInstances(); i++) {
-            for (int j = 0; j < inst.numAttributes(); j++) {
-                int len = inst.instance(i).stringValue(j).length();
-                if (len > colWidths[j]) {
-                    colWidths[j] = len;
-                }
-            }
-        }
-    
-        // En-tete
-        System.out.printf("%-" + (instanceColWidth + colPadding) + "s", "Inst");
-        for (int j = 0; j < inst.numAttributes(); j++) {
-            System.out.printf("%-" + (colWidths[j] + colPadding) + "s", inst.attribute(j).name());
-        }
-        System.out.println();
-    
-        
-        int totalWidth = instanceColWidth + colPadding;
-        for (int w : colWidths) totalWidth += w + colPadding;
-        System.out.println(repeat("-", totalWidth));
-    
-        // Données
-        for (int i = 0; i < inst.numInstances(); i++) {
-            System.out.printf("%-" + (instanceColWidth + colPadding) + "d", (i + 1));
-            for (int j = 0; j < inst.numAttributes(); j++) {
-                System.out.printf("%-" + (colWidths[j] + colPadding) + "s", inst.instance(i).stringValue(j));
-            }
-            System.out.println();
-        }
-    
-        // Ligne de fin
-        System.out.println(repeat("-", totalWidth));
+    int colPadding = 3;
+    int[] colWidths = new int[inst.numAttributes()];
+    int instanceColWidth = String.valueOf(inst.numInstances()).length();
+
+    for (int j = 0; j < inst.numAttributes(); j++) {
+        colWidths[j] = inst.attribute(j).name().length();
     }
-    
+
+    for (int i = 0; i < inst.numInstances(); i++) {
+        for (int j = 0; j < inst.numAttributes(); j++) {
+            int len = inst.instance(i).stringValue(j).length();
+            if (len > colWidths[j]) {
+                colWidths[j] = len;
+            }
+        }
+    }
+
+    // En-tête
+    StringBuilder header = new StringBuilder();
+    header.append(String.format("%-" + (instanceColWidth + colPadding) + "s", "Inst"));
+    for (int j = 0; j < inst.numAttributes(); j++) {
+        header.append(String.format("%-" + (colWidths[j] + colPadding) + "s", inst.attribute(j).name()));
+    }
+    System.out.println(header);
+    CNC.logDebugFile(header.toString());
+
+    // Ligne de séparation
+    int totalWidth = instanceColWidth + colPadding;
+    for (int w : colWidths) totalWidth += w + colPadding;
+    String separator = repeat("-", totalWidth);
+    System.out.println(separator);
+    CNC.logDebugFile(separator);
+
+    // Données
+    for (int i = 0; i < inst.numInstances(); i++) {
+        StringBuilder line = new StringBuilder();
+        line.append(String.format("%-" + (instanceColWidth + colPadding) + "d", (i + 1)));
+        for (int j = 0; j < inst.numAttributes(); j++) {
+            line.append(String.format("%-" + (colWidths[j] + colPadding) + "s", inst.instance(i).stringValue(j)));
+        }
+        System.out.println(line);
+        CNC.logDebugFile(line.toString());
+    }
+
+    // Ligne de fin
+    System.out.println(separator);
+    CNC.logDebugFile(separator);
+}
+
     /**
      * Méthode pour afficher les fermetures au format ({o1, o2, o3}, {a1, a2})
      */
     public void printGaloisClosure(ArrayList<Integer> objects, ArrayList<String> attributes, Instances inst) {
-        if (!m_Debug) return;
+    if (!m_Debug) return;
 
-        System.out.println("\n--- COMPUTING GALOIS CONNEXION ---");
-        
-        // 1. Affichage des objets (instances)
-        System.out.println("\nObjects (instances) :");
-        for (Integer objIdx : objects) {
-            System.out.print("  o" + (objIdx + 1) + " : ");
-            for (int i = 0; i < inst.numAttributes(); i++) {
-                if (i > 0) System.out.print(", ");
-                System.out.print(inst.attribute(i).name() + "=" + 
-                               inst.instance(objIdx).stringValue(i));
-            }
-            System.out.println();
+    CNC.logDebugFile("\n--- COMPUTING GALOIS CONNECTION ---");
+
+    // 1. Affichage des objets (instances)
+    CNC.logDebugFile("Objects (instances):");
+    for (Integer objIdx : objects) {
+        StringBuilder objLine = new StringBuilder("  o" + (objIdx + 1) + " : ");
+        for (int i = 0; i < inst.numAttributes(); i++) {
+            if (i > 0) objLine.append(", ");
+            objLine.append(inst.attribute(i).name())
+                   .append("=")
+                   .append(inst.instance(objIdx).stringValue(i));
         }
-        
-        // 2. Affichage des attributs de la fermeture
-        System.out.println("\nConnexion Attributes: ");
-        boolean hasAttributes = false;
-        for (int i = 0; i < attributes.size(); i++) {
-            if (!attributes.get(i).equals("-null-")) {
-                System.out.println("  - " + inst.attribute(i).name() + " = " + attributes.get(i));
-                hasAttributes = true;
-            }
-        }
-        
-        if (!hasAttributes) {
-            System.out.println("  (No specific attributes)");
-        }
-        
-        // 3. Résumé formel
-        System.out.println("\nConcepts :");
-        System.out.print("Connexion({o" + (objects.get(0) + 1));
-        for (int i = 1; i < objects.size(); i++) {
-            System.out.print(", o" + (objects.get(i) + 1));
-        }
-        System.out.print("}) = {");
-        
-        boolean firstAttr = true;
-        for (int i = 0; i < attributes.size(); i++) {
-            if (!attributes.get(i).equals("-null-")) {
-                if (!firstAttr) System.out.print(", ");
-                System.out.print(inst.attribute(i).name() + "=" + attributes.get(i));
-                firstAttr = false;
-            }
-        }
-        System.out.println("}");
+        System.out.println(objLine);
+        CNC.logDebugFile(objLine.toString());
     }
+
+    // 2. Affichage des attributs de la fermeture
+    CNC.logDebugFile("\nClosure Attributes:");
+    boolean hasAttributes = false;
+    for (int i = 0; i < attributes.size(); i++) {
+        if (!attributes.get(i).equals("-null-")) {
+            String attrLine = "  - " + inst.attribute(i).name() + " = " + attributes.get(i);
+            System.out.println(attrLine);
+            CNC.logDebugFile(attrLine);
+            hasAttributes = true;
+        }
+    }
+
+    if (!hasAttributes) {
+        CNC.logDebugFile("  (No specific attributes)");
+    }
+
+    // 3. Résumé formel
+    StringBuilder conceptSummary = new StringBuilder("Concept = {");
+    conceptSummary.append("Objects: {o").append(objects.get(0) + 1);
+    for (int i = 1; i < objects.size(); i++) {
+        conceptSummary.append(", o").append(objects.get(i) + 1);
+    }
+    conceptSummary.append("}, Attributes: {");
+
+    boolean firstAttr = true;
+    for (int i = 0; i < attributes.size(); i++) {
+        if (!attributes.get(i).equals("-null-")) {
+            if (!firstAttr) conceptSummary.append(", ");
+            conceptSummary.append(inst.attribute(i).name())
+                          .append("=")
+                          .append(attributes.get(i));
+            firstAttr = false;
+        }
+    }
+    conceptSummary.append("}}");
+
+    System.out.println(conceptSummary);
+    CNC.logDebugFile(conceptSummary.toString());
+}
+
 
     
    
@@ -854,7 +880,7 @@ public class RuleExtractor {
         try {
             measures = computePertinenceMeasures(inst);
         } catch (Exception e) {
-            System.out.println("Error in measures calculating in selectTopPercentageAttributes: " + e.getMessage());
+            CNC.logDebugFile("Error in measures calculating in selectTopPercentageAttributes: " + e.getMessage());
             return selectedAttributes;
         }
 
@@ -889,7 +915,7 @@ public class RuleExtractor {
     try {
         measures = computePertinenceMeasures(inst);
     } catch (Exception e) {
-        System.out.println("Error in measures calculating in selectAttributesUnderThreshold: " + e.getMessage());
+        CNC.logDebugFile("Error in measures calculating in selectAttributesUnderThreshold: " + e.getMessage());
         return selectedAttributes;
     }
 
@@ -933,11 +959,11 @@ public class RuleExtractor {
     allScores.sort((a, b) -> ascending ? Double.compare(a.score, b.score) : Double.compare(b.score, a.score));
 
     // Affichage de tous les attributs
-    System.out.println("\n" + "▬".repeat(80));
-    System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
-    System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
-    System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
-    System.out.println("━".repeat(80));
+    CNC.logDebugFile("\n" + "▬".repeat(80));
+    CNC.logDebugFile("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
+    CNC.logDebugFile("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
+    CNC.logDebugFile(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+    CNC.logDebugFile("━".repeat(80));
 
     int rank = 1;
     for (AttributeScore s : allScores) {
@@ -945,16 +971,16 @@ public class RuleExtractor {
         if (name.length() > 30) {
             name = name.substring(0, 27) + "...";
         }
-        System.out.println(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
+        CNC.logDebugFile(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
     }
 
-    System.out.println("─".repeat(80));
+    CNC.logDebugFile("─".repeat(80));
 
     // Statistiques
     double max = allScores.stream().mapToDouble(s -> s.score).max().orElse(0);
     double min = allScores.stream().mapToDouble(s -> s.score).min().orElse(0);
     double avg = allScores.stream().mapToDouble(s -> s.score).average().orElse(0);
-    System.out.println("\n📊 Statistics:");
+    CNC.logDebugFile("\n📊 Statistics:");
     System.out.printf(Locale.US, "Max: %8.4f  Min: %8.4f  Avg: %8.4f%n", max, min, avg);
 
     // Sélection des attributs sous le seuil via la méthode dédiée
@@ -975,11 +1001,11 @@ public class RuleExtractor {
 
     // Affichage des attributs sélectionnés
     System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES UNDER THRESHOLD  ▬▬▬▬▬▬▬▬", threshold);
-    System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
+    CNC.logDebugFile("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
     System.out.printf(Locale.US, "BOTTOM %.1f%% ATTRIBUTES\n", threshold * 100);
-    System.out.println("Number of selected attributes: " + leastAttributes.size() + "\n");
-    System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
-    System.out.println("━".repeat(80));
+    CNC.logDebugFile("Number of selected attributes: " + leastAttributes.size() + "\n");
+    CNC.logDebugFile(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+    CNC.logDebugFile("━".repeat(80));
 
     rank = 1;
     for (AttributeScore s : leastAttributes) {
@@ -987,10 +1013,10 @@ public class RuleExtractor {
         if (name.length() > 30) {
             name = name.substring(0, 27) + "...";
         }
-        System.out.println(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
+        CNC.logDebugFile(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
     }
 
-    System.out.println("─".repeat(80));
+    CNC.logDebugFile("─".repeat(80));
 }
 
     
@@ -1017,24 +1043,24 @@ public class RuleExtractor {
         });
 
         // Affichage de TOUS les attributs
-        System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
-        System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
-        System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
-        System.out.println("━".repeat(48));
+        CNC.logDebugFile("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        CNC.logDebugFile("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
+        CNC.logDebugFile(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+        CNC.logDebugFile("━".repeat(48));
         
         int rank = 1;
         for (Pair<Attribute, Double> p : allAttributeMeasures) {
             String cleanAttrName = p.getKey().name().trim().replaceAll("\\s+", " ");
-            System.out.println(String.format("%-6d%-30s%12.4f",
+            CNC.logDebugFile(String.format("%-6d%-30s%12.4f",
                 rank++,
                 cleanAttrName.length() > 30 ? cleanAttrName.substring(0, 27) + "..." : cleanAttrName,
                 p.getValue()));
         }
 
-            System.out.println("\n=== MOST PERTINENT ATTRIBUTE ===");
+            CNC.logDebugFile("\n=== MOST PERTINENT ATTRIBUTE ===");
             
             if (allAttributeMeasures == null || allAttributeMeasures.isEmpty()) {
-                System.out.println("⚠No attributes available!");
+                CNC.logDebugFile("⚠No attributes available!");
                 return;
             }
 
@@ -1051,10 +1077,10 @@ public class RuleExtractor {
             }
 
             // Affichage formaté
-            System.out.println("Selection Criteria: " + criteria);
-            System.out.println("Attribute: " + pertinentPair.getKey().name().trim());
+            CNC.logDebugFile("Selection Criteria: " + criteria);
+            CNC.logDebugFile("Attribute: " + pertinentPair.getKey().name().trim());
             System.out.printf("Measure Value: %.4f%n", pertinentPair.getValue());
-            System.out.println("------------------------------");
+            CNC.logDebugFile("------------------------------");
         
         
     }
@@ -1083,11 +1109,11 @@ public class RuleExtractor {
     allScores.sort((a, b) -> ascending ? Double.compare(a.score, b.score) : Double.compare(b.score, a.score));
 
     // Affichage de tous les attributs
-    System.out.println("\n" + "▬".repeat(80));
-    System.out.println("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
-    System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
-    System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
-    System.out.println("━".repeat(80));
+    CNC.logDebugFile("\n" + "▬".repeat(80));
+    CNC.logDebugFile("\n▬▬▬▬▬▬▬▬▬▬▬▬▬ ALL ATTRIBUTES ▬▬▬▬▬▬▬▬▬▬▬▬▬");
+    CNC.logDebugFile("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
+    CNC.logDebugFile(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+    CNC.logDebugFile("━".repeat(80));
 
     int rank = 1;
     for (AttributeScore s : allScores) {
@@ -1095,16 +1121,16 @@ public class RuleExtractor {
         if (name.length() > 30) {
             name = name.substring(0, 27) + "...";
         }
-        System.out.println(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
+        CNC.logDebugFile(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
     }
 
-    System.out.println("─".repeat(80));
+    CNC.logDebugFile("─".repeat(80));
 
     // Statistiques
     double max = allScores.stream().mapToDouble(s -> s.score).max().orElse(0);
     double min = allScores.stream().mapToDouble(s -> s.score).min().orElse(0);
     double avg = allScores.stream().mapToDouble(s -> s.score).average().orElse(0);
-    System.out.println("\n📊 Statistics:");
+    CNC.logDebugFile("\n📊 Statistics:");
     System.out.printf(Locale.US, "Max: %8.4f  Min: %8.4f  Avg: %8.4f%n", max, min, avg);
 
     // Sélection des top % attributs
@@ -1113,11 +1139,11 @@ public class RuleExtractor {
 
     // Affichage des meilleurs attributs
     System.out.printf("\n▬▬▬▬▬▬▬▬ ATTRIBUTES ABOVE THRESHOLD  ▬▬▬▬▬▬▬▬", threshold);
-    System.out.println("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
+    CNC.logDebugFile("[" + featureMeasureToString(PertinenceMeasureMethod) + "]\n");
     System.out.printf(Locale.US, "TOP %.0f%% ATTRIBUTES\n", threshold * 100);
-    System.out.println("Number of selected attributes: " + topAttributes.size() + "\n");
-    System.out.println(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
-    System.out.println("━".repeat(80));
+    CNC.logDebugFile("Number of selected attributes: " + topAttributes.size() + "\n");
+    CNC.logDebugFile(String.format("%-6s%-30s%12s", "Rank", "Attribute", "Value"));
+    CNC.logDebugFile("━".repeat(80));
     
     
 
@@ -1127,10 +1153,10 @@ public class RuleExtractor {
         if (name.length() > 30) {
             name = name.substring(0, 27) + "...";
         }
-        System.out.println(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
+        CNC.logDebugFile(String.format(Locale.US, "%-6d%-30s%12.4f", rank++, name, s.score));
     }
 
-    System.out.println("─".repeat(80));
+    CNC.logDebugFile("─".repeat(80));
 }
 
 

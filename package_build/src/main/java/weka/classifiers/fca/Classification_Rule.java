@@ -91,19 +91,22 @@ public class Classification_Rule {
         return premisses;
     }
     
-    // Affichage amélioré de la règle
+ // Affichage amélioré de la règle (sans apostrophes)
     public String affich_nom_rule(boolean afficheCM) {
         StringBuilder sb = new StringBuilder("IF ");
         
         boolean first = true;
         for (Map.Entry<String, String> entry : attributeValues.entrySet()) {
             if (!first) sb.append(" AND ");
-            sb.append(entry.getKey()).append("=").append(entry.getValue());
+            // Suppression des apostrophes dans les clés et valeurs
+            String key = entry.getKey().replace("'", "");
+            String value = entry.getValue().replace("'", "");
+            sb.append(key).append("=").append(value);
             first = false;
         }
         
         if (afficheCM) {
-            sb.append(" THEN ").append(rule_ClassMaj)
+            sb.append(" THEN ").append(rule_ClassMaj.replace("'", ""))
               .append(" [").append(rule_indClassMaj).append("]");
         }
         
@@ -111,6 +114,7 @@ public class Classification_Rule {
         
         return sb.toString();
     }
+
   
 	
 	
