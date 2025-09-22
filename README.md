@@ -186,35 +186,6 @@ The CNC classifier offers several configurable parameters to control concept lea
 | `subContexts`                    | If enabled, splits dataset into sub-contexts by class value and extracts rules from each.                          | `true` |
 
 
----
-## 📂 Project Structure
-
-2025_canc_3.0/
-│── package_build/
-│ └── src/
-│ └── main/
-│ └── java/
-│ └── weka/
-│ └── classifiers/
-│ ├── fca/
-│ │ ├── _GaloisConnection.java
-│ │ ├── _Rules.java
-│ │ ├── Classification_Rule.java
-│ │ ├── Classify_Instance.java
-│ │ ├── JsonExporter.java
-│ │ ├── RuleExtractor.java
-│ │ └── TestClassificationRule.java
-│ └── rules/
-│ └── CNC.java
-│
-│── weka-src/
-│ ├── src/main/java/ # Weka main source (optional, for dev)
-│ └── src/test/java/ # Weka test source (optional, for dev)
-│
-│── build.xml # Apache Ant build file (for compilation & packaging)
-│── dist/ # Generated jar and zip packages
-│── README.md # Main documentation (this file)
----
 
 ## 📖 References
 
