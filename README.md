@@ -1,126 +1,214 @@
-# 2025 CaNC
-CaNC is a classification module for Weka based on the Classifier Nominal Concepts, based on Formal Concept Analysis.
+# CNC – Classifier based on Nominal Concepts (Weka Plugin)
 
-## Installation
+## 📖 Overview
+CNC (Classifier Nominal Concepts) is a Weka plugin based on **Formal Concept Analysis (FCA)** for rule-based classification.  
+It extracts attribute closures using FCA and generates classification rules according to different strategies.  
+This plugin is designed to extend Weka with an interpretable, FCA-driven rule classifier.
 
-### Windows users
+---
+
+## 📂 Project Structure
+
+```
+2025_canc_3.0/
+│── package_build/
+│   └── src/
+│       └── main/
+│           └── java/
+│               └── weka/
+│                   └── classifiers/
+│                       ├── fca/
+│                       │   ├── _GaloisConnection.java
+│                       │   ├── _Rules.java
+│                       │   ├── Classification_Rule.java
+│                       │   ├── Classify_Instance.java
+│                       │   ├── JsonExporter.java
+│                       │   ├── RuleExtractor.java
+│                       │   └── TestClassificationRule.java
+│                       └── rules/
+│                           └── CNC.java
+│
+│── weka-src/
+│   ├── src/main/java/     # Weka main source (optional, for dev)
+│   └── src/test/java/     # Weka test source (optional, for dev)
+│
+│── build.xml              # Apache Ant build file (for compilation & packaging)
+│── dist/                  # Generated jar and zip packages
+│── README.md              # Main documentation (this file)
+```
+
+---
+
+## 🛠️ Installation of Required Tools
+
+### 🔹 Windows users
 
 1. **Install [Weka](https://waikato.github.io/weka-wiki/downloading_weka/)**
 
-2. **Install [JDK 17 for Windows](https://www.oracle.com/java/technologies/downloads/#java17)**
-   > Important: Earlier or later versions may cause compatibility issues
+2. **Install [JDK 17 for Windows](https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html)**
+   > CNC has been tested with JDK 17. Using earlier versions may cause compatibility issues.
 
 3. **Install [Git for Windows](https://git-scm.com/download/win)** (for source code management)
 
-4. **Install [Apache Ant](https://ant.apache.org/manual/install.html)** (for building the package)
+4. **Install [Apache Ant](https://ant.apache.org/manual/install.html)** (for building and packaging the plugin)
 
-5. **Go to** [Usage](#usage) section to use the classifier
+5. Once tools are installed, proceed to [Installation](#-installation) to set up the CNC plugin.
 
-### Linux users
+
+### 🔹 Linux users
 
 1. **Install [Weka](https://waikato.github.io/weka-wiki/downloading_weka/)**
 
 2. **Install JDK 17:**
-   ```
+   ```bash
    sudo apt install openjdk-17-jdk
    ```
 
 3. **Install Git:**
-   ```
+   ```bash
    sudo apt install git
    ```
 
 4. **Install Ant:**
-   ```
+   ```bash
    sudo apt install ant
    ```
 
-5. Go to [Usage](#usage) section to use the classifier
+5. Once tools are installed, proceed to [Installation](#-installation) to set up the CNC plugin.
 
-## Compatibility
+---
 
-CaNC has been tested and is compatible with the following software versions:
-- **Operating Systems**:
-  - Ubuntu 20.04, 22.04
-  - Windows 10, Windows 11
-  - macOS Sequoia 15.3.2
-- **Weka**: Version 3.8+ (mainly tested with Weka 3.9)
-- **JDK**: Version 17
-- **Apache Ant**: Version 1.10.2 and above
+## ⚙️ Installation
 
-Please ensure that your system meets these requirements to avoid any issues during installation and operation of the classifier.
+### 🔹 Install for Weka Users
 
-## Usage
+You have two options to install the CNC plugin in Weka:
 
-### Option 1: Using the Distributable Package
-1. **Download the CaNC package**:
-   - Download the latest copy of this repo on your computer, and navigate to this file :
-      ```bash
-        package_build/dist/CNC.zip
-      ```
-
-1. Clone the repository:
-   ```bash
-   git clone https://gitlab.com/nidameddouri/2025-canc
+#### Option 1: Install with Weka Package Manager (recommended)
+1. Open Weka.  
+2. Go to **Tools → Package Manager**.  
+3. In the Package Manager window, click **File → Install New Package (from zip file)**.  
+4. Select the CNC `.zip` package generated (e.g., `cnc-weka.zip`).  
+5. Restart Weka.  
+6. The CNC classifier will appear under:  
+   ```
+   Classifiers → rules → CNC
    ```
 
-
-2. **Install Plugin in Weka**:
-   - Start Weka, go to `Tools` > `Package Manager` 
-   - Click on `File/URL` button and select the downloaded CaNC package
-   - Click `Install` and restart Weka
-
-3. **Using the classifier**:
-   - In Weka, load your dataset in the "Preprocess" tab
-   - Go to the "Classify" tab
-   - In the dropdown menu, look for the CNC classifier (it should appear in the rules category)
-   - Configure the parameters and run the test
-
-### Option 2: Building from Source
-
-#### Using weka-src
-1. Clone the repository:
+#### Option 2: Manual installation of the JAR file
+1. Download the precompiled `cnc-weka.jar`.  
+2. Copy it to your Weka packages directory:
    ```bash
-   git clone https://gitlab.com/nidameddouri/2025-canc
+   cp cnc-weka.jar $WEKA_HOME/packages/
+   ```
+3. Restart Weka.  
+4. The CNC classifier will appear under:  
+   ```
+   Classifiers → rules → CNC
    ```
 
-2. Navigate to the weka-src folder:
+---
+
+### 🔹 Install for Developers
+
+If you want to **modify or extend CNC**, you need to compile it yourself.
+
+#### Requirements
+- **JDK 17** (tested with OpenJDK 17)
+- **Apache Ant** (for build and packaging)
+- Weka source code (optional, only if you want to debug/extend inside Weka core)
+
+#### Steps
+1. Clone or download the project:
    ```bash
-   cd weka-src
+   git clone https://gitlab.com/your-username/cnc-weka.git
+   cd cnc-weka/package_build
+   ```   
+2. Modify the source code
+3. Compile your modifications using **Ant**:
+   ```bash
+   ant command : ant -buildfile path_to_build.xml package -Dpackage=2025_canc_3.0
    ```
 
-3. Compile the project with JDK 17 (VS Code recommended)
+   This will:
+   - Compile the Java sources.
+   - Generate the `.jar`.
+   - Create a `.zip` package compatible with Weka’s Package Manager.
+   
 
-4. Launch Weka with your classifier:
-   ```bash
-   java -jar dist/weka.jar
-   ```
+4. Install the generated package:
+   - Locate the `.zip` file in the `dist/` directory.
+   - Open Weka’s **Package Manager**.
+   - Install the `.zip` package.
 
-#### Using package_build
-1. Navigate to the package_build folder:
-   ```bash
-   cd package_build
-   ```
+   ## 🚀 Usage
 
-2. Use Ant to build the package:
-   ```bash
-   ant clean package
-   ```
+### Command Line
+```bash
+java -cp weka.jar:cnc-weka.jar weka.classifiers.rules.CNC   -t dataset.arff   -THRESHOLD 0.25   -aggregationStrategy 1   -conceptStrategy 6   -measure gainratio
+```
 
-3. The resulting JAR file can be found in package_build/dist and can be added to an existing Weka installation via the package manager as described in Option 1.
+### Weka GUI
+1. Open **Weka Explorer**.  
+2. Go to the **Classify** tab.  
+3. Select **rules → CNC** as the classifier.  
+4. Configure the parameters:
+   - Threshold  
+   - Aggregation strategy  
+   - Concept strategy  
+   - Relevance measure  
+   - Vote strategy   
 
-Note : Please refer to the README in the package_build folder for detailed instructions on this method.
+---
 
-## Future Enhancements and Limitations
+## 🔧 Parameters
 
-### Future Enhancements
-1. **Support for Gallois Connection**:
-   - Current implementation isn't working as expected, we need to dive deeper in order to make it work on multiple types
-## used dataset link: 
-https://drive.google.com/drive/folders/1HT7ak7GZXt0WsIMM3WP6n8ybPXizC1-a?usp=drive_link
-## Authors
-> Version 2.0 (10/04/2025):
-- Francoise Lapetite (francoise.lapetite@epita.fr)
-- Younes Kara Zaitri (younes.kara-zaitri@epita.fr)
+The CNC classifier offers several configurable parameters to control concept learning, attribute selection, and vote aggregation.
 
-Supervised by **Nidà MEDDOURI** (nida.meddouri@epita.fr) and **Fabrice BOISSIER** (fabrice.boissier@epita.fr)
+| Parameter                        | Description                                                                                                       | Example |
+|----------------------------------|-------------------------------------------------------------------------------------------------------------------|---------|
+| `aboveUnderPertThreshold`        | Minimum relevance (in %) threshold for attribute selection (between 0 and 1). Used with Closure of attributes Above/Under threshold. | `0.25`  |
+| `autoPertThresholdComb`          | If enabled, automatically determines the optimal threshold (used with Closure of attributes Above/Under threshold). | `true`  |
+| `beforeAfterDisc`                | Defines when to apply the threshold: before or after discretization.                                               | `before` |
+| `pertinenceMeasure`              | Measure used to evaluate attribute relevance (`gainratio`, `infoGain`, etc.).                                      | `gainratio` |
+| `aggregationVoters`              | Strategy used to aggregate votes from selected concepts.                                                           | `weighted` |
+| `closureStrategy`                | Closure strategy for concept learning.                                                                             | `6` |
+| `policySelectionOccurence`       | Policy to select the final concept in case of conflicts.                                                           | `majority` |
+| `topKVoters`                     | Number of top voters to keep in aggregation (used with Weighted Vote Aggregation With Top-K Best Voters).          | `5` |
+| `pluralityVotersThreshold`       | Minimum percentage of agreement among voters to accept a decision (Plurality Vote Aggregation with Minimum Threshold). | `0.6` |
+| `weightedVoteThreshold`          | Minimum weight required for a voter to be considered (Weighted Vote Aggregation with Minimum Weight Threshold).    | `0.15` |
+| `fullAttribCombination`          | If enabled, tests all possible attribute combinations (all strategies).                                            | `false` |
+| `attributesCombinSize`           | Size of attribute combinations (used with Closure of N attributes combination).                                    | `3` |
+| `attributesCombinPercent`        | Percentage of attributes to select for each combination (Closure of Percentage attributes combination).             | `40` |
+| `varianceAttriCombPercent`       | Variance applied around the selected attribute percentage (Closure of Percentage attributes combination + variance). | `10` |
+| `vectorialConceptList`           | List of concepts in vector format to use directly.                                                                | `[...]` |
+| `filter`                         | Filter to apply to the dataset before classification (e.g., discretization).                                       | `true` |
+| `subContexts`                    | If enabled, splits dataset into sub-contexts by class value and extracts rules from each.                          | `true` |
+
+
+
+## 📖 References
+
+### Original Methodology
+```latex
+@book{ganter1999formal,
+  title={Formal Concept Analysis: Mathematical Foundations},
+  author={Ganter, Bernhard and Wille, Rudolf},
+  year={1999},
+  publisher={Springer}
+}
+```
+---
+
+
+## 👩‍💻 Author & Supervisors
+
+- **Author:**  
+  Developer of the CNC (Classifier Nominal Concepts) plugin for Weka  
+  📧 Contact: [yasmine.souissi@epita.fr] , [souissiy35@gmail.com] 
+  🔗 GitLab: [https://gitlab.com/YasmineSouissi](https://gitlab.com/YasmineSouissi)
+
+
+- **Supervised by:**  
+  **Nidà MEDDOURI** (nida.meddouri@epita.fr)  
+  **Fabrice BOISSIER** (fabrice.boissier@epita.fr)
