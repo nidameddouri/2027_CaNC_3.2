@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
+import java.util.stream.Collectors;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -111,10 +112,10 @@ public class CNC extends AbstractClassifier
         new Tag(CONCEPT_LEARNING_ALL_MAJORITY, "Closure of ALL attributes & Majority Value"),
         new Tag(CONCEPT_LEARNING_PERTINENT_ALL, "Closure of the Pertinent Attribute & All Values"),
         new Tag(CONCEPT_LEARNING_PERTINENT_MAJORITY, "Closure of the Pertinent attribute & Majority Value"),
-        new Tag(CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_ALL, "Closure of attributes above aboveUnderPertThreshold & All Values"),
-        new Tag(CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_MAJORITY, "Closure of attributes above aboveUnderPertThreshold & Majority Value"),
-        new Tag(CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_ALL, "Closure of attributes under aboveUnderPertThreshold & All Values"),
-        new Tag(CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_MAJORITY, "Closure of attributes under aboveUnderPertThreshold & Majority Value"),
+        new Tag(CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_ALL, "Closure of attributes Above PertThreshold & All Values"),
+        new Tag(CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_MAJORITY, "Closure of attributes Above PertThreshold & Majority Value"),
+        new Tag(CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_ALL, "Closure of attributes Under PertThreshold & All Values"),
+        new Tag(CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_MAJORITY, "Closure of attributes Under PertThreshold & Majority Value"),
         new Tag(N_ATTRIBUTES_COMBINATION_ALL_VALUES,"Closure of N attributes combination All Values" ),
         new Tag(N_ATTRIBUTES_COMBINATION_MAJORITY_VALUES,"Closure of N attributes combination Majority  Values" ),
         new Tag(PERCENT_ATTRIBUTES_COMBINATION_ALL_VALUES,"Closure of Percentage attributes combination All  Values" ),
@@ -149,26 +150,12 @@ public class CNC extends AbstractClassifier
     protected boolean m_Debug = false;
     protected boolean m_subContexts = false;
     protected String m_ConceptsOutputPath = ""; // Path to save concepts in JSON
-    /** File where concepts will be saved as JSON */
-    protected File m_ConceptsOutputFile = new File(System.getProperty("user.home"), "concepts.json");
 
     private static PrintWriter logWriter;
     private static final Object lock = new Object();
     private static boolean logInitialized = false;
 
-    
 
-    public File getConceptsOutputFile() {
-        return m_ConceptsOutputFile;
-    }
-
-    public void setConceptsOutputFile(File value) {
-        m_ConceptsOutputFile = value;
-    }
-
-    public String conceptsOutputFileTipText() {
-        return "Choose the file where the generated concepts will be saved in JSON format.";
-    }
 
 
 
@@ -597,12 +584,7 @@ public class CNC extends AbstractClassifier
         newVector.addElement(new Option(
             "\tIf True, split dataset into sub-contexts per class before learning rules",
             "subContexts", 1, "-subContexts <bool>"));
-        //to save file
-        newVector.addElement(new Option(
-        	    "\tFile path to save generated concepts in JSON format.",
-        	    "conceptsOutputFile", 1, "-conceptsOutputFile <path>"));
-
-
+       
         
         // Plurality aggregation threshold
         newVector.addElement(new Option(
@@ -722,11 +704,7 @@ public class CNC extends AbstractClassifier
             m_ConceptsOutputPath = s;
         }
 
-        //to save path
-        s = Utils.getOption("conceptsOutputFile", options);
-        if (!s.isEmpty()) {
-            setConceptsOutputFile(new File(s));
-        }
+        
 
         // Top-K voters
         s = Utils.getOption("numbTopKVoters", options);
@@ -889,10 +867,7 @@ public class CNC extends AbstractClassifier
         // ✅ Sub-context processing
         result.add("-subContexts");
         result.add(String.valueOf(getSubContexts()));
-        //to save file
-        result.add("-conceptsOutputFile");
-        result.add(m_ConceptsOutputFile != null ? m_ConceptsOutputFile.getAbsolutePath() : "");
-
+        
         
         // Pertinence measure
         result.add("-PertinenceMeasure");
@@ -1156,85 +1131,148 @@ public class CNC extends AbstractClassifier
                 vectorialConceptList=extractor.m_GaloisConnection.vectorialConceptList;
             
             }else {
-                if (m_Debug) {
-                	CNC.logDebugFile("\n======== Deviding Context into sub-contexts ========");
-                	CNC.logDebugFile("\n=== Classes found in dataset ===");
-                    for (int i = 0; i < numClasses; i++) {
-                    	CNC.logDebugFile("Class " + i + ": " + classAttr.value(i));
-                    }
-                    CNC.logDebugFile("================================\n");
-                }
-
-                // Loop over each class
-                for (int i = 0; i < numClasses; i++) {
-                    String classValue = classAttr.value(i);
-
-                    // Create sub-context with only instances of this class
-                    Instances subContext = new Instances(m_FilteredInstances, 0);
-                    for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
-                        if (m_FilteredInstances.instance(j).stringValue(classAttr).equals(classValue)) {
-                            subContext.add(m_FilteredInstances.instance(j));
-                        }
-                    }
-
-                    if (subContext.numInstances() == 0) continue;
-
-                    // Step 2: Rule generation for this class
-                    extractor = new RuleExtractor(
-                        m_Debug, PertinenceMeasureMethod, policySelectionOccurence, closureStrategy, subContext,getConceptsOutputPath()
-                    );
             	if (m_Debug) {
-                    CNC.logDebugFile("\n=== Learning rules for class: " + classValue + " ===");
-                    CNC.logDebugFile("Sub-context size: " + subContext.numInstances());
-                    CNC.logDebugFile("Instances in sub-context:");
+            	    CNC.logDebugFile("SubContext mode: Activated");
+            	    CNC.logDebugFile("\n======== Dividing Context into sub-contexts ========");
+            	    CNC.logDebugFile("\n=== Classes found in dataset ===");
+            	    for (int i = 0; i < numClasses; i++) {
+            	        String classValue = classAttr.value(i);
 
-                    // --- AFFICHAGE DES INSTANCES DU SOUS-CONTEXTE ---
-                    for (int idx = 0; idx < subContext.numInstances(); idx++) {
-                        Instance inst = subContext.instance(idx);
-                        StringBuilder sb = new StringBuilder("  [");
-                        for (int k = 0; k < subContext.numAttributes(); k++) {
-                            sb.append(subContext.attribute(k).name())
-                              .append("=")
-                              .append(inst.stringValue(k));
-                            if (k < subContext.numAttributes() - 1) sb.append(", ");
-                        }
-                        sb.append("]");
-                        CNC.logDebugFile(sb.toString());
+            	        // Compter les instances appartenant à cette classe
+            	        int count = 0;
+            	        for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
+            	            if (m_FilteredInstances.instance(j).stringValue(classAttr).equals(classValue)) {
+            	                count++;
+            	            }
+            	        }
+
+            	        CNC.logDebugFile("Class " + i + ": " + classValue + " (Instances: " + count + ")");
+            	    }
+            	    CNC.logDebugFile("================================\n");
+            	}
+
+            	// Boucle sur chaque classe
+            	for (int i = 0; i < numClasses; i++) {
+            	    String classValue = classAttr.value(i);
+
+            	    // Créer le sous-contexte et stocker les indices originaux
+            	    Instances subContext = new Instances(m_FilteredInstances, 0);
+            	    List<Integer> subContextOriginalIdx = new ArrayList<>();
+
+            	    for (int j = 0; j < m_FilteredInstances.numInstances(); j++) {
+            	        if (m_FilteredInstances.instance(j).stringValue(classAttr).equals(classValue)) {
+            	            subContext.add(m_FilteredInstances.instance(j));
+            	            subContextOriginalIdx.add(j); // stocker l'indice original (0-based)
+            	        }
+            	    }
+
+            	    if (subContext.numInstances() == 0) continue;
+
+            	    // Step 2: Rule generation for this class
+            	    RuleExtractor subConExtractor = new RuleExtractor(
+            	    	    m_Debug, PertinenceMeasureMethod, policySelectionOccurence, closureStrategy, subContext, getConceptsOutputPath()
+            	    	);
+
+
+            	    // Affichage debug : contenu du sous-contexte
+            	    if (m_Debug) {
+            	        CNC.logDebugFile("\n=== Learning rules for class: " + classValue + " ===");
+            	        CNC.logDebugFile("Sub-context size: " + subContext.numInstances());
+            	        CNC.logDebugFile("Instances in sub-context for class \"" + classValue + "\" (" 
+            	                         + subContext.numInstances() + "):");
+
+            	        for (int k = 0; k < subContext.numInstances(); k++) {
+            	            Instance inst = subContext.instance(k);
+            	            int originalIndex1Based = subContextOriginalIdx.get(k) + 1;
+
+            	            StringBuilder row = new StringBuilder();
+            	            row.append("o").append(originalIndex1Based).append(" [");
+
+            	            for (int a = 0; a < subContext.numAttributes(); a++) {
+            	                if (a > 0) row.append(", ");
+            	                row.append(subContext.attribute(a).name())
+            	                   .append("=")
+            	                   .append(inst.toString(a));
+            	            }
+            	            row.append("]");
+
+            	            CNC.logDebugFile(row.toString());
+            	        }
+            	        CNC.logDebugFile("--------------------------------");
+            	    }
+
+            	    // Threshold computation
+                    if (m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
+                        m_aboveUnderPertThreshold = getm_Threshold(subConExtractor.computePertinenceMeasures(subContext));
+                    } else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
+                        m_aboveUnderPertThreshold = getm_Threshold(subConExtractor.computePertinenceMeasures(subContext));
                     }
-                    CNC.logDebugFile("--------------------------------------");
-                }
-
-                // Threshold computation
-                if (m_beforeAfterDisc == aboveUnderPertThreshold_BEFORE_DISCRETIZATION) {
-                    m_aboveUnderPertThreshold = getm_Threshold(extractor.computePertinenceMeasures(data));
-                } else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                    m_aboveUnderPertThreshold = getm_Threshold(extractor.computePertinenceMeasures(subContext));
-                }
-
-                ArrayList<Classification_Rule> rulesForClass;
-                if (this.getfullAttribCombinations()) {
-                    rulesForClass = generateRulesFullCombinations(extractor, new ArrayList<>(), data, subContext, 0, 0);
-                } else {
-                    rulesForClass = generateRulesNormal(extractor, data, subContext, 0, 0);
-                }
-
-                // Add generated rules to global classifier
-                if (rulesForClass != null && !rulesForClass.isEmpty()) {
-                    m_classifierNC.addAll(rulesForClass);
-
-                    if (m_Debug) {
-                        CNC.logDebugFile("Generated " + rulesForClass.size() + " rules for class: " + classValue);
-                        for (int r = 0; r < rulesForClass.size(); r++) {
-                            CNC.logDebugFile(" Rule " + (r + 1) + ": " + rulesForClass.get(r).affich_nom_rule(true));
-                        }
+                    ArrayList<Classification_Rule> rulesForClass;
+                    if (this.getfullAttribCombinations()) {
+                        rulesForClass = generateRulesFullCombinations(subConExtractor, new ArrayList<>(), subContext, subContext, 0, 0);
+                    } else {
+                        rulesForClass = generateRulesNormal(subConExtractor, subContext, subContext, 0, 0);
                     }
-                } else if (m_Debug) {
-                    CNC.logDebugFile("No rules generated for class: " + classValue);
-                }
-            }
+                 // Récupérer la liste des concepts générés par l'extracteur pour ce sous-contexte
+                    List<FormalConcept> subContextConcepts = subConExtractor.m_GaloisConnection.getConceptList();
+
+                    if (m_Debug && subContextConcepts != null && !subContextConcepts.isEmpty()) {
+                        CNC.logDebugFile("\n=== Concepts for class \"" + classValue + "\" ===");
+                        CNC.logDebugFile("Number of concepts: " + subContextConcepts.size());
+
+                        int conceptNumber = 1; // compteur par sous-contexte
+						for (FormalConcept concept : subContextConcepts) {
+						    // Vérifier si les indices sont locaux
+						    boolean indicesAreLocal = concept.getObjects().stream().max(Integer::compare).orElse(0) < subContext.size();
+						
+						    // Extension avec indices globaux
+						    String extension = concept.getObjects().stream()
+						        .map(objIdx -> {
+						            if (indicesAreLocal && objIdx < subContextOriginalIdx.size()) {
+						                return "o" + (subContextOriginalIdx.get(objIdx) + 1);
+						            } else {
+						                return "o" + (objIdx + 1);
+						            }
+						        })
+						        .collect(Collectors.joining(", "));
+						
+						    // Intention
+						    String intention = concept.getAttributes().stream()
+						        .sorted()
+						        .collect(Collectors.joining(", "));
+						
+						    // Majority class = classValue (logique, car sous-contexte homogène)
+						    CNC.logDebugFile("\n=== Concept #" + conceptNumber + " ===");
+						    CNC.logDebugFile("Extension: {" + extension + "}");
+						    CNC.logDebugFile("Intention: {" + intention + "}");
+						    CNC.logDebugFile("Majority Class: " + classValue);
+						    CNC.logDebugFile("C#" + conceptNumber + ":" + classValue 
+						                     + ":({" + extension + "},{" + intention + "})");
+						    CNC.logDebugFile("--------------------------------");
+						    conceptNumber++;
+						}
+
+                    }
+
+                    // Add generated rules to global classifier
+                    if (rulesForClass != null && !rulesForClass.isEmpty()) {
+                        m_classifierNC.addAll(rulesForClass);
+
+                        /*if (m_Debug) {
+                            CNC.logDebugFile("Generated " + rulesForClass.size() + " rules for class: " + classValue);
+                            for (int r = 0; r < rulesForClass.size(); r++) {
+                                CNC.logDebugFile(" Rule " + (r + 1) + ": " + rulesForClass.get(r).affich_nom_rule(true));
+                            }
+                        }*/
+                    } else if (m_Debug) {
+                        CNC.logDebugFile("No rules generated for class: " + classValue);
+                    }
+            	    
+            	}
+
 
             // Global concepts (from entire dataset)
-            if (!m_classifierNC.isEmpty()) {
+            /*if (!m_classifierNC.isEmpty()) {
                 RuleExtractor globalExtractor = new RuleExtractor(
                     m_Debug, PertinenceMeasureMethod, policySelectionOccurence, closureStrategy, m_FilteredInstances,getConceptsOutputPath()
                 );
@@ -1242,9 +1280,8 @@ public class CNC extends AbstractClassifier
                 List<FormalConcept> concepts = globalExtractor.m_GaloisConnection.getConceptList();
                 this.conceptsListStr = globalExtractor.m_GaloisConnection.getConceptLevelsAsString(concepts);
                 vectorialConceptList = globalExtractor.m_GaloisConnection.vectorialConceptList;
-                // Save concepts to JSON if user provided a file
-                saveConceptsToJson(concepts);
-            }
+                
+            }*/
             
 
         }
@@ -1256,34 +1293,7 @@ public class CNC extends AbstractClassifier
 
 
     
-    protected void saveConceptsToJson(List<FormalConcept> concepts) {
-        if (m_ConceptsOutputFile != null) {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(m_ConceptsOutputFile))) {
-                StringBuilder jsonBuilder = new StringBuilder();
-                jsonBuilder.append("[\n");
-                for (int i = 0; i < concepts.size(); i++) {
-                    FormalConcept concept = concepts.get(i);
-                    jsonBuilder.append("  {\n");
-                    jsonBuilder.append("    \"intent\": \"").append(concept.getAttributes().toString()).append("\",\n");
-                    jsonBuilder.append("    \"extent\": \"").append(concept.getObjects().toString()).append("\"\n");
-                    jsonBuilder.append("  }");
-                    if (i < concepts.size() - 1) {
-                        jsonBuilder.append(",");
-                    }
-                    jsonBuilder.append("\n");
-                }
-                jsonBuilder.append("]\n");
-                writer.write(jsonBuilder.toString());
-                if (m_Debug) {
-                    CNC.logDebugFile("Concepts successfully saved to: " + m_ConceptsOutputFile.getAbsolutePath());
-                }
-            } catch (IOException e) {
-                System.err.println("Error saving concepts to JSON: " + e.getMessage());
-            }
-        }
-    }
-
-    
+  
   
     
     private ArrayList<Classification_Rule> generateRulesFullCombinations(RuleExtractor extractor,ArrayList<Classification_Rule> m_classifierNC,
@@ -1298,7 +1308,7 @@ public class CNC extends AbstractClassifier
                 CNC.logDebugFile("Extraction using all attributes with all values");
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
             }
-            m_classifierNC = extractor.extractAllAttributesAllValuesfullAttribCombinations(m_FilteredInstances);
+            m_classifierNC = extractor.extractAllAttributesAllValuesfullAttribCombinations(filteredData);
            
             if (m_Debug) {
             	printRuleStatistics(m_classifierNC);
@@ -1311,7 +1321,7 @@ public class CNC extends AbstractClassifier
                 CNC.logDebugFile("Extraction using all attributes with majority values");
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
             }
-            m_classifierNC = extractor.extractAllAttributesMajorityValuefullAttribCombinations(m_FilteredInstances);
+            m_classifierNC = extractor.extractAllAttributesMajorityValuefullAttribCombinations(filteredData);
             if (m_Debug) {
             	printRuleStatistics(m_classifierNC);
             }
@@ -1322,10 +1332,10 @@ public class CNC extends AbstractClassifier
                 CNC.logDebugFile("=== PERTINENT ATTRIBUTE - ALL VALUES - FullAttribCombinations MODE ACTIVE ==="); 
                 CNC.logDebugFile("Extraction using only pertinent attribute with all values");
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printPertinentAttribute(m_FilteredInstances);
+                extractor.printPertinentAttribute(filteredData);
 
             }
-            m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
+            m_classifierNC = extractor.extractPertinentAttributeAllValues(filteredData);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1337,10 +1347,10 @@ public class CNC extends AbstractClassifier
                 CNC.logDebugFile("=== PERTINENT ATTRIBUTE - MAJORITY VALUE - FullAttribCombinations MODE ACTIVE ===");
                 CNC.logDebugFile("Extraction using only pertinent attribute with majority value");
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printPertinentAttribute(m_FilteredInstances);
+                extractor.printPertinentAttribute(filteredData);
 
             } 
-            m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
+            m_classifierNC = extractor.extractPertinentAttributeMajorityValue(filteredData); 
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1349,7 +1359,7 @@ public class CNC extends AbstractClassifier
             
         case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_ALL:
             if (m_Debug) {
-                CNC.logDebugFile("=== ABOVE aboveUnderPertThreshold - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
+                CNC.logDebugFile("=== Above PertThreshold - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
                 if(autoPertThresholdComb) {
                     CNC.logDebugFile("===Auto Threshold Mode Active=== ");
 
@@ -1360,16 +1370,16 @@ public class CNC extends AbstractClassifier
 
                 }
                 else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(m_FilteredInstances)));
+                	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(filteredData)));
                 	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
 
                 }
                 System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
+                extractor.printTopPercentageAttributes(filteredData, m_aboveUnderPertThreshold);
 
             }
-            m_classifierNC = extractor.extractAttributeAboveThresholdAllValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
+            m_classifierNC = extractor.extractAttributeAboveThresholdAllValuesfullAttribCombinations(filteredData,m_aboveUnderPertThreshold);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1378,7 +1388,7 @@ public class CNC extends AbstractClassifier
              
         case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_MAJORITY:
             if (m_Debug) {
-                CNC.logDebugFile("=== ABOVE aboveUnderPertThreshold - MAJORITY VALUES - FullAttribCombinations MODE ACTIVE ===");
+                CNC.logDebugFile("=== Above PertThreshold - MAJORITY VALUES - FullAttribCombinations MODE ACTIVE ===");
                 if(autoPertThresholdComb) {
                     CNC.logDebugFile("===Auto Threshold Mode Active=== ");
 
@@ -1394,10 +1404,10 @@ public class CNC extends AbstractClassifier
                 
                 System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
+                extractor.printTopPercentageAttributes(filteredData, m_aboveUnderPertThreshold);
 
             }
-            m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
+            m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValuesfullAttribCombinations(filteredData,m_aboveUnderPertThreshold);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1406,7 +1416,7 @@ public class CNC extends AbstractClassifier
             
         case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_ALL:
             if (m_Debug) {
-                CNC.logDebugFile("=== UNDER aboveUnderPertThreshold - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
+                CNC.logDebugFile("=== Under PertThreshold - ALL VALUES - FullAttribCombinations MODE ACTIVE ===");
                 if(autoPertThresholdComb) {
                     CNC.logDebugFile("===Auto Threshold Mode Active=== ");
 
@@ -1421,11 +1431,11 @@ public class CNC extends AbstractClassifier
                 }
                 System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
+                extractor.printAttributesUnderThreshold(filteredData, m_aboveUnderPertThreshold);
 
             }
             m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesfullAttribCombinations
-            		(m_FilteredInstances,m_aboveUnderPertThreshold);
+            		(filteredData,m_aboveUnderPertThreshold);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1434,7 +1444,7 @@ public class CNC extends AbstractClassifier
             
         case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_MAJORITY:
             if (m_Debug) {
-                CNC.logDebugFile("=== UNDER aboveUnderPertThreshold - MAJORITY VALUES - FullAttribCombinations MODE ACTIVE ===");
+                CNC.logDebugFile("=== Under PertThreshold - MAJORITY VALUES - FullAttribCombinations MODE ACTIVE ===");
                 if(autoPertThresholdComb) {
                     CNC.logDebugFile("===Auto Threshold Mode Active=== ");
 
@@ -1449,10 +1459,10 @@ public class CNC extends AbstractClassifier
                 }
                 System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
+                extractor.printAttributesUnderThreshold(filteredData, m_aboveUnderPertThreshold);
 
             }
-            m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesfullAttribCombinations(m_FilteredInstances,m_aboveUnderPertThreshold);
+            m_classifierNC = extractor.extractAttributeUnderThresholdAllValuesfullAttribCombinations(filteredData,m_aboveUnderPertThreshold);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1463,7 +1473,7 @@ public class CNC extends AbstractClassifier
             }
 
             n = getAttributesCombinSize( );
-            int nbAttr = m_FilteredInstances.numAttributes() - 1; // -1 pour la classe
+            int nbAttr = filteredData.numAttributes() - 1; // -1 pour la classe
 
             if (n > nbAttr) {
                 if (m_Debug) {
@@ -1475,7 +1485,7 @@ public class CNC extends AbstractClassifier
             }
 
 
-            m_classifierNC = extractor.extractNAttributesAllValues(m_FilteredInstances, n);
+            m_classifierNC = extractor.extractNAttributesAllValues(filteredData, n);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1487,7 +1497,7 @@ public class CNC extends AbstractClassifier
             }
 
             n = getAttributesCombinSize( );
-            nbAttr = m_FilteredInstances.numAttributes() - 1;
+            nbAttr = filteredData.numAttributes() - 1;
 
             if (n > nbAttr) {
                 if (m_Debug) {
@@ -1498,7 +1508,7 @@ public class CNC extends AbstractClassifier
                 break;
             }
 
-            m_classifierNC = extractor.extractNAttributesMajorityValues(m_FilteredInstances, n);
+            m_classifierNC = extractor.extractNAttributesMajorityValues(filteredData, n);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1511,7 +1521,7 @@ public class CNC extends AbstractClassifier
 
             p= this.getAttributesCombinPercent();
           
-            m_classifierNC = extractor.extractPercentAttributesAllValues(m_FilteredInstances, p);
+            m_classifierNC = extractor.extractPercentAttributesAllValues(filteredData, p);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1525,7 +1535,7 @@ public class CNC extends AbstractClassifier
             p= this.getAttributesCombinPercent();
             v= this.getVarianceAttriCombPercent();
           
-            m_classifierNC = extractor.extractPercentAttributesAllValuesWithVar(m_FilteredInstances, p,v);
+            m_classifierNC = extractor.extractPercentAttributesAllValuesWithVar(filteredData, p,v);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1543,7 +1553,7 @@ public class CNC extends AbstractClassifier
                 CNC.logDebugFile("Extraction using all attributes with all values");
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
             }
-            m_classifierNC = extractor.extractAllAttributesAllValues(m_FilteredInstances);
+            m_classifierNC = extractor.extractAllAttributesAllValues(filteredData);
             if (m_Debug) {
                 CNC.logDebugFile("All attributes used");
                 printRuleStatistics(m_classifierNC);
@@ -1556,7 +1566,7 @@ public class CNC extends AbstractClassifier
                 CNC.logDebugFile("Extraction using all attributes with majority values");
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
             }
-            m_classifierNC = extractor.extractAllAttributesMajorityValue(m_FilteredInstances);
+            m_classifierNC = extractor.extractAllAttributesMajorityValue(filteredData);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1567,10 +1577,10 @@ public class CNC extends AbstractClassifier
                 CNC.logDebugFile("=== PERTINENT ATTRIBUTE - ALL VALUES MODE ACTIVE ==="); 
                 CNC.logDebugFile("Extraction using only pertinent attribute with all values");
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printPertinentAttribute(m_FilteredInstances);
+                extractor.printPertinentAttribute(filteredData);
 
             }
-            m_classifierNC = extractor.extractPertinentAttributeAllValues(m_FilteredInstances);
+            m_classifierNC = extractor.extractPertinentAttributeAllValues(filteredData);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1582,10 +1592,10 @@ public class CNC extends AbstractClassifier
                 CNC.logDebugFile("=== PERTINENT ATTRIBUTE - MAJORITY VALUE MODE ACTIVE ===");
                 CNC.logDebugFile("Extraction using only pertinent attribute with majority value");
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printPertinentAttribute(m_FilteredInstances);
+                extractor.printPertinentAttribute(filteredData);
 
             } 
-            m_classifierNC = extractor.extractPertinentAttributeMajorityValue(m_FilteredInstances); 
+            m_classifierNC = extractor.extractPertinentAttributeMajorityValue(filteredData); 
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1594,7 +1604,7 @@ public class CNC extends AbstractClassifier
             
         case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_ALL:
             if (m_Debug) {
-                CNC.logDebugFile("=== ABOVE aboveUnderPertThreshold - ALL VALUES MODE ACTIVE ===");
+                CNC.logDebugFile("=== Above PertThreshold - ALL VALUES MODE ACTIVE ===");
                 if(autoPertThresholdComb) {
                     CNC.logDebugFile("===Auto Threshold Mode Active=== ");
 
@@ -1605,16 +1615,16 @@ public class CNC extends AbstractClassifier
 
                 }
                 else if (m_beforeAfterDisc == aboveUnderPertThreshold_AFTER_DISCRETIZATION) {
-                	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(m_FilteredInstances)));
+                	setAboveUnderPertThreshold(getm_Threshold(extractor.computePertinenceMeasures(filteredData)));
                 	CNC.logDebugFile("Threshold timing:: aboveUnderPertThreshold_AFTER_DISCRETIZATION");
 
                 }
                 System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
+                extractor.printTopPercentageAttributes(filteredData, m_aboveUnderPertThreshold);
 
             }
-            m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(m_FilteredInstances,m_aboveUnderPertThreshold);
+            m_classifierNC = extractor.extractAttributeAboveThresholdAllValues(filteredData,m_aboveUnderPertThreshold);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1623,7 +1633,7 @@ public class CNC extends AbstractClassifier
             
         case CONCEPT_LEARNING_ABOVE_aboveUnderPertThreshold_MAJORITY:
             if (m_Debug) {
-                CNC.logDebugFile("=== ABOVE aboveUnderPertThreshold - MAJORITY VALUES MODE ACTIVE ===");
+                CNC.logDebugFile("=== Above PertThreshold - MAJORITY VALUES MODE ACTIVE ===");
                 if(autoPertThresholdComb) {
                     CNC.logDebugFile("===Auto Threshold Mode Active=== ");
 
@@ -1639,10 +1649,10 @@ public class CNC extends AbstractClassifier
                 
                 System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printTopPercentageAttributes(m_FilteredInstances, m_aboveUnderPertThreshold);
+                extractor.printTopPercentageAttributes(filteredData, m_aboveUnderPertThreshold);
 
             }
-            m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(m_FilteredInstances,m_aboveUnderPertThreshold);
+            m_classifierNC = extractor.extractAttributeAboveThresholdMajorityValues(filteredData,m_aboveUnderPertThreshold);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1651,7 +1661,7 @@ public class CNC extends AbstractClassifier
             
         case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_ALL:
             if (m_Debug) {
-                CNC.logDebugFile("=== UNDER aboveUnderPertThreshold - ALL VALUES MODE ACTIVE ===");
+                CNC.logDebugFile("=== Under PertThreshold - ALL VALUES MODE ACTIVE ===");
                 if(autoPertThresholdComb) {
                     CNC.logDebugFile("===Auto Threshold Mode Active=== ");
 
@@ -1666,11 +1676,11 @@ public class CNC extends AbstractClassifier
                 }
                 System.out.printf("Extraction with (Threshold=%.4f) " ,m_aboveUnderPertThreshold);
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
+                extractor.printAttributesUnderThreshold(filteredData, m_aboveUnderPertThreshold);
 
             }
             m_classifierNC = extractor.extractAttributeUnderThresholdAllValues
-            		(m_FilteredInstances,m_aboveUnderPertThreshold);
+            		(filteredData,m_aboveUnderPertThreshold);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }
@@ -1679,7 +1689,7 @@ public class CNC extends AbstractClassifier
             
         case CONCEPT_LEARNING_UNDER_aboveUnderPertThreshold_MAJORITY:
             if (m_Debug) {
-                CNC.logDebugFile("=== UNDER aboveUnderPertThreshold - MAJORITY VALUES MODE ACTIVE ===");
+                CNC.logDebugFile("=== Under PertThreshold - MAJORITY VALUES MODE ACTIVE ===");
                 if(autoPertThresholdComb) {
                     CNC.logDebugFile("===Auto Threshold Mode Active=== ");
 
@@ -1694,10 +1704,10 @@ public class CNC extends AbstractClassifier
                 }
                 System.out.printf("Extraction with(Threshold=%.4f) " ,m_aboveUnderPertThreshold);
                 CNC.logDebugFile("Used Measure: " + pertinenceMeasureToString(PertinenceMeasureMethod));
-                extractor.printAttributesUnderThreshold(m_FilteredInstances, m_aboveUnderPertThreshold);
+                extractor.printAttributesUnderThreshold(filteredData, m_aboveUnderPertThreshold);
 
             }
-            m_classifierNC = extractor.extractAttributeUnderThresholdMajorityValues(m_FilteredInstances,m_aboveUnderPertThreshold);
+            m_classifierNC = extractor.extractAttributeUnderThresholdMajorityValues(filteredData,m_aboveUnderPertThreshold);
             if (m_Debug) {
                 printRuleStatistics(m_classifierNC);
             }

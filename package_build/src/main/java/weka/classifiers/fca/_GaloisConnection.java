@@ -601,38 +601,70 @@ public class _GaloisConnection {
     }
 
     
-    /**
-     * Affiche les concepts générés à partir d'une liste d'objets FormalConcept
-     */
-    public void printConcepts(List<FormalConcept> allConcepts, Instances inst) {
-        if (m_Debug && allConcepts != null && !allConcepts.isEmpty()) {
-            CNC.logDebugFile("\n=== GENERATED CONCEPTS LIST ===");
-            CNC.logDebugFile("Total number of concepts: " + allConcepts.size());
-            
-            for (int i = 0; i < allConcepts.size(); i++) {
-                FormalConcept concept = allConcepts.get(i);
-                CNC.logDebugFile("\n" + (i + 1) + ". Concept:");
-                
-                // Affichage des instances
-                CNC.logDebugFile("Objects (instances):");
-                concept.getObjects().stream()
-                      .sorted()
-                      .forEach(idx -> printInstance(inst, idx));
-                
-                // Affichage des attributs
-                CNC.logDebugFile("\nConnexion Attributes:");
-                concept.getAttributes().stream()
-                      .sorted()
-                      .forEach(attr -> CNC.logDebugFile("  - " + attr));
-                
-                if (i < allConcepts.size() - 1) {
-                    CNC.logDebugFile("\n--------------------------------------------");
-                }
+   /**
+ * Affiche les concepts générés à partir d'une liste d'objets FormalConcept
+ */
+public void printConcepts(List<FormalConcept> allConcepts, Instances inst) {
+    if (m_Debug && allConcepts != null && !allConcepts.isEmpty()) {
+        CNC.logDebugFile("\n=== GENERATED CONCEPTS LIST ===");
+        CNC.logDebugFile("Total number of concepts: " + allConcepts.size());
+
+        for (int i = 0; i < allConcepts.size(); i++) {
+            FormalConcept concept = allConcepts.get(i);
+            int conceptNumber = i + 1;
+
+            // --- Extension : liste des objets (o1, o2, ...)
+            String extension = concept.getObjects().stream()
+                .sorted()
+                .map(idx -> "o" + (idx + 1)) // conversion en 1-based
+                .collect(Collectors.joining(", "));
+
+            // --- Intention : liste des attributs
+            String intention = concept.getAttributes().stream()
+                .sorted()
+                .collect(Collectors.joining(", "));
+
+            // --- Classe majoritaire
+            String majorityClass = getMajorityClass(concept, inst);
+
+            // Affichage détaillé
+            CNC.logDebugFile("\n=== Concept #" + conceptNumber + " ===");
+            CNC.logDebugFile("Extension: {" + extension + "}");
+            CNC.logDebugFile("Intention: {" + intention + "}");
+            CNC.logDebugFile("Majority Class: " + majorityClass);
+
+            // Affichage format compact
+            CNC.logDebugFile("C#" + conceptNumber + ":" + majorityClass 
+                    + ":({" + extension + "},{" + intention + "})");
+
+            if (i < allConcepts.size() - 1) {
+                CNC.logDebugFile("\n--------------------------------");
             }
-            CNC.logDebugFile("\n=== CONCEPTS LIST END ===");
         }
-        afficheConceptLevels(allConcepts);
+
+        CNC.logDebugFile("\n=== CONCEPTS LIST END ===");
     }
+
+    afficheConceptLevels(allConcepts);
+}
+
+/**
+ * Détermine la classe majoritaire d'un concept
+ */
+private String getMajorityClass(FormalConcept concept, Instances inst) {
+    Map<String, Integer> classCount = new HashMap<>();
+    int classIndex = inst.classIndex();
+
+    for (Integer objIdx : concept.getObjects()) {
+        String classValue = inst.instance(objIdx).stringValue(classIndex);
+        classCount.put(classValue, classCount.getOrDefault(classValue, 0) + 1);
+    }
+
+    return classCount.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .orElse("unknown");
+}
 
     private void printInstance(Instances inst, int index) {
         Instance instance = inst.instance(index);
@@ -913,7 +945,7 @@ public class _GaloisConnection {
 		
 		updateBestConcepts(bestConcepts, instanceSet, rule, closure);
 		
-		if (debug) CNC.logDebugFile("    - Best concepts updated");
+		if (debug) CNC.logDebugFile("    - Concepts List updated");
 		}
 		}
 		
