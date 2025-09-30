@@ -201,9 +201,9 @@ The CNC classifier offers several configurable parameters to control concept lea
 ---
 
 
-## 👩‍💻 Author & Supervisors
+## 👩‍💻 Developer & Supervisors
 
-- **Author:**  
+- **Developer:**  
   Developer of the CNC (Classifier Nominal Concepts) plugin for Weka  
   📧 Contact: [yasmine.souissi@epita.fr] , [souissiy35@gmail.com] 
   🔗 GitLab: [https://gitlab.com/YasmineSouissi](https://gitlab.com/YasmineSouissi)
